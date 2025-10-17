@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Vehicle</title>
+    <style>
+        /* Add your styles here */
+    </style>
+</head>
+<body>
+    <h1>Select Your Vehicle</h1>
+    <form method="post">
+        {% csrf_token %}
+        <label for="vehicle">Choose a vehicle:</label>
+        <select name="vehicle" id="vehicle">
+            {% for vehicle in vehicles %}
+            <option value="{{ vehicle.id }}">{{ vehicle.vehicle_number }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit">Select Vehicle</button>
+    </form>
+</body>
+</html>

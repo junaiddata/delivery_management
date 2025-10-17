@@ -1,0 +1,587 @@
+
+{% block content %}
+<!-- SAP-inspired Enterprise Accounting Dashboard CSS -->
+<style>
+    :root {
+        --sap-blue: #0854a0;
+        --sap-blue-light: #1873b4;
+        --sap-gray: #354a5f;
+        --sap-gray-light: #d4d4d4;
+        --sap-gray-lighter: #f5f5f5;
+        --sap-red: #bb0000;
+        --sap-green: #107e3e;
+        --sap-yellow: #e9730c;
+        --border-color: #ddd;
+    }
+
+    body {
+        background-color: #f2f2f2;
+        font-family: 'Arial', sans-serif;
+        color: #333;
+    }
+
+    .dashboard-wrapper {
+        max-width: 1400px;
+        margin: 0 auto;
+        background: white;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    .dashboard-header {
+        background: var(--sap-blue);
+        color: white;
+        padding: 10px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .dashboard-title {
+        font-weight: normal;
+        font-size: 18px;
+        margin: 0;
+    }
+
+    .dashboard-actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    .sap-button {
+        background: transparent;
+        color: white;
+        border: 1px solid rgba(255,255,255,0.3);
+        padding: 5px 10px;
+        font-size: 12px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        border-radius: 3px;
+    }
+
+    .sap-button:hover {
+        background: rgba(255,255,255,0.1);
+    }
+
+    .sap-button i {
+        margin-right: 5px;
+    }
+
+    .sap-button.primary {
+        background: white;
+        color: var(--sap-blue);
+    }
+
+    .sap-button.primary:hover {
+        background: #f0f0f0;
+    }
+
+    .filter-bar {
+        background: var(--sap-gray-lighter);
+        border-bottom: 1px solid var(--border-color);
+        padding: 15px 20px;
+    }
+
+    .filter-section {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: flex-end;
+    }
+
+    .filter-group {
+        margin-bottom: 10px;
+    }
+
+    .filter-label {
+        display: block;
+        font-size: 12px;
+        font-weight: bold;
+        color: var(--sap-gray);
+        margin-bottom: 5px;
+    }
+
+    .filter-input, .filter-select {
+        border: 1px solid var(--border-color);
+        border-radius: 3px;
+        padding: 6px 10px;
+        font-size: 13px;
+        min-width: 150px;
+    }
+
+    .filter-input:focus, .filter-select:focus {
+        border-color: var(--sap-blue);
+        outline: none;
+    }
+
+    .filter-date-group {
+        display: flex;
+        gap: 5px;
+        align-items: center;
+    }
+
+    .filter-button-group {
+        display: flex;
+        gap: 10px;
+    }
+
+    .kpi-tiles {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px;
+        margin-bottom: 2px;
+    }
+
+    .kpi-tile {
+        flex: 1;
+        min-width: 200px;
+        background: white;
+        border: 1px solid var(--border-color);
+        padding: 15px;
+    }
+
+    .kpi-label {
+        font-size: 13px;
+        color: var(--sap-gray);
+        margin-bottom: 5px;
+    }
+
+    .kpi-value {
+        font-size: 24px;
+        font-weight: bold;
+        color: var(--sap-blue);
+        margin-bottom: 5px;
+    }
+
+    .kpi-secondary {
+        font-size: 12px;
+        color: #666;
+    }
+
+    .data-table-container {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .sap-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+
+    .sap-table th {
+        background: var(--sap-gray-lighter);
+        padding: 10px 15px;
+        text-align: left;
+        font-weight: bold;
+        color: var(--sap-gray);
+        border-bottom: 2px solid var(--border-color);
+    }
+
+    .sap-table td {
+        padding: 10px 15px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .sap-table tr:hover td {
+        background: var(--sap-gray-lighter);
+    }
+
+    .sap-status {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 3px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+
+    .status-approved {
+        background-color: rgba(16, 126, 62, 0.1);
+        color: var(--sap-green);
+    }
+
+    .status-pending {
+        background-color: rgba(233, 115, 12, 0.1);
+        color: var(--sap-yellow);
+    }
+
+    .status-declined {
+        background-color: rgba(187, 0, 0, 0.1);
+        color: var(--sap-red);
+    }
+
+    .status-yes {
+        background-color: rgba(16, 126, 62, 0.1);
+        color: var(--sap-green);
+    }
+
+    .status-no {
+        background-color: rgba(187, 0, 0, 0.1);
+        color: var(--sap-red);
+    }
+
+    .dashboard-section {
+        margin-bottom: 0;
+    }
+
+    .section-header {
+        padding: 10px 15px;
+        background: var(--sap-gray-light);
+        font-size: 14px;
+        font-weight: bold;
+        color: var(--sap-gray);
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .sap-badge {
+        background: var(--sap-blue);
+        color: white;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: normal;
+    }
+
+    .amount-field {
+        font-weight: bold;
+    }
+
+    .overdue-row {
+        background-color: rgba(187, 0, 0, 0.05);
+    }
+
+    .footer-actions {
+        padding: 15px;
+        background: var(--sap-gray-lighter);
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .pagination {
+        display: flex;
+        gap: 5px;
+    }
+
+    .page-button {
+        background: white;
+        border: 1px solid var(--border-color);
+        padding: 5px 10px;
+        cursor: pointer;
+    }
+
+    .page-button.active {
+        background: var(--sap-blue);
+        color: white;
+        border-color: var(--sap-blue);
+    }
+
+    @media (max-width: 768px) {
+        .kpi-tiles {
+            flex-direction: column;
+        }
+        .filter-section {
+            flex-direction: column;
+        }
+        .filter-input, .filter-select {
+            width: 100%;
+        }
+    }
+</style>
+
+<div class="dashboard-wrapper">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <h1 class="dashboard-title">Credit Payment Management </h1>
+        <div class="dashboard-actions">
+            <a class="sap-button" href="{% url 'md_dashboard' %}">
+                <i class="fas fa-home"></i> Back to Home
+            </a>
+
+
+            <button class="sap-button" onclick="window.print()">
+                <i class="fas fa-print"></i> 🖨️
+            </button>
+            <button class="sap-button" id="exportBtn" data-bs-toggle="modal" data-bs-target="#exportModal">
+                <i class="fas fa-download"></i> 📥
+            </button>
+            <button class="sap-button primary">
+                <i class="fas fa-sync-alt"></i> ⟳
+            </button>
+
+        </div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-bar">
+        <form method="get" id="filterForm">
+            <div class="filter-section">
+                <div class="filter-group">
+                    <label class="filter-label">Search</label>
+                    <input type="text" name="q" class="filter-input" placeholder="DO, invoice or customer" value="{{ request.GET.q }}">
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Date Range</label>
+                    <div class="filter-date-group">
+                        <input type="date" name="start_date" class="filter-input" value="{{ request.GET.start_date }}" placeholder="From">
+                        <span>to</span>
+                        <input type="date" name="end_date" class="filter-input" value="{{ request.GET.end_date }}" placeholder="To">
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Payment Status</label>
+                    <select name="payment_received" class="filter-select">
+                        <option value="">All</option>
+                        <option value="yes" {% if request.GET.payment_received == 'yes' %}selected{% endif %}>Received</option>
+                        <option value="no" {% if request.GET.payment_received == 'no' %}selected{% endif %}>Not Received</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Approval Status</label>
+                    <select name="approval_status" class="filter-select">
+                        <option value="">All</option>
+                        <option value="Pending" {% if request.GET.approval_status == 'Pending' %}selected{% endif %}>Pending</option>
+                        <option value="Approved" {% if request.GET.approval_status == 'Approved' %}selected{% endif %}>Approved</option>
+                        <option value="Declined" {% if request.GET.approval_status == 'Declined' %}selected{% endif %}>Declined</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Customer</label>
+                    <select name="customer" class="filter-select">
+                        <option value="">All Customers</option>
+                        {% for cust in customers %}
+                            <option value="{{ cust.id }}" {% if request.GET.customer == cust.id|stringformat:"i" %}selected{% endif %}>{{ cust.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filter-button-group">
+                    <button type="submit" class="sap-button primary">
+                        <i class="fas fa-filter"></i> Apply
+                    </button>
+                    <button type="button" class="sap-button" onclick="clearFilters()">
+                        <i class="fas fa-times"></i> Clear
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- KPI Tiles Section -->
+    <div class="kpi-tiles">
+        <div class="kpi-tile">
+            <div class="kpi-label">Total DO Amount</div>
+            <div class="kpi-value">AED {{ total_do_amount|floatformat:2 }}</div>
+            <div class="kpi-secondary">Total delivery orders issued</div>
+        </div>
+        <div class="kpi-tile">
+            <div class="kpi-label">Total Delivered Amount</div>
+            <div class="kpi-value">AED {{ total_invoiced|floatformat:2 }}</div>
+            <div class="kpi-secondary">Total amount in invoices</div>
+        </div>
+        <div class="kpi-tile">
+            <div class="kpi-label">Total Credit Note</div>
+            <div class="kpi-value" style="color: var(--sap-green);">AED {{ total_credit_note|floatformat:2 }}</div>
+            <div class="kpi-secondary">Credit Note</div>
+        </div>
+        <div class="kpi-tile">
+            <div class="kpi-label">Effective Outstanding</div>
+            <div class="kpi-value" style="color: var(--sap-red);">AED {{ total_effective_due|floatformat:2 }}</div>
+            <div class="kpi-secondary">Current outstanding balance</div>
+        </div>
+    </div>
+
+    <!-- Data Table Section -->
+    <div class="dashboard-section">
+        <div class="section-header">
+            <div>Payment Records</div>
+            <div class="sap-badge">{{ payments|length }} Records</div>
+        </div>
+
+        <div class="data-table-container">
+            <table class="sap-table">
+                <thead>
+                    <tr>
+                        <th>DO Number</th>
+                        <th>Invoice</th>
+                        <th>Date</th>
+                        <th>Customer</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <!-- <th>Approval</th> -->
+                        <th>Payment</th>
+                        <th>Due Date</th>
+                        <th>Days Exceeded</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in payments %}
+                    <tr class="{% if p.exceeded_days > 0 and p.payment_received == 'No' %}overdue-row{% endif %}">
+                        <td>{{ p.delivery_order.do_number }}</td>
+                        <td>{{ p.delivery_order.invoice_number }}</td>
+                        <td>{{ p.delivery_order.date }}</td>
+                        <td>{{ p.delivery_order.customer.name }}</td>
+                        <td class="amount-field">AED {{ p.delivery_order.amount|floatformat:2 }}</td>
+                        <td>{{ p.delivery_order.status }}</td>
+                        <!-- <td>
+                            {% if p.status_of_approval == 'Approved' %}
+                                <span class="sap-status status-approved">Approved</span>
+                            {% elif p.status_of_approval == 'Declined' %}
+                                <span class="sap-status status-declined">Declined</span>
+                            {% else %}
+                                <span class="sap-status status-pending">Pending</span>
+                            {% endif %}
+                        </td> -->
+                        <td>
+                            {% if p.payment_received == True %}
+                                <span class="sap-status status-yes">Received</span>
+                            {% else %}
+                                <span class="sap-status status-no">Not Received</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ p.due_date }}</td>
+                        <td>
+                            {% if p.exceeded_days > 0 and p.payment_received == 'No' %}
+                                <span style="color: var(--sap-red); font-weight: bold;">{{ p.exceeded_days }} days</span>
+                            {% elif p.exceeded_days <= 0 %}
+                                <span style="color: var(--sap-green);">On time</span>
+                            {% else %}
+                                {{ p.exceeded_days }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" style="text-align: center; padding: 30px;">
+                            No payment records found matching your criteria.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination and Actions Footer -->
+        <!-- Pagination and Actions Footer -->
+<div class="footer-actions">
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="page-button">&laquo; First</a>
+            <a href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="page-button">Previous</a>
+        {% endif %}
+
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+                <a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="page-button active">{{ num }}</a>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="page-button">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="page-button">Next</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="page-button">Last &raquo;</a>
+        {% endif %}
+    </div>
+
+    <div>
+        <form method="get" style="display: inline-block;">
+            <input type="hidden" name="q" value="{{ request.GET.q }}">
+            <input type="hidden" name="start_date" value="{{ request.GET.start_date }}">
+            <input type="hidden" name="end_date" value="{{ request.GET.end_date }}">
+            <input type="hidden" name="payment_received" value="{{ request.GET.payment_received }}">
+            <input type="hidden" name="approval_status" value="{{ request.GET.approval_status }}">
+            <input type="hidden" name="customer" value="{{ request.GET.customer }}">
+            <input type="hidden" name="page" value="{{ request.GET.page }}">
+
+            <button type="submit" name="export" value="excel" class="sap-button">
+                <i class="fas fa-file-excel"></i> Excel
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Export Modal -->
+<div class="modal fade" id="exportModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Export Data</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="get" action="">
+                    <input type="hidden" name="q" value="{{ request.GET.q }}">
+                    <input type="hidden" name="start_date" value="{{ request.GET.start_date }}">
+                    <input type="hidden" name="end_date" value="{{ request.GET.end_date }}">
+                    <input type="hidden" name="payment_received" value="{{ request.GET.payment_received }}">
+                    <input type="hidden" name="approval_status" value="{{ request.GET.approval_status }}">
+                    <input type="hidden" name="customer" value="{{ request.GET.customer }}">
+
+                    <div class="mb-3">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="export" value="excel" id="exportExcel" checked>
+                            <label class="form-check-label" for="exportExcel">
+                                <i class="fas fa-file-excel text-success me-2"></i> Export as Excel (.xlsx)
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="export" value="csv" id="exportCsv">
+                            <label class="form-check-label" for="exportCsv">
+                                <i class="fas fa-file-csv text-primary me-2"></i> Export as CSV (.csv)
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="export" value="pdf" id="exportPdf">
+                            <label class="form-check-label" for="exportPdf">
+                                <i class="fas fa-file-pdf text-danger me-2"></i> Export as PDF (.pdf)
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">Export</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript -->
+<script>
+        function clearFilters() {
+        document.querySelectorAll('#filterForm input, #filterForm select').forEach(input => {
+            if (input.type !== 'submit' && input.type !== 'button') {
+                input.value = '';
+            }
+        });
+        document.getElementById('filterForm').submit();
+    }
+
+    // Initialize any tooltips or popovers
+    document.addEventListener('DOMContentLoaded', function() {
+        // Check if Bootstrap 5 is available
+        if (typeof bootstrap !== 'undefined') {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        }
+
+        // Add highlighting to sortable columns
+        document.querySelectorAll('.sap-table th').forEach(item => {
+            item.addEventListener('click', function() {
+                // This would be where you'd implement column sorting
+                // For now, just visual feedback
+                this.classList.toggle('active-sort');
+            });
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Excel File</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            flex-direction: column;
+        }
+        h1 {
+            color: #1a237e; /* Navy blue */
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        form {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+        input[type="file"] {
+            margin-bottom: 15px;
+            display: block;
+            margin: 0 auto;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #1a237e;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #3949ab;
+        }
+        .back-link {
+            margin-top: 20px;
+            color: #1a237e;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+            form {
+                padding: 15px;
+            }
+            h1 {
+                font-size: 24px;
+            }
+            button {
+                font-size: 14px;
+            }
+        }
+
+        .center-button {
+            padding: 12px 24px;
+            font-size: 16px;
+            background-color: #1a237e;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            text-decoration: none;
+        }
+
+        .center-button:hover {
+            background-color: #3949ab;
+        }
+
+        
+    </style>
+</head>
+<body>
+
+
+    {% if messages %}
+    <div style="color: red; background: #ffdddd; padding: 10px; border-radius: 5px; margin-bottom: 15px;">
+        {% for message in messages %}
+            <p>{{ message }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+    <h1>Upload Excel File</h1>
+    <div class="action-buttons">
+        <a href="{% url 'upload_invoices' %}" class="center-button">Update Invoice</a>
+    </div>
+    
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <label for="excel_file">Upload Excel File:</label>
+        <input type="file" name="excel_file" accept=".xlsx, .xls" required>
+        <br><br>
+        <button type="submit">Upload</button>
+    </form>
+    Verify that uploaded file have sheets named 'DO' and 'DOItemwise' 
+    <a href="{% url 'order_list' %}">Back to Orders List</a>
+</body>
+</html>

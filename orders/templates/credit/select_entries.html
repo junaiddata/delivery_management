@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+{% load static %}
+{% load custom_filters %}
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Select Entries for Combined View</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    .animate-pulse-slow {
+      animation: pulse 2s infinite;
+    }
+    .transition-all {
+      transition: all 0.3s ease;
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-blue-50 text-gray-800 min-h-screen">
+  <div class="max-w-6xl mx-auto p-4 sm:p-6">
+    <header class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+      <div class="flex items-center">
+        <i class="fas fa-clipboard-list text-blue-600 text-3xl mr-3 hidden sm:block"></i>
+        <h1 class="text-2xl sm:text-3xl font-bold text-blue-600 text-center sm:text-left">
+          Select Entries for <span class="relative">
+            <span class="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">{{ customer.name }}</span>
+            <span class="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded"></span>
+          </span>
+        </h1>
+      </div>
+      <a href="{% url 'payment_status_by_customer' customer_id=customer.id %}" 
+         class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center">
+        <i class="fas fa-arrow-left mr-2"></i> Back to Customer
+      </a>
+    </header>
+    <!-- Add Month/Year Filter -->
+    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+      <form method="get" class="flex flex-wrap gap-4 items-center">
+        <div class="flex items-center gap-2">
+          <label class="text-sm font-medium text-gray-700">Month:</label>
+          <select name="month" class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500">
+            <option value="">All Months</option>
+            {% for month in months %}
+            <option value="{{ month }}" {% if month == selected_month %}selected{% endif %}>
+              {{ month|month_name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        
+        <div class="flex items-center gap-2">
+          <label class="text-sm font-medium text-gray-700">Year:</label>
+          <select name="year" class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500">
+            {% for year in years reversed %}
+            <option value="{{ year }}" {% if year == selected_year %}selected{% endif %}>{{ year }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">
+          Filter
+        </button>
+      </form>
+    </div>
+
+    <!-- Add Totals Display -->
+    <div class="bg-amber-50 p-4 rounded-lg border border-amber-200 mb-6">
+      <h3 class="text-sm font-medium text-amber-700">
+        {% if selected_month %}
+          Pending Total ({{ selected_month|month_name }} {{ selected_year }})
+        {% else %}
+          Pending Total (All of {{ selected_year }})
+        {% endif %}
+      </h3>
+      <p class="text-2xl font-bold text-amber-800">{{ pending_total|floatformat:2 }} AED</p>
+    </div>
+
+    <form method="post" action="{% url 'combined_customer_entries' customer.id %}">
+      {% csrf_token %}
+      <div class="bg-white shadow-lg rounded-xl overflow-hidden mb-8 transition-all hover:shadow-xl border border-gray-100">
+        <div class="px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
+          <div class="flex items-center">
+            <div class="relative inline-block w-10 mr-3 align-middle select-none">
+              <input type="checkbox" id="select-all" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer checked:bg-blue-600 checked:border-blue-600 transition-all duration-200 ease-in"/>
+              <label for="select-all" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+            </div>
+            <label for="select-all" class="text-sm font-medium text-gray-700 hover:text-blue-600 cursor-pointer">Select All Entries</label>
+            <span class="ml-auto text-sm text-gray-600 hidden sm:block"><i class="fas fa-info-circle mr-1"></i> Total entries: <span class="font-semibold">{{ pending_payments|length }}</span></span>
+          </div>
+        </div>
+        
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th scope="col" class="px-4 sm:px-6 py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider">
+                  <span class="flex items-center">
+                    <i class="far fa-check-square mr-2 text-blue-500"></i> Select
+                  </span>
+                </th>
+                <th scope="col" class="px-4 sm:px-6 py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider">
+                  <span class="flex items-center">
+                    <i class="fas fa-file-invoice mr-2 text-blue-500"></i> Invoice
+                  </span>
+                </th>
+                <th scope="col" class="px-4 sm:px-6 py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider">
+                  <span class="flex items-center">
+                    <i class="fas fa-money-bill-wave mr-2 text-blue-500"></i> Amount
+                  </span>
+                </th>
+                <th scope="col" class="px-4 sm:px-6 py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider">
+                  <span class="flex items-center">
+                    <i class="far fa-calendar-alt mr-2 text-blue-500"></i> Due Date
+                  </span>
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              {% for payment in pending_payments %}
+              <tr class="hover:bg-blue-50 transition-colors duration-150 ease-in-out">
+                <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
+                  <div class="relative flex items-center">
+                    <input type="checkbox" name="entry_ids" value="{{ payment.id }}" 
+                          class="entry-checkbox w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
+                    <span class="entry-checkbox-custom"></span>
+                  </div>
+                </td>
+                <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
+                  <span class="px-2.5 py-1 rounded-md bg-blue-100 text-blue-800 text-sm font-medium">
+                    {{ payment.delivery_order.invoice_number }}
+                  </span>
+                </td>
+                <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
+                  <span class="font-medium text-gray-900">{{ payment.delivery_order.amount }}</span>
+                  <span class="ml-1 text-gray-600 text-sm">AED</span>
+                </td>
+                <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
+                  {% now "Y-m-d" as today %}
+                  {% if payment.due_date|date:"Y-m-d" < today %}
+                  <span class="px-2 py-1 rounded-md bg-red-100 text-red-800 text-sm font-medium flex items-center">
+                    <i class="fas fa-exclamation-circle mr-1"></i> {{ payment.due_date }}
+                  </span>
+                  {% elif payment.due_date|date:"Y-m-d" == today %}
+                  <span class="px-2 py-1 rounded-md bg-yellow-100 text-yellow-800 text-sm font-medium flex items-center">
+                    <i class="fas fa-clock mr-1"></i> {{ payment.due_date }}
+                  </span>
+                  {% else %}
+                  <span class="px-2 py-1 rounded-md bg-green-100 text-green-800 text-sm font-medium">
+                    {{ payment.due_date }}
+                  </span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="4" class="px-6 py-8 text-center text-gray-500">
+                  <div class="flex flex-col items-center">
+                    <i class="far fa-file-alt text-4xl mb-3 text-gray-400"></i>
+                    <p class="text-lg">No pending payments found</p>
+                    <p class="text-sm mt-2">All payments for this customer have been processed</p>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="bg-gray-50 px-6 py-3 border-t flex items-center justify-between text-sm">
+          <div class="text-gray-700">
+            <span id="selected-count" class="font-medium">0</span> entries selected
+          </div>
+          <div class="text-gray-500 italic">
+            Manage multiple entries at once
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end">
+        <button type="submit" 
+                id="submit-button"
+                class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center disabled:opacity-50 disabled:cursor-not-allowed">
+          <i class="fas fa-eye mr-2"></i> View Combined Entries
+          <span class="ml-1 text-xs bg-white bg-opacity-20 px-2 py-0.5 rounded hidden" id="selected-badge">0</span>
+        </button>
+      </div>
+    </form>
+    
+    <!-- Mobile selection info bar (fixed at bottom) -->
+  <!--  <div id="mobile-selection-bar" class="fixed bottom-0 left-0 right-0 bg-blue-600 text-white p-4 flex justify-between items-center transform translate-y-full transition-transform duration-300 ease-in-out md:hidden">-->
+  <!--    <div>-->
+  <!--      <span id="mobile-selected-count" class="font-bold">0</span> entries selected-->
+  <!--    </div>-->
+  <!--    <button type="button" id="mobile-view-button" class="bg-white text-blue-600 px-4 py-2 rounded-lg font-medium">-->
+  <!--      View Selected-->
+  <!--    </button>-->
+  <!--  </div>-->
+  <!--</div>-->
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const selectAllCheckbox = document.getElementById('select-all');
+      const entryCheckboxes = document.querySelectorAll('.entry-checkbox');
+      const selectedCountElements = [
+        document.getElementById('selected-count'),
+        document.getElementById('mobile-selected-count'),
+        document.getElementById('selected-badge')
+      ];
+      const mobileSelectionBar = document.getElementById('mobile-selection-bar');
+      const mobileViewButton = document.getElementById('mobile-view-button');
+      const submitButton = document.getElementById('submit-button');
+      
+      // Function to update selected count display
+      function updateSelectedCount() {
+        const checkedCount = document.querySelectorAll('.entry-checkbox:checked').length;
+        
+        selectedCountElements.forEach(el => {
+          if (el) el.textContent = checkedCount;
+        });
+        
+        // Show/hide mobile selection bar
+        if (checkedCount > 0) {
+          mobileSelectionBar.classList.remove('translate-y-full');
+          document.getElementById('selected-badge').classList.remove('hidden');
+          submitButton.classList.add('animate-pulse-slow');
+        } else {
+          mobileSelectionBar.classList.add('translate-y-full');
+          document.getElementById('selected-badge').classList.add('hidden');
+          submitButton.classList.remove('animate-pulse-slow');
+        }
+        
+        // Disable the submit button if no entries are selected
+        submitButton.disabled = checkedCount === 0;
+      }
+
+      // Select all functionality
+      selectAllCheckbox.addEventListener('change', function() {
+        entryCheckboxes.forEach(checkbox => {
+          checkbox.checked = this.checked;
+        });
+        updateSelectedCount();
+      });
+
+      // Update counter when individual checkboxes change
+      entryCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+          // Update "select all" checkbox state
+          selectAllCheckbox.checked = 
+            entryCheckboxes.length === document.querySelectorAll('.entry-checkbox:checked').length;
+          
+          updateSelectedCount();
+        });
+      });
+      
+      // Mobile view button trigger submit
+      mobileViewButton.addEventListener('click', function() {
+        postForm.submit();
+      });
+
+      // Validate at least one entry is selected
+      const form = document.querySelector('form');
+      postForm.addEventListener('submit', function(e) {
+        const checkedCount = document.querySelectorAll('.entry-checkbox:checked').length;
+        if (checkedCount === 0) {
+          e.preventDefault();
+          // Show error toast
+        
+      
+          
+          // Create a toast notification instead of an alert
+          const toast = document.createElement('div');
+          toast.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center transform transition-all duration-500 ease-in-out translate-y-0 opacity-0';
+          toast.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i> Please select at least one entry to view';
+          document.body.appendChild(toast);
+          
+          // Show toast with animation
+          setTimeout(() => {
+            toast.classList.remove('translate-y-0', 'opacity-0');
+            toast.classList.add('translate-y-4', 'opacity-100');
+          }, 10);
+          
+          // Remove toast after 3 seconds
+          setTimeout(() => {
+            toast.classList.remove('translate-y-4', 'opacity-100');
+            toast.classList.add('-translate-y-4', 'opacity-0');
+            setTimeout(() => {
+              document.body.removeChild(toast);
+            }, 500);
+          }, 3000);
+        }
+      });
+      
+      // Initialize the counter
+      updateSelectedCount();
+    });
+  </script>
+</body>
+</html>

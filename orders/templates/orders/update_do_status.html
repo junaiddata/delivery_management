@@ -1,0 +1,102 @@
+{% extends 'orders/base.html' %}
+{% block title %}Update DO Status{% endblock %}
+{% block content %}
+<style>
+    body {
+        font-family: 'Poppins', Arial, sans-serif;
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        margin: 0;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        color: #333;
+    }
+    h1 {
+        color: #1a237e;
+        margin-bottom: 20px;
+        font-size: 24px;
+        text-align: center;
+    }
+    .order-container {
+        background: white;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 500px;
+        margin-bottom: 15px;
+    }
+    .order-header {
+        font-size: 18px;
+        color: #333;
+        margin-bottom: 10px;
+        text-align: center;
+    }
+    .status-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        justify-content: center;
+    }
+    .status-button {
+        padding: 12px 20px;
+        font-size: 14px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        text-align: center;
+        width: 100%;
+        max-width: 150px;
+    }
+    .status-button.out-for-delivery {
+        background-color: #ffca28; /* Yellow */
+        color: #333;
+    }
+    .status-button.not-delivered {
+        background-color: #ef5350; /* Red */
+        color: white;
+    }
+    .status-button.partial-delivery {
+        background-color: #2196f3; /* Blue */
+        color: white;
+    }
+    .status-button.delivered {
+        background-color: #66bb6a; /* Green */
+        color: white;
+    }
+    .status-button:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+    @media (max-width: 480px) {
+        h1 {
+            font-size: 20px;
+        }
+        .order-header {
+            font-size: 16px;
+        }
+        .status-button {
+            font-size: 12px;
+            padding: 10px 15px;
+        }
+    }
+</style>
+<h1>Update DO Status for Vehicle: {{ vehicle.vehicle_number }}</h1>
+{% for order in orders %}
+<div class="order-container">
+    <div class="order-header">{{ order.do_number }} - {{ order.customer_name }}</div>
+    <form method="post" class="status-buttons">
+        {% csrf_token %}
+        <input type="hidden" name="do_number" value="{{ order.do_number }}">
+        <!-- <button type="submit" name="status" value="Out for Delivery" class="status-button out-for-delivery">🚚 Out for Delivery</button> -->
+        <button type="submit" name="status" value="Not Delivered" class="status-button not-delivered">❌ </button>
+        <button type="submit" name="status" value="Delivered" class="status-button delivered">✅ </button>
+        <button type="submit" name="status" value="Partial Delivery" class="status-button partial-delivery">📦 Partial Delivery</button>
+    </form>
+</div>
+{% endfor %}
+{% endblock %}

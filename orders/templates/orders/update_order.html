@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Update Order</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            flex-direction: column;
+        }
+        h1 {
+            color: #1a237e; /* Navy blue */
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        form {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 100%;
+        }
+        div {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"],
+        select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #1a237e;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #3949ab;
+        }
+        .back-link {
+            align-self: flex-start;
+            margin-bottom: 20px;
+            color: #1a237e;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+            form {
+                padding: 15px;
+            }
+            h1 {
+                font-size: 24px;
+            }
+            button {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="{% url 'order_list' %}" class="back-link">Back</a>
+    <form method="post">
+        <h1>Update Delivery Order: {{ order.do_number }}</h1>
+        {% csrf_token %}
+        <div>
+            <label for="invoice_number">Invoice Number:</label>
+            <input type="text" name="invoice_number" id="invoice_number" value="{{ order.invoice_number|default:'' }}" maxlength="15">
+        </div>
+        <div>
+            <label for="credit_note">Credit Note:</label>
+            <input type="text" name="credit_note" id="credit_note" value="{{ order.credit_note|default:'' }}" maxlength="15">
+        </div>
+        <div>
+            <label for="amount">Amount:</label>
+            <input type="text" name="amount" id="amount" value="{{ order.amount|default:'0.0' }}" maxlength="15">
+        </div>
+        <div>
+            <label for="mobile_number">Mobile Number:</label>
+            <input type="text" name="mobile_number" id="mobile_number" value="{{ order.mobile_number }}" maxlength="15">
+        </div>
+        <div>
+            <label for="vehicle">Vehicle:</label>
+            <select name="vehicle" id="vehicle">
+                <option value="">Select a vehicle</option>
+                {% for vehicle in vehicles %}
+                <option value="{{ vehicle.id }}" {% if order.vehicle == vehicle %}selected{% endif %}>
+                    {{ vehicle.vehicle_number }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="driver">Driver:</label>
+            <select name="driver" id="driver">
+                {% for driver, display in order.DRIVER_CHOICES %}
+                <option value="{{ driver }}" {% if order.driver == driver %}selected{% endif %}>
+                    {{ display }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="status">Status:</label>
+            <select name="status" id="status">
+                {% for status, display in order.DO_STATUS_CHOICES %}
+                <option value="{{ status }}" {% if order.status == status %}selected{% endif %}>
+                    {{ display }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <button type="submit">Save</button>
+        </div>
+    </form>
+</body>
+</html>

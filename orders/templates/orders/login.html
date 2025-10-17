@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f4f4f9;
+            color: #333;
+            background-image: url('https://cdn.qwenlm.ai/output/5938d6b4-831e-4b8e-b17a-b4f43fd0dbe3/t2i/14a7a286-3ded-4f5e-aa4c-3c26b1ec3295/c8bb75bd-cad9-49b4-b7c0-9049dc5732f7.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            position: relative;
+        }
+        
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 1;
+        }
+        
+        .logo {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            width: 180px;
+            height: auto;
+            z-index: 3;
+            filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.3));
+            transition: transform 0.3s ease;
+        }
+        
+        .logo:hover {
+            transform: scale(1.05);
+        }
+        
+        .container {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            max-width: 420px;
+            padding: 0 20px;
+        }
+        
+        .login-form {
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 35px 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            backdrop-filter: blur(5px);
+            transform: translateY(0);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .login-form:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.25);
+        }
+        
+        h2 {
+            margin-bottom: 25px;
+            color: #1a237e;
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        input[type="text"], 
+        input[type="password"] {
+            width: 100%;
+            padding: 15px 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s;
+            background-color: #f9f9f9;
+        }
+        
+        input[type="text"]:focus, 
+        input[type="password"]:focus {
+            border-color: #3949ab;
+            background-color: #fff;
+            box-shadow: 0 0 0 3px rgba(57, 73, 171, 0.1);
+            outline: none;
+        }
+        
+        button {
+            width: 100%;
+            padding: 15px;
+            background-color: #1a237e;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+            box-shadow: 0 4px 6px rgba(26, 35, 126, 0.2);
+        }
+        
+        button:hover {
+            background-color: #3949ab;
+            box-shadow: 0 6px 10px rgba(26, 35, 126, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(26, 35, 126, 0.2);
+        }
+        
+        .error-message {
+            color: #e53935;
+            background: rgba(255, 205, 210, 0.8);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #e53935;
+            text-align: left;
+            font-size: 14px;
+        }
+        
+        @media (max-width: 768px) {
+            .logo {
+                width: 150px;
+                top: 20px;
+                left: 20px;
+            }
+            
+            .container {
+                max-width: 380px;
+            }
+            
+            .login-form {
+                padding: 30px 25px;
+            }
+            
+            h2 {
+                font-size: 24px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .logo {
+                width: 120px;
+                top: 15px;
+                left: 15px;
+            }
+            
+            .container {
+                padding: 0 15px;
+            }
+            
+            .login-form {
+                padding: 25px 20px;
+            }
+            
+            h2 {
+                font-size: 22px;
+                margin-bottom: 20px;
+            }
+            
+            input[type="text"], 
+            input[type="password"],
+            button {
+                padding: 12px;
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="overlay"></div>
+    <img src="https://junaidworld.com/wp-content/uploads/2023/09/logo-2.png" alt="Company Logo" class="logo">
+    
+    <div class="container">
+        <form method="post" class="login-form">
+            {% csrf_token %}
+            <h2>Welcome Back</h2>
+            
+            {% if messages %}
+                <div class="error-message">
+                    {% for message in messages %}
+                        <p>{{ message }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+            
+            <div class="input-group">
+                <input type="text" name="username" placeholder="Username" required autocomplete="username">
+            </div>
+            
+            <div class="input-group">
+                <input type="password" name="password" placeholder="Password" required autocomplete="current-password">
+            </div>
+            
+            <button type="submit">Sign In</button>
+        </form>
+    </div>
+</body>
+</html>

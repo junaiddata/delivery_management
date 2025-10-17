@@ -1,0 +1,121 @@
+{% extends 'orders/base.html' %}
+
+{% block title %}Add Vehicle{% endblock %}
+
+{% block content %}
+<!-- Bootstrap CDN -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+<!-- Bootstrap Icons CDN -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+
+<div class="container mt-4">
+    <!-- Header -->
+    <h1 class="text-center text-primary mb-4">Add Vehicle</h1>
+
+    <!-- Add Vehicle Form -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="post" class="row g-3">
+                {% csrf_token %}
+                <div class="col-12">
+                    <label for="vehicle_number" class="form-label fw-bold">Vehicle Number:</label>
+                    <input type="text" name="vehicle_number" id="vehicle_number" 
+                           class="form-control rounded-pill" 
+                           placeholder="Enter Vehicle Number" required>
+                </div>
+                <div class="col-12 text-center">
+                    <button type="submit" name="add_vehicle" 
+                            class="btn btn-primary rounded-pill w-100 py-2">
+                        Add Vehicle
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Back Button -->
+    <div class="text-center mb-4">
+        <a href="{% url 'vehicle_list' %}" 
+           class="btn btn-secondary rounded-pill w-100 py-2">
+            Back to Vehicle List
+        </a>
+    </div>
+
+    <!-- Vehicle List -->
+    <h2 class="text-center text-primary mb-4">Rent/Other Vehicle List:</h2>
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th scope="col">Vehicle</th>
+                    <th scope="col" class="d-none d-md-table-cell">Actions</th> <!-- Hide on mobile -->
+                </tr>
+            </thead>
+            <tbody>
+                {% for vehicle in vehicles %}
+                <tr>
+                    <!-- Vehicle Number (Mobile-Optimized) -->
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-truck me-2" style="font-size: 1.2rem; color: #1a237e;"></i>
+                            <span>{{ vehicle.vehicle_number }}</span>
+                        </div>
+                    </td>
+
+                    <!-- Actions Column (Stacked for Mobile) -->
+                    <td class="d-none d-md-table-cell">
+                        <a href="{% url 'update_vehicle' vehicle.id %}" 
+                           class="btn btn-sm btn-outline-primary rounded-pill me-2">
+                            <i class="bi bi-pencil"></i> Load
+                        </a>
+                        <form method="post" style="display:inline;" 
+                              onsubmit="return confirm('Are you sure you want to delete this vehicle?');">
+                            {% csrf_token %}
+                            <input type="hidden" name="vehicle_id" value="{{ vehicle.id }}">
+                            <button type="submit" name="delete_vehicle" 
+                                    class="btn btn-sm btn-outline-danger rounded-pill">
+                                <i class="bi bi-trash"></i> Delete
+                            </button>
+                        </form>
+                    </td>
+
+                    <!-- Mobile Actions (Dropdown) -->
+                    <td class="d-md-none text-center">
+                        <div class="dropdown">
+                            <button class="btn btn-primary btn-sm dropdown-toggle" 
+                                    type="button" data-bs-toggle="dropdown">
+                                Actions
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a href="{% url 'update_vehicle' vehicle.id %}" 
+                                       class="dropdown-item">
+                                        <i class="bi bi-pencil me-2"></i> Load
+                                    </a>
+                                </li>
+                                <li>
+                                    <form method="post" 
+                                          onsubmit="return confirm('Are you sure you want to delete this vehicle?');">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="vehicle_id" value="{{ vehicle.id }}">
+                                        <button type="submit" name="delete_vehicle" 
+                                                class="dropdown-item text-danger">
+                                            <i class="bi bi-trash me-2"></i> Delete
+                                        </button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Bootstrap JS (Required for dropdowns) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+{% endblock %}
+
+

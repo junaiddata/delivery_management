@@ -1,0 +1,133 @@
+{% extends 'orders/base.html' %}
+
+{% block content %}
+<h2>📦 Received Orders - Accounts Department</h2>
+
+<!-- Search Form -->
+<form method="get" action=".">
+    <input
+        type="text"
+        name="search"
+        placeholder="🔍 Search DO Number, Customer, Salesman..."
+        value="{{ search_query }}"
+    />
+    <button type="submit">Search</button>
+</form>
+
+<table border="1">
+    <thead>
+        <tr>
+            <th>DO Number</th>
+            <th>Date</th>
+            <th>Customer</th>
+            <th>Salesman</th>
+            <th>Delivery Date</th>
+            <th>Received Date</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for order in orders %}
+        <tr>
+            <td>{{ order.do_number }}</td>
+            <td>{{ order.date }}</td>
+            <td>{{ order.customer_name }}</td>
+            <td>{{ order.salesman }}</td>
+            <td>{{ order.delivery_date|date:"d M Y, h:i A" }}</td>
+            <td>{{ order.received_date|date:"d M Y, h:i A" }}</td>
+            <td class="status received">✅ {{ order.status }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="7" style="text-align: center;">
+                No received orders found{% if search_query %} matching "{{ search_query }}"{% endif %}.
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Pagination -->
+<div class="pagination">
+    {% if orders.has_previous %}
+        <a href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}">⏮ First</a>
+        <a href="?page={{ orders.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">◀ Previous</a>
+    {% endif %}
+
+    <span>Page {{ orders.number }} of {{ orders.paginator.num_pages }}</span>
+
+    {% if orders.has_next %}
+        <a href="?page={{ orders.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">Next ▶</a>
+        <a href="?page={{ orders.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}">Last ⏭</a>
+    {% endif %}
+</div>
+
+<style>
+    h2 {
+        text-align: center;
+        color: #333;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        background: #f9f9f9;
+    }
+
+    th, td {
+        padding: 10px;
+        text-align: center;
+        border: 1px solid #ddd;
+    }
+
+    th {
+        background: #007bff;
+        color: white;
+    }
+
+    .status.received {
+        font-weight: bold;
+        color: green;
+    }
+
+    .pagination {
+        text-align: center;
+        margin-top: 10px;
+    }
+
+    .pagination a {
+        margin: 0 5px;
+        padding: 5px 10px;
+        text-decoration: none;
+        color: white;
+        background: #007bff;
+        border-radius: 5px;
+    }
+
+    .pagination a:hover {
+        background: #0056b3;
+    }
+
+    input[type="text"] {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+    }
+
+    button {
+        padding: 10px 15px;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+
+    button:hover {
+        background: #0056b3;
+    }
+</style>
+{% endblock %}

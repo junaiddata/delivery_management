@@ -1,0 +1,398 @@
+{% extends 'orders/base.html' %}
+{% block title %}Salesman Orders{% endblock %}
+{% block content %}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Salesman Orders</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #1a237e;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .header-buttons {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .header-buttons a {
+            background-color: #1a237e;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+        .header-buttons a:hover {
+            background-color: #3949ab;
+        }
+        .filters {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .filters form {
+            display: inline-block;
+            margin: 0 10px;
+        }
+        .filters select {
+            padding: 8px;
+            margin-right: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        /* Search Bar */
+        .search-bar {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .search-bar input[type="text"] {
+            width: 80%;
+            max-width: 400px;
+            padding: 10px;
+            font-size: 16px;
+            border: 2px solid #1a237e;
+            border-radius: 25px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        .search-bar input[type="text"]:focus {
+            border-color: #0056b3;
+            box-shadow: 0 0 10px rgba(0, 119, 255, 0.5);
+            transform: scale(1.02);
+        }
+
+        /* Table for PC */
+        @media (min-width: 768px) {
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 20px;
+            }
+            th, td {
+                padding: 12px;
+                text-align: left;
+                border-bottom: 1px solid #ddd;
+            }
+            th {
+                background-color: #1a237e;
+                color: white;
+            }
+            tr:hover {
+                background-color: #e8eaf6;
+            }
+            .order-cards {
+                display: none;
+            }
+        }
+
+        /* Card design for mobile */
+        @media (max-width: 767px) {
+            table {
+                display: none;
+            }
+            .order-cards {
+                display: flex;
+                flex-direction: column;
+                gap: 15px;
+            }
+            .order-card {
+                background: white;
+                padding: 15px;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            }
+            .order-card strong {
+                color: #1a237e;
+                font-size: 16px;
+            }
+            .order-card p {
+                margin: 5px 0;
+                font-size: 14px;
+            }
+            .order-card .status {
+                font-weight: bold;
+                color: #fff;
+                padding: 5px;
+                border-radius: 4px;
+                display: inline-block;
+            }
+            .status-pending {
+                background: orange;
+            }
+            .status-delivered {
+                background: green;
+            }
+            .status-outfordelivery {
+                background: blue;
+            }
+            .header-buttons {
+                display: flex;
+                justify-content: flex-end;
+                align-items: center;
+                margin-bottom: 20px;
+            }
+            .button-group {
+                display: flex;
+                gap: 10px;
+            }
+            .header-buttons a.btn {
+                background-color: #1a237e;
+                color: white;
+                padding: 10px 15px;
+                border-radius: 5px;
+                text-decoration: none;
+                font-weight: bold;
+                transition: background-color 0.3s ease;
+            }
+            .header-buttons a.btn:hover {
+                background-color: #3949ab;
+            }
+        }
+
+        /* Pagination Styles */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 30px 0;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .pagination a, .pagination span {
+            padding: 8px 16px;
+            text-decoration: none;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 0 2px;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .pagination a {
+            color: #1a237e;
+            background-color: white;
+        }
+
+        .pagination a:hover {
+            background-color: #e8eaf6;
+            border-color: #1a237e;
+        }
+
+        .pagination .current {
+            background-color: #1a237e;
+            color: white;
+            border-color: #1a237e;
+            font-weight: bold;
+        }
+
+        .pagination .disabled {
+            color: #6c757d;
+            background-color: #f8f9fa;
+            border-color: #dee2e6;
+            cursor: not-allowed;
+        }
+
+        .pagination-info {
+            text-align: center;
+            margin: 10px 0;
+            color: #666;
+            font-size: 14px;
+        }
+
+        /* Mobile pagination */
+        @media (max-width: 767px) {
+            .pagination {
+                flex-direction: column;
+                gap: 5px;
+            }
+            
+            .pagination a, .pagination span {
+                padding: 10px 14px;
+                font-size: 14px;
+                width: 100%;
+                text-align: center;
+            }
+            
+            .pagination-nav {
+                display: flex;
+                gap: 5px;
+                width: 100%;
+            }
+            
+            .pagination-nav a {
+                flex: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Your Delivery Orders</h1>
+
+    <!-- Header Buttons -->
+    <div class="header-buttons">
+        <div class="button-group">
+            <a href="https://junaiddataanalyst.pythonanywhere.com" target="_blank" class="btn">Stock Details</a>
+            <a href="https://jomix.pythonanywhere.com" target="_blank" class="btn">Jomix Items</a>
+            <a href="https://valoginjnd.pythonanywhere.com" target="_blank" class="btn">Valogin Items</a>
+            <a href="{% url 'customer_list' %}" target="_blank" class="btn">Payment Collections</a>
+        </div>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="Search by DO Number, Customer Name, City, or Area..." />
+    </div>
+
+    <!-- Filters -->
+    <div class="filters">
+        <form method="get" id="filterForm">
+            <select name="status">
+                <option value="">All Statuses</option>
+                <option value="Pending" {% if status_filter == 'Pending' %}selected{% endif %}>Pending</option>
+                <option value="Out for Delivery" {% if status_filter == 'Out for Delivery' %}selected{% endif %}>Out for Delivery</option>
+                <option value="Partial Delivery" {% if status_filter == 'Partial Delivery' %}selected{% endif %}>Partial Delivery</option>
+                <option value="Delivered" {% if status_filter == 'Delivered' %}selected{% endif %}>Delivered</option>
+                <option value="Loaded" {% if status_filter == 'Loaded' %}selected{% endif %}>Loaded</option>
+            </select>
+            <button type="submit">Filter</button>
+        </form>
+    </div>
+
+    <!-- Pagination Info -->
+    <div class="pagination-info">
+        Showing {{ page_obj.start_index }} - {{ page_obj.end_index }} of {{ page_obj.paginator.count }} orders
+    </div>
+
+    <!-- Table for PC -->
+    <table>
+        <thead>
+            <tr>
+                <th>DO Number</th>
+                <th>Date</th>
+                <th>Customer Name</th>
+                <th>Vehicle</th>
+                <th>City</th>
+                <th>Area</th>
+                <th>Status</th>
+                <th>Delivered on</th>
+            </tr>
+        </thead>
+        <tbody id="orderTableBody">
+            {% for order in page_obj %}
+            <tr data-do-number="{{ order.do_number }}" data-customer-name="{{ order.customer_name }}" data-city="{{ order.city }}" data-area="{{ order.area }}">
+                <td><a href="{% url 'do_items' order.do_number %}">{{ order.do_number }}</a></td>
+                <td>{{ order.date }}</td>
+                <td>{{ order.customer_name }}</td>
+                <td>{{ order.vehicle }}</td>
+                <td>{{ order.city }}</td>
+                <td>{{ order.area }}</td>
+                <td>{{ order.status }}</td>
+                <td>{{ order.delivery_date }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Card layout for mobile -->
+    <div class="order-cards" id="orderCardsContainer">
+        {% for order in page_obj %}
+        <div class="order-card" data-do-number="{{ order.do_number }}" data-customer-name="{{ order.customer_name }}" data-city="{{ order.city }}" data-area="{{ order.area }}">
+            <strong>DO Number: <a href="{% url 'do_items' order.do_number %}">{{ order.do_number }}</a></strong>
+            <p>Date: {{ order.date }}</p>
+            <p>Customer: {{ order.customer_name }}</p>
+            <p>Vehicle: {{ order.vehicle }}</p>
+            <p>City: {{ order.city }}</p>
+            <p>Area: {{ order.area }}</p>
+            <p class="status {% if order.status == 'Pending' %}status-pending{% elif order.status == 'Delivered' %}status-delivered{% elif order.status == 'Out for Delivery' %}status-outfordelivery{% endif %}">
+                {{ order.status }}
+            </p>
+            <p>Delivered on: {{ order.delivery_date }}</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page=1{% if status_filter %}&status={{ status_filter }}{% endif %}">&laquo; First</a>
+            <a href="?page={{ page_obj.previous_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}">Previous</a>
+        {% else %}
+            <span class="disabled">&laquo; First</span>
+            <span class="disabled">Previous</span>
+        {% endif %}
+
+        <!-- Page numbers -->
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+                <span class="current">{{ num }}</span>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <a href="?page={{ num }}{% if status_filter %}&status={{ status_filter }}{% endif %}">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}">Next</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}{% if status_filter %}&status={{ status_filter }}{% endif %}">Last &raquo;</a>
+        {% else %}
+            <span class="disabled">Next</span>
+            <span class="disabled">Last &raquo;</span>
+        {% endif %}
+    </div>
+
+    <script>
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('input', function () {
+            const searchTerm = this.value.trim().toLowerCase();
+
+            // Filter table rows
+            document.querySelectorAll('#orderTableBody tr').forEach(row => {
+                const doNumber = row.getAttribute('data-do-number').toLowerCase();
+                const customerName = row.getAttribute('data-customer-name').toLowerCase();
+                const city = row.getAttribute('data-city').toLowerCase();
+                const area = row.getAttribute('data-area').toLowerCase();
+
+                if (doNumber.includes(searchTerm) || customerName.includes(searchTerm) || city.includes(searchTerm) || area.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            // Filter mobile cards
+            document.querySelectorAll('#orderCardsContainer .order-card').forEach(card => {
+                const doNumber = card.getAttribute('data-do-number').toLowerCase();
+                const customerName = card.getAttribute('data-customer-name').toLowerCase();
+                const city = card.getAttribute('data-city').toLowerCase();
+                const area = card.getAttribute('data-area').toLowerCase();
+
+                if (doNumber.includes(searchTerm) || customerName.includes(searchTerm) || city.includes(searchTerm) || area.includes(searchTerm)) {
+                    card.style.display = '';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+
+        // Preserve filter when navigating pages
+        document.getElementById('filterForm').addEventListener('submit', function(e) {
+            const pageInput = document.createElement('input');
+            pageInput.type = 'hidden';
+            pageInput.name = 'page';
+            pageInput.value = '1'; // Reset to first page when filtering
+            this.appendChild(pageInput);
+        });
+    </script>
+</body>
+{% endblock %}

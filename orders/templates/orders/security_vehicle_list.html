@@ -1,0 +1,131 @@
+{% extends 'orders/base.html' %}
+{% block title %}Security Approval{% endblock %}
+{% block content %}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vehicle List for Security</title>
+    <style>
+        /* General Styles */
+        body {
+            font-family: 'Poppins', Arial, sans-serif;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            color: #333;
+        }
+        h1 {
+            color: #1a237e;
+            margin-bottom: 20px;
+            font-size: 24px;
+            text-align: center;
+        }
+        .vehicle-list {
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .vehicle-card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .vehicle-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+        }
+        .vehicle-info {
+            display: flex;
+            flex-direction: column;
+        }
+        .vehicle-info strong {
+            font-size: 18px;
+            color: #1a237e;
+        }
+        .vehicle-info span {
+            font-size: 14px;
+            color: #555;
+        }
+        .vehicle-action {
+            display: flex;
+            gap: 10px;
+        }
+        .vehicle-action a {
+            background: linear-gradient(135deg, #1a237e, #3949ab);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: background 0.3s ease;
+        }
+        .vehicle-action a:hover {
+            background: linear-gradient(135deg, #3949ab, #1a237e);
+        }
+        /* Mobile Responsiveness */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 20px;
+            }
+            .vehicle-card {
+                padding: 12px;
+            }
+            .vehicle-info strong {
+                font-size: 16px;
+            }
+            .vehicle-info span {
+                font-size: 13px;
+            }
+        }
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 18px;
+            }
+            .vehicle-card {
+                padding: 10px;
+            }
+            .vehicle-info strong {
+                font-size: 15px;
+            }
+            .vehicle-info span {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Vehicle List</h1>
+    
+    <div class="vehicle-list">
+        {% if vehicles|length == 0 %}
+            <p style="text-align: center; color: #d9534f;">No vehicles found.</p>
+        {% else %}
+            {% for vehicle in vehicles %}
+            <div class="vehicle-card">
+                <div class="vehicle-info">
+                    <strong>{{ vehicle.vehicle_number }}</strong>
+                    {% with first_do=vehicle.orders.first %}
+                        <span>Status: {{ first_do.status|default:"Not Updated" }}</span>
+                    {% endwith %}
+                </div>
+                <div class="vehicle-action">
+                    <a href="{% url 'update_vehicle_status' vehicle.id %}">Update Status</a>
+                </div>
+            </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+</body>
+{% endblock %}

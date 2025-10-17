@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+  {% load custom_filters %}
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Status</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          animation: {
+            'pulse-slow': 'pulse 3s infinite',
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f9fafb;
+    }
+
+    .btn-toggle {
+      transition: all 0.3s ease;
+    }
+
+    .btn-toggle:hover {
+      transform: translateY(-2px);
+    }
+
+    .btn-toggle:active {
+      transform: translateY(0);
+    }
+
+    .btn-active {
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+
+    .btn-inactive {
+      box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    }
+
+    /* Entry card styles */
+    .entry-card {
+      transition: all 0.2s ease;
+    }
+
+    .entry-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+
+    .view-details-btn {
+      transition: all 0.2s ease;
+    }
+
+    .view-details-btn:hover {
+      transform: translateX(3px);
+    }
+
+    .view-details-btn:active {
+      transform: translateX(0);
+    }
+
+    @media (max-width: 640px) {
+      .btn-container {
+        flex-direction: column;
+      }
+
+      .btn-toggle {
+        width: 100%;
+        margin-bottom: 1rem;
+      }
+
+      .entry-card-content {
+        flex-direction: column;
+        align-items: flex-start !important;
+      }
+
+      .entry-card-badge {
+        margin-top: 0.5rem;
+        margin-bottom: 0.5rem;
+      }
+
+      .entry-card-actions {
+        width: 100%;
+        justify-content: center;
+        margin-top: 0.5rem;
+      }
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .animate-fade-in {
+      animation: fadeIn 0.5s ease-out;
+    }
+  </style>
+</head>
+<body class="min-h-screen p-4">
+  <div class="w-full max-w-4xl mx-auto">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-blue-600">{{ customer.name }}</h1>
+    <p class="text-gray-600 mt-1">Payment Status</p>
+  </div>
+  <div class="mt-2 sm:mt-0 flex flex-col sm:flex-row sm:space-x-3 space-y-2 sm:space-y-0">
+    <a href="{% url 'select_entries' customer_id=customer.id %}"
+       class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition flex items-center justify-center">
+      <i class="fas fa-list-ol mr-2"></i> View Combined
+    </a>
+    <a href="{% url 'customer_list' %}"
+       class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 transition flex items-center justify-center">
+      <i class="fas fa-arrow-left mr-2"></i> Back to List
+    </a>
+  </div>
+</div>
+
+    <!-- Button Container -->
+    <div class="btn-container flex flex-col sm:flex-row sm:space-x-8 justify-center mb-8 sm:mb-12 space-y-4 sm:space-y-0">
+      <!-- Pending Payments Button -->
+      <button id="pending-btn" onclick="showPayments('pending')" class="btn-toggle btn-active flex-1 max-w-xs mx-auto sm:mx-0 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl p-6 text-center">
+        <div class="flex flex-col items-center">
+          <div class="bg-white bg-opacity-20 w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-3 sm:mb-4">
+            <i class="fas fa-hourglass-half text-white text-xl sm:text-2xl"></i>
+          </div>
+          <h2 class="text-lg sm:text-xl font-bold mb-1">Pending Payments</h2>
+          <p class="text-white text-opacity-80 text-xs sm:text-sm">View payments awaiting approval</p>
+        </div>
+      </button>
+
+      <!-- Completed Payments Button -->
+      <button id="completed-btn" onclick="showPayments('completed')" class="btn-toggle btn-inactive flex-1 max-w-xs mx-auto sm:mx-0 bg-white text-gray-700 rounded-xl p-6 text-center border border-gray-200">
+        <div class="flex flex-col items-center">
+          <div class="bg-green-100 w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-3 sm:mb-4">
+            <i class="fas fa-check-circle text-green-600 text-xl sm:text-2xl"></i>
+          </div>
+          <h2 class="text-lg sm:text-xl font-bold mb-1">Completed Payments</h2>
+          <p class="text-gray-500 text-xs sm:text-sm">View processed payments</p>
+        </div>
+      </button>
+    </div>
+   <!-- Month Filter -->
+<!-- Month Filter -->
+<div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+  <form method="get" class="flex flex-wrap gap-4 items-center">
+    <div class="flex items-center gap-2">
+      <label class="text-sm font-medium text-gray-700">Month:</label>
+      <select name="month" class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500">
+        <option value="">All Months</option>
+        {% for month in months %}
+        <option value="{{ month }}" {% if month == selected_month %}selected{% endif %}>
+          {{ month|month_name }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <label class="text-sm font-medium text-gray-700">Year:</label>
+      <select name="year" class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500">
+        {% for year in years reversed %}
+        <option value="{{ year }}" {% if year == selected_year %}selected{% endif %}>{{ year }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">
+      Filter
+    </button>
+  </form>
+</div>
+
+<!-- Totals Display -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+  <div class="bg-amber-50 p-4 rounded-lg border border-amber-200">
+    <h3 class="text-sm font-medium text-amber-700">Pending Total ({{ selected_month|date:"F Y" }}):</h3>
+    <p class="text-2xl font-bold text-amber-800">{{ pending_total|floatformat:2 }}
+
+    <p class="text-l font-bold text-amber-1200">Credit Note : {{ credit_note_total|floatformat:2 }}</p>
+  </div>
+  <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+    <h3 class="text-sm font-medium text-green-700">Completed Total ({{ selected_month|date:"F Y" }}):</h3>
+    <p class="text-2xl font-bold text-green-800">{{ completed_total|floatformat:2 }}</p>
+  </div>
+</div>
+
+    <!-- Content Area -->
+    <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
+      <!-- Pending Payments Content -->
+      <div id="pending-content" class="block animate-fade-in">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6">
+          <h3 class="text-lg font-semibold text-gray-800 mb-2 sm:mb-0">
+            <i class="fas fa-hourglass-half text-amber-500 mr-2"></i>
+            Pending Payments
+          </h3>
+          <span class="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-1 rounded-full inline-flex items-center justify-center w-fit">
+            <i class="fas fa-file-invoice mr-1.5"></i>
+            {{ pending_count }} payments
+          </span>
+        </div>
+
+        {% if pending_payments %}
+          <div class="space-y-3 sm:space-y-4">
+            {% for payment in pending_payments %}
+              <div class="entry-card bg-amber-50 rounded-lg border border-amber-200 overflow-hidden">
+                <div class="p-3 sm:p-4 entry-card-content flex flex-wrap justify-between items-center">
+                  <div class="flex-grow mr-2">
+                    <p class="text-gray-700 font-medium">Invoice: {{ payment.delivery_order.invoice_number }}</p>
+                    <p class="text-xs sm:text-sm text-gray-500 mt-1">Date: {{ payment.delivery_order.date }} | Due: {{ payment.due_date }}</p>
+                    <p class="text-gray-700 font-medium">Amount: {{ payment.delivery_order.amount }}</p>
+                    {% if payment.exceeded_days > 0 %}
+                      <p class="text-xs text-red-600 mt-1">
+                        <i class="fas fa-exclamation-circle mr-1"></i> Overdue by {{ payment.exceeded_days }} days
+                      </p>
+                    {% endif %}
+                  </div>
+
+                  <span class="entry-card-badge text-xs text-amber-600 bg-amber-200 px-2 py-1 rounded-md inline-block">
+                    <i class="fas fa-clock mr-1"></i> Pending
+                  </span>
+
+                  <div class="entry-card-actions mt-3 sm:mt-0 ml-auto">
+                    <a href="{% url 'customer_credit_entries' customer_id=payment.delivery_order.customer.id entry_id=payment.id %}"
+                       class="view-details-btn inline-flex items-center px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-md">
+                      <span>View Details</span>
+                      <i class="fas fa-arrow-right ml-1.5"></i>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-center py-10">
+            <div class="inline-flex items-center justify-center w-14 h-14 bg-amber-100 text-amber-500 rounded-full mb-3">
+              <i class="fas fa-folder-open text-xl"></i>
+            </div>
+            <p class="text-gray-500">No pending payments found.</p>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Completed Payments Content -->
+      <div id="completed-content" class="hidden animate-fade-in">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6">
+          <h3 class="text-lg font-semibold text-gray-800 mb-2 sm:mb-0">
+            <i class="fas fa-check-circle text-green-600 mr-2"></i>
+            Completed Payments
+          </h3>
+          <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-1 rounded-full inline-flex items-center justify-center w-fit">
+            <i class="fas fa-file-invoice mr-1.5"></i>
+            {{ completed_count }} payments
+          </span>
+        </div>
+
+        {% if completed_payments %}
+          <div class="space-y-3 sm:space-y-4">
+            {% for payment in completed_payments %}
+              <div class="entry-card bg-green-50 rounded-lg border border-green-200 overflow-hidden">
+                <div class="p-3 sm:p-4 entry-card-content flex flex-wrap justify-between items-center">
+                  <div class="flex-grow mr-2">
+                    <p class="text-gray-700 font-medium">Invoice: {{ payment.delivery_order.invoice_number }}</p>
+                    <p class="text-xs sm:text-sm text-gray-500 mt-1">Paid on: {{ payment.customer_cheque_date }}</p>
+                  </div>
+
+                  <span class="entry-card-badge text-xs text-green-700 bg-green-200 px-2 py-1 rounded-md inline-block">
+                    <i class="fas fa-check-circle mr-1"></i> Completed
+                  </span>
+
+                  <div class="entry-card-actions mt-3 sm:mt-0 ml-auto">
+                    <a href="{% url 'customer_credit_entries' customer_id=payment.delivery_order.customer.id entry_id=payment.id %}"
+                       class="view-details-btn inline-flex items-center px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-md">
+                      <span>View Details</span>
+                      <i class="fas fa-arrow-right ml-1.5"></i>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-center py-10">
+            <div class="inline-flex items-center justify-center w-14 h-14 bg-green-100 text-green-500 rounded-full mb-3">
+              <i class="fas fa-folder-open text-xl"></i>
+            </div>
+            <p class="text-gray-500">No completed payments found.</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+    <!-- <a href="{% url 'select_entries' customer_id=customer.id %}"
+   class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
+  <i class="fas fa-list-ol mr-2"></i> View Combined
+</a> -->
+  </form>
+    <!-- Footer Navigation -->
+    <div class="mt-6 text-center">
+      <a href="{% url 'customer_list' %}" class="inline-flex items-center text-gray-600 hover:text-gray-800">
+        <i class="fas fa-home mr-2"></i>
+        Return to Customers
+      </a>
+    </div>
+  </div>
+
+  <script>
+    function showPayments(type) {
+      // Update button styles
+      const pendingBtn = document.getElementById('pending-btn');
+      const completedBtn = document.getElementById('completed-btn');
+      const pendingContent = document.getElementById('pending-content');
+      const completedContent = document.getElementById('completed-content');
+
+      if (type === 'pending') {
+        // Button styles
+        pendingBtn.classList.add('bg-gradient-to-r', 'from-amber-500', 'to-orange-500', 'text-white', 'btn-active');
+        pendingBtn.classList.remove('bg-white', 'text-gray-700', 'btn-inactive', 'border', 'border-gray-200');
+
+        completedBtn.classList.add('bg-white', 'text-gray-700', 'btn-inactive', 'border', 'border-gray-200');
+        completedBtn.classList.remove('bg-gradient-to-r', 'from-green-500', 'to-emerald-500', 'text-white', 'btn-active');
+
+        // Content display
+        pendingContent.style.display = 'block';
+        completedContent.style.display = 'none';
+
+        // Animation reset
+        pendingContent.classList.remove('animate-fade-in');
+        void pendingContent.offsetWidth; // Trigger reflow
+        pendingContent.classList.add('animate-fade-in');
+      } else {
+        // Button styles
+        pendingBtn.classList.add('bg-white', 'text-gray-700', 'btn-inactive', 'border', 'border-gray-200');
+        pendingBtn.classList.remove('bg-gradient-to-r', 'from-amber-500', 'to-orange-500', 'text-white', 'btn-active');
+
+        completedBtn.classList.add('bg-gradient-to-r', 'from-green-500', 'to-emerald-500', 'text-white', 'btn-active');
+        completedBtn.classList.remove('bg-white', 'text-gray-700', 'btn-inactive', 'border', 'border-gray-200');
+
+        // Content display
+        pendingContent.style.display = 'none';
+        completedContent.style.display = 'block';
+
+        // Animation reset
+        completedContent.classList.remove('animate-fade-in');
+        void completedContent.offsetWidth; // Trigger reflow
+        completedContent.classList.add('animate-fade-in');
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,289 @@
+{% extends 'orders/base.html' %}
+
+{% block title %}DO List{% endblock %}
+
+{% block content %}
+<!-- Bootstrap CDN -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<div class="container-fluid mt-5">
+    <h1 class="text-center text-primary mb-4">Delivery Orders</h1>
+    Total DO : {{ docount }}
+<div class="d-flex justify-content-end align-items-center mb-3 gap-3 flex-wrap">
+    <!-- Pending Orders Count Badge -->
+    <div class="d-flex align-items-center">
+        <div class="badge bg-danger rounded-circle d-flex justify-content-center align-items-center"
+             style="width: 40px; height: 40px; font-size: 16px;">
+            {{pending_count}}
+        </div>
+        <span class="ms-2 fw-bold text-danger">Pending</span>
+    </div>
+    <div class="d-flex align-items-center">
+        <div class="badge bg-success rounded-circle d-flex justify-content-center align-items-center"
+             style="width: 40px; height: 40px; font-size: 16px;" id="outfordeliveryBadge">
+            {{ out_for_delivery_count }}
+        </div>
+        <span class="ms-2 fw-bold text-success">Out for Delivery</span>
+    </div>
+    <!-- Delivered Orders Count Badge -->
+    <div class="d-flex align-items-center">
+        <div class="badge bg-success rounded-circle d-flex justify-content-center align-items-center"
+             style="width: 40px; height: 40px; font-size: 16px;">
+            {{ onhold_count }}
+        </div>
+        <span class="ms-2 fw-bold text-success">on Hold</span>
+    </div>
+    <!-- Delivered Orders Count Badge -->
+    <div class="d-flex align-items-center">
+        <div class="badge bg-success rounded-circle d-flex justify-content-center align-items-center"
+             style="width: 40px; height: 40px; font-size: 16px;">
+            {{ delivered_count }}
+        </div>
+        <span class="ms-2 fw-bold text-success">Delivered</span>
+    </div>
+
+
+</div>
+
+    <!-- Search Bar
+    <div class="mb-4">
+        <input type="text" id="searchInput" placeholder="Search by DO Number, Customer Name, or Mobile... and Press Enter" class="form-control">
+    </div> -->
+
+<!-- Button Group (Top-Right) -->
+<div class="d-flex justify-content-end mb-3 gap-2">
+    <a href="{% url 'customer_frequency_analysis' %}" class="btn btn-success">💸 Customer Stats</a>
+    <a href="{% url 'password_gate' %}" class="btn btn-danger">💸 Finance</a>
+    <a href="{% url 'cancelled_do' %}" class="btn btn-primary">Update Cancelled</a>
+    <a href="{% url 'transfer_list' %}" class="btn btn-primary">Transfers</a>
+    <a href="{% url 'export_orders_to_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success ">Export to Excel</a>
+    <a href="{% url 'transfer_upload_file' %}" class="btn btn-warning ">Upload Transfers</a>
+    <a href="{% url 'upload_file' %}" class="btn btn-info">⬆️ Upload File</a>
+    <a href="https://junaiddataanalyst.pythonanywhere.com" target="_blank" class="btn btn-secondary">Stock Details</a>
+</div>
+
+<!-- Filters Section -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get">
+            <div class="row g-2 align-items-end">
+
+                <!-- From Date -->
+                <div class="col-md-auto">
+                    <label for="from_date" class="form-label mb-0">From:</label>
+                    <input type="date" name="from_date" id="from_date" value="{{ request.GET.from_date }}" class="form-control" onchange="this.form.submit()">
+                </div>
+
+                <!-- To Date -->
+                <div class="col-md-auto">
+                    <label for="to_date" class="form-label mb-0">To:</label>
+                    <input type="date" name="to_date" id="to_date" value="{{ request.GET.to_date }}" class="form-control" onchange="this.form.submit()">
+                </div>
+
+                <!-- Status -->
+                <div class="col-md-auto">
+                    <label class="form-label mb-0">Status:</label>
+                    <select name="status" class="form-select" >
+                        <option value="">All Statuses</option>
+                        <option value="Out for Delivery" {% if request.GET.status == 'Out for Delivery' %}selected{% endif %}>Out for Delivery</option>
+                        <option value="Pending" {% if request.GET.status == 'Pending' %}selected{% endif %}>Pending</option>
+                        <option value="Partial Delivery" {% if request.GET.status == 'Partial Delivery' %}selected{% endif %}>Partial Delivery</option>
+                        <!--<option value="Delivered" {% if request.GET.status == 'Delivered' %}selected{% endif %}>Delivered</option>-->
+                        <option value="Loaded" {% if request.GET.status == 'Loaded' %}selected{% endif %}>Loaded</option>
+                        <option value="Cancelled" {% if request.GET.status == 'Cancelled' %}selected{% endif %}>Cancelled</option>
+                        <option value="Received by A/c" {% if request.GET.status == 'Received by A/c' %}selected{% endif %}>Received by A/c</option>
+                        <option value="Not Delivered" {% if request.GET.status == 'Not Delivered' %}selected{% endif %}>Not Delivered</option>
+                        <option value="On Hold" {% if request.GET.status == 'On Hold' %}selected{% endif %}>On Hold</option>
+                        <option value="GRV" {% if request.GET.status == 'GRV' %}selected{% endif %}>GRV</option>
+
+                        <!-- New Combined Option -->
+                        <option value="delivered_group" {% if request.GET.status == 'delivered_group' %}selected{% endif %}>
+                        Delivered
+                        </option>
+                    </select>
+
+                </div>
+
+                <!-- Driver -->
+                <div class="col-md-auto">
+                    <label class="form-label mb-0">Driver:</label>
+                    <select name="driver" class="form-select" >
+                        <option value="">All Drivers</option>
+                        <option value="Usman" {% if request.GET.driver == 'Usman' %}selected{% endif %}>Usman</option>
+                        <option value="Sayyam" {% if request.GET.driver == 'Sayyam' %}selected{% endif %}>Sayyam</option>
+                        <option value="Nizar" {% if request.GET.driver == 'Nizar' %}selected{% endif %}>Nizar</option>
+                        <option value="Fakheer" {% if request.GET.driver == 'Fakheer' %}selected{% endif %}>Fakheer</option>
+                        <option value="Acharuddin" {% if request.GET.driver == 'Acharuddin' %}selected{% endif %}>Acharuddin</option>
+                    </select>
+                </div>
+
+                <!-- Salesman -->
+                <div class="col-md-auto">
+                    <label class="form-label mb-0">Salesman:</label>
+                    <select name="salesman" class="form-select">
+                        <option value="">All Salesmen</option>
+                        {% for salesman in salesmen %}
+                            <option value="{{ salesman }}" {% if request.GET.salesman == salesman %}selected{% endif %}>{{ salesman }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Vehicle -->
+                <div class="col-md-auto">
+                    <label class="form-label mb-0">Vehicle:</label>
+                    <select name="vehicle" class="form-select">
+                        <option value="">All Vehicles</option>
+                        {% for vehicle in vehicles %}
+                            <option value="{{ vehicle.id }}" {% if request.GET.vehicle == vehicle.id|stringformat:"s" %}selected{% endif %}>
+                                {{ vehicle.vehicle_number }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- City -->
+                <div class="col-md-auto">
+                    <label class="form-label mb-0">City:</label>
+                    <select name="city" class="form-select">
+                        <option value="">All Cities</option>
+                        {% for city in citys %}
+                            <option value="{{ city }}" {% if request.GET.city == city %}selected{% endif %}>{{ city }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Search Bar Row -->
+            <div class="row mt-3">
+                <div class="col-md-6 col-lg-4">
+                    <input type="text" name="search_query" value="{{ request.GET.search_query }}" class="form-control" placeholder="Search DO Number, Name, Mobile..." onkeydown="if(event.key === 'Enter') this.form.submit()">
+                </div>
+            </div>
+
+            <div class="col-auto mt-2">
+            <button type="submit" class="btn btn-primary">Filter</button>
+            <a href="{% url 'order_list' %}" class="btn btn-secondary">Reset</a>
+        </form>
+    </div>
+</div>
+
+    <!-- Orders Table -->
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+
+                    <th>Date</th>
+                    <th>DO Number</th>
+                    <th>Customer Name</th>
+                    <th>LPO</th>
+                    <th>Mobile</th>
+                    <th>Salesman</th>
+                    <th>Salesman Mobile</th>
+                    <th>City</th>
+                    <th>Area</th>
+                    <th>Vehicle</th>
+                    <th>Driver</th>
+                    <th>Status</th>
+                    <th>Delivered On</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="orderTableBody">
+                {% for order in orders %}
+                <tr>
+                    <td>{{ order.date }}</td>
+                    <td><a href="{% url 'do_items' order.do_number %}" class="text-decoration-none">{{ order.do_number }}</a></td>
+                    <td>{{ order.customer_name }}</td>
+                    <td>{{ order.lpo }}</td>
+                    <td>{{ order.mobile_number }}</td>
+                    <td>{{ order.salesman }}</td>
+                    <td>{{ order.salesman_mobile }}</td>
+                    <td>{{ order.city }}</td>
+                    <td>{{ order.area }}</td>
+                    <td>{{ order.vehicle }}</td>
+                    <td>{{ order.driver }}</td>
+                    <td>{{ order.status }}</td>
+                    <td>{{ order.delivery_date }}</td>
+                    <td>
+                        <a href="{% url 'update_order' order.do_number %}" class="btn btn-sm btn-primary">Edit</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination Controls -->
+    <div class="d-flex justify-content-center">
+        <nav aria-label="Page navigation">
+            <ul class="pagination">
+                {% if orders.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1&{{ request.GET.urlencode|urlencode }}">First</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ orders.previous_page_number }}&{{ request.GET.urlencode|urlencode }}">Previous</a>
+                </li>
+                {% endif %}
+
+                <li class="page-item disabled">
+                    <a class="page-link" href="#">Page {{ orders.number }} of {{ orders.paginator.num_pages }}</a>
+                </li>
+
+                {% if orders.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ orders.next_page_number }}&{{ request.GET.urlencode|urlencode }}">Next</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ orders.paginator.num_pages }}&{{ request.GET.urlencode|urlencode }}">Last</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+
+    <!-- Logout Button -->
+    <div class="text-center mt-4">
+        <a href="#" onclick="document.getElementById('logout-form').submit(); return false;" class="btn btn-danger">Logout</a>
+    </div>
+    <form id="logout-form" method="post" action="{% url 'logout' %}" style="display: none;">
+        {% csrf_token %}
+    </form>
+</div>
+
+<script>
+    function updateVisibleCounts() {
+        const rows = document.querySelectorAll('#orderTableBody tr');
+        let pendingCount = 0;
+        let deliveredCount = 0;
+        let outfordeliveryCount=0;
+
+        // Loop through all rows
+        rows.forEach(row => {
+            // Check if row is visible
+            if (window.getComputedStyle(row).display !== 'none') {
+                const status = row.cells[11]?.textContent.trim(); // Assuming status is in the 11th column (index 10)
+
+                // If status is "Pending" or "Delivered", update counts
+                if (status === 'Pending') {
+                    pendingCount++;
+                } else if (status === 'Out for Delivery') {
+                    outfordeliveryCount++;
+                }
+
+            }
+        });
+
+        // Update badge counts
+        document.getElementById('pendingBadge').textContent = pendingCount;
+        document.getElementById('deliveredBadge').textContent = deliveredCount;
+        document.getElementById('outfordeliveryBadge').textContent = outfordeliveryCount;
+    }
+
+    // Run the function after page load to count the initial values
+    document.addEventListener('DOMContentLoaded', updateVisibleCounts);
+
+    // Optionally, call the function whenever the table rows change or filter action occurs
+    </script>
+{% endblock %}

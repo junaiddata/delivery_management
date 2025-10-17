@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Verify</title>
+    <style>
+        /* General Styles */
+        body {
+            font-family: 'Poppins', Arial, sans-serif;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            color: #333;
+        }
+        h1 {
+            color: #1a237e;
+            margin-bottom: 20px;
+            font-size: 24px;
+            text-align: center;
+        }
+        .order-list {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .order-card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .order-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+        }
+        .order-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .order-card-header strong {
+            font-size: 18px;
+            color: #1a237e;
+        }
+        .order-card-details {
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .order-card-details p {
+            margin: 5px 0;
+        }
+        .order-card-details a {
+            color: #1a237e;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .order-card-details a:hover {
+            text-decoration: underline;
+        }
+        /* Mobile Responsiveness */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 20px;
+            }
+            .order-card {
+                padding: 12px;
+            }
+            .order-card-header strong {
+                font-size: 16px;
+            }
+            .order-card-details {
+                font-size: 13px;
+            }
+        }
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 18px;
+            }
+            .order-card {
+                padding: 10px;
+            }
+            .order-card-header strong {
+                font-size: 15px;
+            }
+            .order-card-details {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Verify the Loaded Orders {{vehicle.vehicle_number}}</h1>
+    <div class="order-list">
+        {% if security_orders|length == 0 %}
+            <p style="text-align: center; color: #d9534f;">No Loaded orders found.</p>
+        {% else %}
+            {% for order in security_orders %}
+            <div class="order-card">
+                <div class="order-card-header">
+                    <strong>{{ order.do_number }}</strong>
+                </div>
+                <div class="order-card-details">
+                    <p><strong>Customer Name:</strong> {{ order.customer_name }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+</body>
+</html>

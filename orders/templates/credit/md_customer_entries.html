@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>MD Customer Entries</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Modern Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Select2 -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3f37c9;
+            --accent-color: #4895ef;
+            --light-color: #f8f9fa;
+            --dark-color: #212529;
+            --success-color: #4cc9f0;
+            --warning-color: #f72585;
+            --info-color: #4361ee;
+            --border-radius: 0.5rem;
+            --box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+            --transition: all 0.3s ease;
+        }
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f5f7fa;
+            color: var(--dark-color);
+            padding: 0;
+            margin: 0;
+        }
+        
+        .page-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 2rem;
+            border-radius: var(--border-radius);
+            margin-bottom: 2rem;
+            box-shadow: var(--box-shadow);
+        }
+        
+        .header h2 {
+            margin: 0;
+            font-weight: 600;
+            font-size: 2rem;
+        }
+        
+        .search-container {
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            margin-bottom: 2rem;
+            transition: var(--transition);
+        }
+        
+        .search-container:hover {
+            transform: translateY(-5px);
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            border-radius: var(--border-radius);
+            padding: 0.5rem 1.5rem;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--secondary-color);
+            border-color: var(--secondary-color);
+            transform: translateY(-2px);
+        }
+        
+        .select2-container--default .select2-selection--single {
+            height: 38px;
+            border-radius: var(--border-radius);
+            border: 1px solid #ced4da;
+        }
+        
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 38px;
+        }
+        
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 36px;
+        }
+        
+        .customer-info {
+            background-color: var(--light-color);
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            margin-bottom: 1rem;
+            border-left: 4px solid var(--accent-color);
+        }
+        
+        .table-container {
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+        
+        .table {
+            margin-bottom: 0;
+        }
+        
+        .table thead {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .table thead th {
+            border-bottom: none;
+            font-weight: 500;
+        }
+        
+        .table tbody tr:hover {
+            background-color: rgba(67, 97, 238, 0.05);
+        }
+        
+        .entry-card {
+            border: none;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            transition: var(--transition);
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+        
+        .entry-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .entry-card .card-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: white;
+            font-weight: 500;
+            border-bottom: none;
+        }
+        
+        .entry-card .card-body {
+            padding: 1.25rem;
+        }
+        
+        .entry-card p {
+            margin-bottom: 0.5rem;
+        }
+        
+        .badge {
+            padding: 0.5rem 0.75rem;
+            border-radius: 50px;
+            font-weight: 500;
+        }
+        
+        .badge-success {
+            background-color: var(--success-color);
+            color: white;
+        }
+        
+        .badge-warning {
+            background-color: var(--warning-color);
+            color: white;
+        }
+        
+        .badge-info {
+            background-color: var(--info-color);
+            color: white;
+        }
+        
+        .no-entries {
+            background-color: white;
+            padding: 2rem;
+            border-radius: var(--border-radius);
+            text-align: center;
+            box-shadow: var(--box-shadow);
+        }
+        
+        .no-entries i {
+            font-size: 3rem;
+            color: var(--accent-color);
+            margin-bottom: 1rem;
+        }
+        
+        @media (max-width: 768px) {
+            .page-container {
+                padding: 1rem;
+            }
+            
+            .header {
+                padding: 1.5rem;
+            }
+            
+            .search-container {
+                padding: 1rem;
+            }
+            
+            .entry-card {
+                margin-bottom: 1rem;
+            }
+        }
+        
+        /* Animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease forwards;
+        }
+        
+        .delay-1 { animation-delay: 0.1s; }
+        .delay-2 { animation-delay: 0.2s; }
+        .delay-3 { animation-delay: 0.3s; }
+    </style>
+</head>
+<body>
+    <div class="page-container">
+        
+        
+        <div class="header animate-fade-in">
+            <h2><i class="fas fa-users me-2"></i> Customer Entries Dashboard</h2>
+        </div>
+        
+
+        <div class="search-container animate-fade-in delay-1">
+            <form method="POST" class="row g-3 align-items-center">
+                {% csrf_token %}
+                <div class="col-md-8">
+                    <label for="customer_id" class="form-label fw-bold"><i class="fas fa-search me-2"></i>Find Customer</label>
+                    <select name="customer_id" id="customer_id" class="form-select" style="width: 100%;">
+                        <option value="">-- Select Customer --</option>
+                        {% for customer in customers %}
+                            <option value="{{ customer.id }}"
+                                {% if selected_customer and customer.id == selected_customer.id %}selected{% endif %}>
+                                {{ customer.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-file-invoice me-2"></i>View Entries
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        {% if entries %}
+            <div class="customer-info animate-fade-in delay-2">
+                <h4><i class="fas fa-user-circle me-2"></i>{{ selected_customer.name }}</h4>
+                <p class="text-muted mb-0">Showing all financial entries</p>
+            </div>
+
+            <!-- Desktop / iPad: Table View -->
+            <div class="d-none d-md-block animate-fade-in delay-3">
+                <div class="table-container">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th><i class="fas fa-file-invoice me-2"></i>Invoice</th>
+                                <th><i class="far fa-calendar-alt me-2"></i>Date</th>
+                                <th><i class="fas fa-calendar-day me-2"></i>Due Date</th>
+                                <th><i class="fas fa-hourglass-half me-2"></i>Exceeded Days</th>
+                                <th><i class="fas fa-money-bill-wave me-2"></i>Amount</th>
+                                <th><i class="fas fa-money-check me-2"></i>Cheque Date</th>
+                                <th><i class="fas fa-info-circle me-2"></i>Status</th>
+                                <th><i class="fas fa-comment me-2"></i>Remark</th>
+                                <th><i class="fas fa-check-circle me-2"></i>Payment</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for entry in entries %}
+                                <tr>
+                                    <td class="fw-bold">{{ entry.delivery_order.invoice_number }}</td>
+                                    <td>{{ entry.delivery_order.date }}</td>
+                                    <td>{{ entry.due_date }}</td>
+                                    <td>
+                                        {% if entry.exceeded_days > 0 %}
+                                            <span class="badge bg-danger">{{ entry.exceeded_days }} days</span>
+                                        {% else %}
+                                            <span class="badge bg-success">On time</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ entry.delivery_order.amount }}</td>
+                                    <td>{{ entry.customer_cheque_date|default:"—" }}</td>
+                                    <td>
+                                        {% if entry.status_of_approval == "Approved" %}
+                                            <span class="badge bg-success">{{ entry.status_of_approval }}</span>
+                                        {% elif entry.status_of_approval == "Pending" %}
+                                            <span class="badge bg-warning">{{ entry.status_of_approval }}</span>
+                                        {% else %}
+                                            <span class="badge bg-info">{{ entry.status_of_approval }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ entry.remark|default:"—" }}</td>
+                                    <td>
+                                        {% if entry.payment_received %}
+                                            <span class="badge bg-success"><i class="fas fa-check me-1"></i> Received</span>
+                                        {% else %}
+                                            <span class="badge bg-danger"><i class="fas fa-times me-1"></i> Pending</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Mobile: Card View -->
+            <div class="d-md-none animate-fade-in delay-3">
+                {% for entry in entries %}
+                    <div class="card entry-card">
+                        <div class="card-header">
+                            <i class="fas fa-file-invoice me-2"></i>Invoice: {{ entry.delivery_order.invoice_number }}
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-6">
+                                    <p><i class="far fa-calendar-alt me-2"></i><strong>Date:</strong><br>{{ entry.delivery_order.date }}</p>
+                                </div>
+                                <div class="col-6">
+                                    <p><i class="fas fa-calendar-day me-2"></i><strong>Due Date:</strong><br>{{ entry.due_date }}</p>
+                                </div>
+                            </div>
+                            
+                            <div class="row mt-2">
+                                <div class="col-6">
+                                    <p><i class="fas fa-hourglass-half me-2"></i><strong>Exceeded:</strong><br>
+                                        {% if entry.exceeded_days > 0 %}
+                                            <span class="badge bg-danger">{{ entry.exceeded_days }} days</span>
+                                        {% else %}
+                                            <span class="badge bg-success">On time</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                                <div class="col-6">
+                                    <p><i class="fas fa-money-check me-2"></i><strong>Cheque Date:</strong><br>{{ entry.customer_cheque_date|default:"—" }}</p>
+                                </div>
+                                <div class="col-6">
+                                    <p><i class="fas fa-money-check me-2"></i><strong>Amount</strong><br>{{ entry.delivery_order.amount|default:"—" }}</p>
+                                </div>
+                            </div>
+                            
+                            <div class="row mt-2">
+                                <div class="col-6">
+                                    <p><i class="fas fa-info-circle me-2"></i><strong>Status:</strong><br>
+                                        {% if entry.status_of_approval == "Approved" %}
+                                            <span class="badge bg-success">{{ entry.status_of_approval }}</span>
+                                        {% elif entry.status_of_approval == "Pending" %}
+                                            <span class="badge bg-warning">{{ entry.status_of_approval }}</span>
+                                        {% else %}
+                                            <span class="badge bg-info">{{ entry.status_of_approval }}</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                                <div class="col-6">
+                                    <p><i class="fas fa-check-circle me-2"></i><strong>Payment:</strong><br>
+                                        {% if entry.payment_received %}
+                                            <span class="badge bg-success"><i class="fas fa-check me-1"></i> Received</span>
+                                        {% else %}
+                                            <span class="badge bg-danger"><i class="fas fa-times me-1"></i> Pending</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            {% if entry.remark %}
+                                <div class="mt-3 p-2 bg-light rounded">
+                                    <p class="mb-0"><i class="fas fa-comment me-2"></i><strong>Remark:</strong> {{ entry.remark }}</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% elif selected_customer %}
+            <div class="no-entries animate-fade-in delay-2">
+                <i class="fas fa-folder-open"></i>
+                <h4>No Entries Found</h4>
+                <p class="text-muted">There are no financial entries for {{ selected_customer.name }}</p>
+            </div>
+        {% endif %}
+    </div>
+    
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#customer_id').select2({
+                placeholder: "Search for a customer...",
+                allowClear: true,
+                width: '100%',
+                theme: "classic"
+            });
+            
+            // Add animation classes when content loads
+            setTimeout(function() {
+                $('.animate-fade-in').css('opacity', '1');
+            }, 100);
+        });
+    </script>
+</body>
+</html>

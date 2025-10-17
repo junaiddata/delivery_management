@@ -1,0 +1,72 @@
+{% extends 'orders/base.html' %}
+
+{% block title %}Driver Vehicle Selection{% endblock %}
+
+{% block content %}
+    <style>
+        body {
+            font-family: 'Poppins', Arial, sans-serif;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            color: #333;
+        }
+        h1 {
+            color: #007bff;
+            margin-bottom: 20px;
+            font-size: 24px;
+            text-align: center;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+            width: 100%;
+            max-width: 400px;
+        }
+        li {
+            margin-bottom: 15px;
+        }
+        a {
+            display: block;
+            padding: 15px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+            transition: background-color 0.3s, transform 0.3s;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        a:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+        
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 20px;
+            }
+            a {
+                font-size: 14px;
+                padding: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Select Your Vehicle</h1>
+    <ul>
+        {% for vehicle in vehicles %}
+        <li>
+            <a href="{% url 'update_do_status' vehicle.id %}">{{ vehicle.vehicle_number }}</a>
+        </li>
+        {% endfor %}
+    </ul>
+</body>
+{% endblock %}

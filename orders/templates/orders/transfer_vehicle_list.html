@@ -1,0 +1,71 @@
+{% extends 'orders/base.html' %}
+
+{% block title %}Warehouse Load{% endblock %}
+
+{% block content %}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transfer Vehicle List</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            flex-direction: column;
+        }
+        table {
+            width: 100%;
+            max-width: 600px;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #04570a;
+            color: white;
+        }
+        tr:hover {
+            background-color: #e8eaf6;
+        }
+        a {
+            color: #02532c;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h1>TRANSFER Vehicle List</h1>
+    
+    <table>
+        <a href="{% url 'vehicle_list' %}" class="btn btn-secondary rounded-pill px-4">Back to DO Vehicle List</a>
+        <tr>
+            <th>Vehicle Number</th>
+            <th>Actions</th>
+        </tr>
+        {% for vehicle in vehicles %}
+        <tr>
+            <td>{{ vehicle.vehicle_number }}</td>
+            <td>
+                <a href="{% url 'transfer_update_vehicle' vehicle.id %}">Edit</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    
+</body>
+{% endblock %}*

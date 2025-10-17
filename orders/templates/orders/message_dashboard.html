@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Messages Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f4f4f4; }
+    </style>
+</head>
+<body>
+
+    <h2>📩 Customer Replies</h2>
+    <table>
+        <tr>
+            <th>Sender</th>
+            <th>Message</th>
+            <th>Received At</th>
+        </tr>
+        {% for reply in customer_replies %}
+        <tr>
+            <td>{{ reply.sender }}</td>
+            <td>{{ reply.text_body }}</td>
+            <td>{{ reply.timestamp }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <h2>✅ Message Status</h2>
+    <table>
+        <tr>
+            <th>Recipient</th>
+            <th>Message ID</th>
+            <th>Status</th>
+            <th>Timestamp</th>
+        </tr>
+        {% for status in message_statuses %}
+        <tr>
+            <td>{{ status.recipient_id }}</td>
+            <td>{{ status.message_id }}</td>
+            <td>{{ status.status }}</td>
+            <td>{{ status.timestamp }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+</body>
+</html>

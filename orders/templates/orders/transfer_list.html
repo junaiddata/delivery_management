@@ -1,0 +1,115 @@
+{% extends 'orders/base.html' %}
+
+{% block title %}Transfer Orders{% endblock %}
+
+{% block content %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<div class="container mt-5">
+    <h2 class="text-center text-primary mb-4" >Transfer Orders</h2>
+
+    <!-- Filter Form -->
+    <form method="get" class="row gy-2 gx-3 align-items-center mb-4">
+        <div class="col-sm-2">
+            <input type="date" class="form-control" name="from_date" value="{{ request.GET.from_date }}" placeholder="From Date">
+        </div>
+        <div class="col-sm-2">
+            <input type="date" class="form-control" name="to_date" value="{{ request.GET.to_date }}" placeholder="To Date">
+        </div>
+        <div class="col-sm-2">
+            <input type="date" class="form-control" name="date" value="{{ request.GET.date }}" placeholder="Exact Date">
+        </div>
+        <!--<div class="col-sm-2">-->
+        <!--    <select class="form-select" name="status">-->
+        <!--        <option value="">All Statuses</option>-->
+        <!--        <option value="Pending" {% if request.GET.status == 'Pending' %}selected{% endif %}>Pending</option>-->
+        <!--        <option value="Delivered" {% if request.GET.status == 'Delivered' %}selected{% endif %}>Delivered</option>-->
+        <!--    </select>-->
+        <!--</div>-->
+        <!--<div class="col-sm-2">-->
+        <!--    <select class="form-select" name="driver">-->
+        <!--        <option value="">All Drivers</option>-->
+        <!--        <option value="Usman" {% if request.GET.driver == 'Usman' %}selected{% endif %}>Usman</option>-->
+        <!--        <option value="Acharuddin" {% if request.GET.driver == 'Acharuddin' %}selected{% endif %}>Acharuddin</option>-->
+        <!--        <option value="Fakheer" {% if request.GET.driver == 'Fakheer' %}selected{% endif %}>Fakheer</option>-->
+        <!--        <option value="Nizar" {% if request.GET.driver == 'Nizar' %}selected{% endif %}>Nizar</option>-->
+        <!--        <option value="Sayyam" {% if request.GET.driver == 'Sayyam' %}selected{% endif %}>Sayyam</option>-->
+        <!--        <option value="Mukarram" {% if request.GET.driver == 'Mukarram' %}selected{% endif %}>Mukarram</option>-->
+        <!--    </select>-->
+        <!--</div>-->
+        <!--<div class="col-sm-2">-->
+        <!--    <select class="form-select" name="vehicle">-->
+        <!--        <option value="">All Vehicles</option>-->
+        <!--        {% for vehicle in vehicles %}-->
+        <!--            <option value="{{ vehicle.id }}" {% if vehicle.id|stringformat:"s" == selected_vehicle %}selected{% endif %}>{{ vehicle.vehicle_number }}</option>-->
+        <!--        {% endfor %}-->
+        <!--    </select>-->
+        <!--</div>-->
+        <div class="col-sm-3 mt-2">
+            <input type="text" class="form-control" name="search_query" placeholder="Search by Transfer No / Vehicle" >
+        </div>
+        <div class="col-auto mt-2">
+            <button type="submit" class="btn btn-primary">Filter</button>
+            <a href="{% url 'transfer_list' %}" class="btn btn-secondary">Reset</a>
+        </div>
+    </form>
+    <a href="{% url 'order_list' %}">Back to Orders List</a>
+    <!-- Table -->
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th scope="col">Transfer No</th>
+                    <th scope="col">Date</th>
+                    <th scope="col">Warehouse</th>
+                    <!--<th scope="col">Driver</th>-->
+                    <!--<th scope="col">Vehicle</th>-->
+                    <!--<th scope="col">Status</th>-->
+                </tr>
+            </thead>
+            <tbody>
+                {% for transfer in transfers %}
+                <tr>
+                    <td>{{ transfer.t_number }}</td>
+                    <td>{{ transfer.date }}</td>
+                    <td>{{ transfer.city }}</td>
+                <!--    <td>{{ transfer.driver }}</td>-->
+                <!--    <td>    {% if transfer.vehicle %}-->
+                <!--        {{ transfer.vehicle.vehicle_number }}-->
+                <!--    {% else %}-->
+                <!--        --->
+                <!--    {% endif %}-->
+                <!--</td</td>-->
+                <!--    <td>-->
+                <!--        <span class="badge {% if transfer.status == 'Delivered' %}bg-success{% else %}bg-warning text-dark{% endif %}">-->
+                <!--            {{ transfer.status }}-->
+                <!--        </span>-->
+                <!--    </td>-->
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted">No transfer orders found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if transfers.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ transfers.previous_page_number }}">Previous</a>
+                </li>
+            {% endif %}
+            <li class="page-item active"><span class="page-link">{{ transfers.number }}</span></li>
+            {% if transfers.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if request.GET %}{{ request.GET.urlencode }}&{% endif %}page={{ transfers.next_page_number }}">Next</a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+{% endblock %}

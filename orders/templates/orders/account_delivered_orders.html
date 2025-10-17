@@ -1,0 +1,180 @@
+{% extends 'orders/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">📦 Delivered Orders - Accounts Department</h2>
+
+    <!-- Bootstrap CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- View Received Orders Button -->
+    <a href="{% url 'received_list' %}" class="btn btn-primary mb-3">📜 View All Received Orders</a>
+
+    <!-- Filter and Search Form -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <!-- Search Input -->
+                <div class="col-md-6">
+                    <input type="text" name="search" class="form-control"
+                           placeholder="🔍 Search DO Number, Customer, Salesman..."
+                           value="{{ search_query }}">
+                </div>
+
+                <!-- Status Filter -->
+                <div class="col-md-4">
+                    <select name="status" class="form-select">
+                        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Statuses</option>
+                        {% for value, label in status_choices %}
+                            {% if value != 'Received by A/c' and value != 'Cancelled' %}
+                            <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Form Buttons -->
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">Apply</button>
+                    <a href="?" class="btn btn-outline-secondary">Reset</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Orders Count Badge -->
+    <div class="d-flex justify-content-end align-items-center mb-3 gap-3 flex-wrap">
+        <div class="d-flex align-items-center">
+            <div class="badge bg-success rounded-circle d-flex justify-content-center align-items-center"
+                 style="width: 40px; height: 40px; font-size: 16px;">
+                 {{ delivered_count }}
+            </div>
+            <span class="ms-2 fw-bold text-success">Remaining to Receive</span>
+        </div>
+    </div>
+
+    <!-- Orders Table -->
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover" id="ordersTable">
+            <thead class="table-dark">
+                <tr>
+                    <th>DO Number</th>
+                    <th> Invoice No.</th>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th>Salesman</th>
+                    <th>Driver</th>
+                    <th>Delivery Date</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in orders %}
+                <tr>
+                    <td>{{ order.do_number }}</td>
+                    <td> {{ order.invoice_number }}   </td>
+                    <td>{{ order.date }}</td>
+                    <td>{{ order.customer_name }}</td>
+                    <td>{{ order.salesman }}</td>
+                    <td>{{ order.driver }}</td>
+                    <td>{{ order.delivery_date|date:"d M Y, h:i A" }}</td>
+                    <td>
+                        <span class="badge
+                            {% if order.status == 'Delivered' %}bg-success
+                            {% elif order.status == 'Pending' %}bg-warning text-dark
+                            {% elif order.status == 'Not Delivered' %}bg-danger
+                            {% elif order.status == 'Partial Delivery' %}bg-info
+                            {% elif order.status == 'Out for Delivery' %}bg-primary
+                            {% elif order.status == 'Loaded' %}bg-secondary
+                            {% else %}bg-light text-dark{% endif %}">
+                            {{ order.status }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if order.status != 'Received by A/c' and order.status != 'Cancelled' %}
+                            <form method="post" action="{% url 'mark_received_by_accounts' order.id %}" onsubmit="return confirmStatusChange();">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-warning">✅ Mark as Received</button>
+                            </form>
+                        {% else %}
+                            <span class="text-success fw-bold">✔ Received by A/c</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center text-danger">
+                        No orders found{% if search_query %} matching "{{ search_query }}"{% endif %}
+                        {% if status_filter != 'all' %} with status "{{ status_filter }}"{% endif %}.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    <nav aria-label="Page navigation">
+        <ul class="pagination justify-content-center">
+            {% if orders.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}">
+                        &laquo;&laquo; First
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ orders.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}">
+                        &laquo; Previous
+                    </a>
+                </li>
+            {% endif %}
+
+            <li class="page-item disabled">
+                <span class="page-link">Page {{ orders.number }} of {{ orders.paginator.num_pages }}</span>
+            </li>
+
+            {% if orders.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ orders.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}">
+                        Next &raquo;
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ orders.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}">
+                        Last &raquo;&raquo;
+                    </a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+
+<!-- JavaScript for Confirmation -->
+<script>
+    function confirmStatusChange() {
+        return confirm("Are you sure you want to mark this order as 'Received by A/c'?");
+    }
+</script>
+
+<style>
+    /* Custom badge colors */
+    .bg-warning.text-dark {
+        color: #212529 !important;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .d-flex.flex-wrap {
+            justify-content: center !important;
+        }
+
+        .form-select, .form-control {
+            margin-bottom: 10px;
+        }
+    }
+</style>
+{% endblock %}

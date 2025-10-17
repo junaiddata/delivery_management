@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Update Vehicle</title>
+    <style>
+        body {
+            font-family: 'Poppins', Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        h1 {
+            color: #0c6421;
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        form {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 800px;
+        }
+        label {
+            font-weight: bold;
+            display: block;
+            margin: 10px 0 5px;
+        }
+        select {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .basket-container {
+            display: flex;
+            gap: 20px;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        .basket {
+            background: linear-gradient(135deg, #c8e6c9, #a5d6a7);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            width: 48%;
+            min-height: 300px;
+            position: relative;
+        }
+        .basket h3 {
+            text-align: center;
+            font-size: 18px;
+            color: #1b5e20;
+            margin-bottom: 15px;
+        }
+        .basket::before {
+            content: '🚚';
+            font-size: 48px;
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0.8;
+        }
+        .available-orders {
+            background: linear-gradient(135deg, #b7bc1f, #a1bc19);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            width: 48%;
+            min-height: 300px;
+        }
+        .available-orders h3 {
+            text-align: center;
+            font-size: 18px;
+            color: #b71c1c;
+            margin-bottom: 15px;
+        }
+        .order-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+        .order-item {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 12px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 120px;
+            text-align: center;
+            font-size: 14px;
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .order-item:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        .order-item strong {
+            font-size: 16px;
+            color: #1a237e;
+            margin-bottom: 5px;
+            display: block;
+        }
+        .order-item span {
+            font-size: 12px;
+            color: #555;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #1a237e;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-top: 20px;
+        }
+        button:hover {
+            background-color: #3949ab;
+        }
+        a {
+            display: block;
+            text-align: center;
+            margin-top: 15px;
+            font-size: 16px;
+            color: #1a237e;
+            font-weight: bold;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        @media (max-width: 768px) {
+            .basket-container {
+                flex-direction: column;
+                gap: 20px;
+            }
+            .basket, .available-orders {
+                width: 100%;
+            }
+        }
+
+        .search-bar {
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 300px;
+        }
+        .search-bar input {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Update Vehicle: {{ vehicle.vehicle_number }}</h1>
+    <!--                                                                                                                                                                                                                                                                                                                                                                                                                                                                  -->
+    *Click on save changes after loading.
+    
+    <form method="post" id="updateForm">
+        {% csrf_token %}
+        
+        <label for="driver">Select Driver:</label>
+        <select name="driver" id="driver">
+            <option value="">Select a driver</option>
+            {% for value, name in drivers %}
+            <option value="{{ value }}" {% if assigned_orders and assigned_orders.first.driver == value %}selected{% endif %}>
+                {{ name }}
+            </option>
+            {% endfor %}
+        </select>
+
+        <!-- Search Bar -->
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="Search for DO number..." />
+        </div>
+
+        
+
+        <div class="basket-container">
+            <!-- Assigned Orders (Basket) -->
+            <div class="basket">
+                <h3>Assigned Transfer Orders</h3>
+                <div class="order-grid" id="assignedOrdersGrid">
+                    {% for order in assigned_orders %}
+                    <div class="order-item assigned" data-do-number="{{ order.t_number }}">
+                        <strong>{{ order.t_number }}</strong>
+                        <span>{{ order.city }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Available Orders -->
+            <div class="available-orders">
+                <h3>Available Transfer Orders</h3>
+                <div class="order-grid" id="availableOrdersGrid">
+                    {% for order in available_orders %}
+                    <div class="order-item available" data-do-number="{{ order.t_number }}">
+                        <strong>{{ order.t_number }}</strong>
+                        <span>{{ order.city }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <button type="submit">Save Changes</button>
+    </form>
+    <a href="{% url 'vehicle_list' %}">Back to Vehicle List</a>
+    <script>
+        // Function to move an order between sections
+        function moveOrder(orderElement, targetContainerId) {
+            const targetContainer = document.getElementById(targetContainerId);
+            targetContainer.appendChild(orderElement);
+
+            // Toggle classes to reflect the new state
+            if (targetContainerId === "assignedOrdersGrid") {
+                orderElement.classList.remove("available");
+                orderElement.classList.add("assigned");
+            } else if (targetContainerId === "availableOrdersGrid") {
+                orderElement.classList.remove("assigned");
+                orderElement.classList.add("available");
+            }
+        }
+
+        // Add click event listeners to all order items
+        document.querySelectorAll('.order-item').forEach(order => {
+            order.addEventListener('click', function () {
+                const doNumber = this.getAttribute('data-do-number');
+                const isAssigned = this.classList.contains('assigned');
+
+                // Move the order to the opposite section
+                if (isAssigned) {
+                    moveOrder(this, "availableOrdersGrid");
+                } else {
+                    moveOrder(this, "assignedOrdersGrid");
+                }
+            });
+        });
+
+        // Handle form submission to send updated data to the server
+        document.getElementById('updateForm').addEventListener('submit', function (event) {
+            // Collect assigned DO numbers
+            const assignedDOs = Array.from(document.querySelectorAll('#assignedOrdersGrid .order-item'))
+                .map(order => order.getAttribute('data-do-number'));
+
+            // Create a hidden input for assigned DO numbers
+            const assignedInput = document.createElement('input');
+            assignedInput.type = 'hidden';
+            assignedInput.name = 't_numbers'; // Use 'do_numbers' to match the backend
+            assignedInput.value = assignedDOs.join(','); // Send as a comma-separated string
+            this.appendChild(assignedInput);
+
+            // No need to send available DO numbers to the server
+        });
+
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('input', function () {
+            const searchTerm = this.value.trim().toLowerCase();
+
+            // Filter orders in both grids
+            document.querySelectorAll('.order-grid .order-item').forEach(order => {
+                const doNumber = order.querySelector('strong').textContent.toLowerCase();
+                const customerName = order.querySelector('span').textContent.toLowerCase();
+
+                // Show or hide the order based on the search term
+                if (doNumber.includes(searchTerm) || customerName.includes(searchTerm)) {
+                    order.style.display = '';
+                } else {
+                    order.style.display = 'none';
+                }
+            });
+        });
+    </script>

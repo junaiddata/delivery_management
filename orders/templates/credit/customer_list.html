@@ -1,0 +1,368 @@
+<!-- templates/credit/customer_list.html -->
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Customer Payment Status</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            200: '#c7d2fe',
+                            300: '#a5b4fc',
+                            400: '#818cf8',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            800: '#3730a3',
+                            900: '#312e81',
+                        }
+                    },
+                    animation: {
+                        'fade-in-up': 'fadeInUp 0.5s ease-out forwards',
+                    },
+                    keyframes: {
+                        fadeInUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                    },
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f9fafb;
+        }
+
+        .customer-card {
+            transition: all 0.3s ease;
+            opacity: 0;
+        }
+
+        .customer-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        /* Animation for staggered card entrance */
+        .animate-cards .customer-card {
+            animation: fadeInUp 0.5s ease-out forwards;
+        }
+
+        .customer-card:nth-child(1) { animation-delay: 0.3s; }
+        .customer-card:nth-child(2) { animation-delay: 0.4s; }
+        .customer-card:nth-child(3) { animation-delay: 0.5s; }
+        .customer-card:nth-child(4) { animation-delay: 0.6s; }
+        .customer-card:nth-child(5) { animation-delay: 0.7s; }
+        .customer-card:nth-child(6) { animation-delay: 0.8s; }
+        .customer-card:nth-child(7) { animation-delay: 0.9s; }
+        .customer-card:nth-child(8) { animation-delay: 1.0s; }
+        .customer-card:nth-child(9) { animation-delay: 1.1s; }
+        /* Add more if needed */
+
+        @keyframes fadeInUp {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-delay-1 { animation-delay: 0.1s; }
+        .animate-delay-2 { animation-delay: 0.2s; }
+        .animate-delay-3 { animation-delay: 0.3s; }
+        .animate-delay-4 { animation-delay: 0.4s; }
+        .animate-delay-5 { animation-delay: 0.5s; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-gray-100 text-gray-800 min-h-screen">
+    <div class="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
+        <!-- Navbar with Logout Button -->
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mb-8">
+    <div class="flex justify-between items-center">
+      <div class="flex items-center space-x-3">
+        <img src="https://junaidworld.com/wp-content/uploads/2023/09/footer-logo.png" alt="Company Logo" class="h-10">
+      </div>
+
+      <form method="post" action="{% url 'logout' %}">
+        {% csrf_token %}
+        <button type="submit" class="logout-btn flex items-center space-x-2 bg-gradient-to-r from-rose-500 to-pink-600 text-white px-4 py-2 rounded-lg shadow-md hover:from-rose-600 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-opacity-50">
+          <span class="lock-icon">🔐</span>
+          <span class="font-medium">Logout</span>
+        </button>
+      </form>
+      <a href="{% url 'bulk_upload_credit_notes' %}"
+   class="bg-yellow-500 text-white px-3 py-1 rounded text-sm">
+   Upload Credit Note
+</a>
+    </div>
+  </div>
+        <!-- Header Section -->
+        <div class="mb-8 text-center">
+            <div class="inline-block p-1 bg-gradient-to-r from-primary-500 to-primary-700 rounded-full mb-3">
+                <div class="bg-white p-2 rounded-full">
+                    <i class="fas fa-users text-primary-600 text-xl"></i>
+                </div>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-bold text-primary-700 mb-2">Customer Payment Status</h1>
+            <p class="text-gray-500 max-w-md mx-auto">View and manage payment status for all your customers</p>
+        </div>
+
+        <!-- Stats Overview -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 animate-card animate-delay-1">
+            <div class="bg-white rounded-xl shadow-md p-4 border border-gray-100">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500 font-medium">Total Customers</p>
+                        <p class="text-2xl font-bold text-gray-800">{{ customers|length }}</p>
+                    </div>
+                    <div class="bg-primary-100 p-3 rounded-lg">
+                        <i class="fas fa-users text-primary-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-md p-4 border border-gray-100">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500 font-medium">Active</p>
+                        <p class="text-2xl font-bold text-green-600">
+                            {{ active_customers_count | default:0}}
+                        </p>
+                    </div>
+                    <div class="bg-green-100 p-3 rounded-lg">
+                        <i class="fas fa-check-circle text-green-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-md p-4 border border-gray-100">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500 font-medium">One time Customers</p>
+                        <p class="text-2xl font-bold text-amber-600">{{one_time_customers_count}}</p>
+                    </div>
+                    <div class="bg-amber-100 p-3 rounded-lg">
+                        <i class="fas fa-hourglass-half text-amber-600"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-md p-4 border border-gray-100">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500 font-medium">All Month Customers</p>
+                        <p class="text-2xl font-bold text-gray-800">
+                            <span id="cust-count">{{ cached.count_every_month }}</span>
+                        </p>
+                        <button onclick="refreshCount()">🔄 Refresh</button>
+
+                    </div>
+                    <div class="bg-blue-100 p-3 rounded-lg">
+                        <i class="fas fa-calendar-alt text-blue-600"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+       <!-- Search Section -->
+<div class="bg-white rounded-xl shadow-md p-4 sm:p-6 mb-8">
+  <form method="get" class="grid gap-3 sm:grid-cols-4">
+    <!-- 1) Customer Name (always visible) -->
+    <div class="relative sm:col-span-2">
+      <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        <i class="fas fa-search text-gray-400"></i>
+      </div>
+      <input
+        type="text"
+        name="q"
+        value="{{ query }}"
+        placeholder="Search by customer name..."
+        class="block w-full pl-10 pr-3 py-3 rounded-lg border border-gray-300 focus:ring-primary-500 focus:border-primary-500 transition-all"
+      >
+    </div>
+
+    {# 2) Only for Collection/Admin: dropdown filters #}
+    {% if user_role != 'Salesman' %}
+      <!-- Salesman Dropdown -->
+      <div>
+        <select name="salesman"
+                class="block w-full px-3 py-3 rounded-lg border border-gray-300 focus:ring-primary-500 focus:border-primary-500 transition-all">
+          <option value="">All Salesmen</option>
+          {% for sm in salesmen %}
+            <option value="{{ sm }}" {% if salesman == sm %}selected{% endif %}>{{ sm }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Area Dropdown -->
+      <div>
+        <select name="area"
+                class="block w-full px-3 py-3 rounded-lg border border-gray-300 focus:ring-primary-500 focus:border-primary-500 transition-all">
+          <option value="">All Areas</option>
+          {% for ar in areas %}
+            <option value="{{ ar }}" {% if area == ar %}selected{% endif %}>{{ ar }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    {% endif %}
+
+    <!-- 3) Submit Button (always visible) -->
+    <div class="{% if user_role != 'Salesman' %}sm:col-span-1{% endif %}">
+      <button
+        type="submit"
+        class="w-full bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-lg transition-all flex items-center justify-center gap-2 font-medium"
+      >
+        <i class="fas fa-filter"></i>
+        <span>Search</span>
+      </button>
+    </div>
+  </form>
+</div>
+        <!-- Customer List -->
+        {% if customers %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 animate-cards">
+            {% for customer in customers %}
+            <div class="customer-card bg-white rounded-xl shadow-md overflow-hidden border border-gray-200 flex flex-col">
+                <div class="p-4 sm:p-5 flex-grow">
+                    <div class="flex justify-between items-start mb-3">
+                        <div class="flex items-center">
+                            <div class="bg-primary-100 rounded-full w-10 h-10 flex items-center justify-center mr-3">
+                                <span class="text-primary-700 font-semibold">{{ customer.name|slice:":1" }}</span>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-800">{{ customer.name }}</h3>
+                                <p class="text-sm text-gray-500">ID: #{{ customer.id }}</p>
+                            </div>
+                        </div>
+                        <span class="bg-primary-100 text-primary-700 text-xs font-medium px-2.5 py-1 rounded-full">
+                            {{ customer.credit_limit }} days
+                        </span>
+                    </div>
+
+                    <div class="space-y-2 mb-4">
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-500">Credit Limit:</span>
+                            <span class="text-sm font-medium text-gray-800">{{ customer.credit_limit_amount }} AED</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-500">Pending Payments:</span>
+                            <span class="text-sm font-medium text-amber-600"> {{ customer.pending_counts_customer|default:0 }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-500">Frequency(3):</span>
+                            <span class="text-sm font-medium text-green-600">{{ customer.frequency_last_3_months }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <a href="{% url 'payment_status_by_customer' customer.id %}"
+                   class="block bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white p-3 text-center transition-all">
+                    <div class="flex items-center justify-center gap-2">
+                        <i class="fas fa-wallet"></i>
+                        <span class="font-medium">View Payment Status</span>
+                    </div>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% else %}
+        <div class="bg-white rounded-xl shadow-md p-8 text-center animate-card animate-delay-3">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
+                <i class="fas fa-users text-gray-400 text-2xl"></i>
+            </div>
+            <h3 class="text-xl font-medium text-gray-800 mb-2">No Customers Found</h3>
+            <p class="text-gray-500 mb-4">We couldn't find any customers matching your search criteria.</p>
+            <a href="{% url 'customer_list' %}" class="inline-flex items-center text-primary-600 hover:text-primary-700">
+                <i class="fas fa-arrow-left mr-2"></i> Clear search filters
+            </a>
+        </div>
+        {% endif %}
+
+        <!-- Pagination (if needed) -->
+        {% if customers.has_other_pages %}
+        <div class="mt-8 flex justify-center animate-card animate-delay-5">
+            <nav class="inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                {% if customers.has_previous %}
+                <a href="?page={{ customers.previous_page_number }}{% if query %}&q={{ query }}{% endif %}" class="relative inline-flex items-center px-3 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                    <i class="fas fa-chevron-left text-xs"></i>
+                </a>
+                {% else %}
+                <span class="relative inline-flex items-center px-3 py-2 rounded-l-md border border-gray-300 bg-gray-100 text-sm font-medium text-gray-400 cursor-not-allowed">
+                    <i class="fas fa-chevron-left text-xs"></i>
+                </span>
+                {% endif %}
+
+                {% for i in customers.paginator.page_range %}
+                    {% if customers.number == i %}
+                    <span class="relative inline-flex items-center px-4 py-2 border border-primary-500 bg-primary-50 text-sm font-medium text-primary-600">
+                        {{ i }}
+                    </span>
+                    {% else %}
+                    <a href="?page={{ i }}{% if query %}&q={{ query }}{% endif %}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                        {{ i }}
+                    </a>
+                    {% endif %}
+                {% endfor %}
+
+                {% if customers.has_next %}
+                <a href="?page={{ customers.next_page_number }}{% if query %}&q={{ query }}{% endif %}" class="relative inline-flex items-center px-3 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                    <i class="fas fa-chevron-right text-xs"></i>
+                </a>
+                {% else %}
+                <span class="relative inline-flex items-center px-3 py-2 rounded-r-md border border-gray-300 bg-gray-100 text-sm font-medium text-gray-400 cursor-not-allowed">
+                    <i class="fas fa-chevron-right text-xs"></i>
+                </span>
+                {% endif %}
+            </nav>
+        </div>
+        {% endif %}
+        <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit">Logout</button>
+        </form>
+    </div>
+
+    <!-- Script to add animation class after page loads -->
+    <!-- Script to animate cards with staggered delay -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add custom staggered animation to customer cards
+            const cards = document.querySelectorAll('.customer-card');
+            cards.forEach((card, index) => {
+                card.classList.add('animate-card');
+                card.style.animationDelay = `${0.3 + (index * 0.1)}s`;
+            });
+        });
+
+                function refreshCount() {
+    fetch("/refresh-customer-stats/")
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("cust-count").innerText = data.count;
+      });
+}
+
+    </script>
+</body>
+</html>

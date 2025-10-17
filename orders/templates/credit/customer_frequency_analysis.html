@@ -1,0 +1,106 @@
+{% extends "orders/base.html" %}
+{% block content %}
+<h2>Customer Frequency Analysis</h2>
+
+<!-- ✅ DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+
+<!-- ✅ jQuery + DataTables JS -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+
+<form method="get" class="mb-3" style="display:flex; gap:15px; align-items:center; flex-wrap:wrap;">
+    <label>Start Month:</label>
+    <input type="month" name="start" value="{{ start }}" style="padding:5px;">
+    <label>End Month:</label>
+    <input type="month" name="end" value="{{ end }}" style="padding:5px;">
+    <label>Salesman:</label>
+    <select name="salesman" style="padding:5px;">
+        <option value="">-- All --</option>
+        {% for s in salesmen %}
+            <option value="{{ s }}" {% if s == selected_salesman %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" style="padding:6px 12px;">Filter</button>
+</form>
+
+<!-- ✅ Stats Bar -->
+<div class="stats-bar" style="
+    display:flex; 
+    gap:20px; 
+    margin-bottom:20px; 
+    flex-wrap:wrap;
+    justify-content:flex-start;
+">
+    <div style="padding:10px; background:#f0f8ff; border-radius:8px;">
+        🟢 <b>One-Month Customers:</b> {{ stats.one_month }}
+    </div>
+    <div style="padding:10px; background:#e6f7ff; border-radius:8px;">
+        🔵 <b>Two-Month Customers:</b> {{ stats.two_month }}
+    </div>
+    <div style="padding:10px; background:#e8f5e9; border-radius:8px;">
+        🟠 <b>All-Month Customers:</b> {{ stats.all_month }}
+    </div>
+    <div style="padding:10px; background:#fff3e0; border-radius:8px;">
+        ⚪ <b>One-Time Orders:</b> {{ stats.one_time }}
+    </div>
+    <div style="padding:10px; background:#fce4ec; border-radius:8px;">
+        🟣 <b>Two-Time Orders:</b> {{ stats.two_time }}
+    </div>
+    <div style="padding:10px; background:#ede7f6; border-radius:8px;">
+        💰 <b>Total Value:</b> {{ stats.total_value|floatformat:2 }}
+    </div>
+</div>
+
+<!-- ✅ Results Table -->
+<table id="customerTable" class="display" style="width:100%;">
+    <thead>
+    <tr>
+        <th>Customer</th>
+        <th>Salesman</th>
+        <th>Total Orders</th>
+        <th>Month Classification</th>
+        <th>Months Bought</th>
+        <th>Total Value (AED)</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for r in results %}
+    <tr>
+        <td>{{ r.name }}</td>
+        <td>{{ r.salesman }}</td>
+        <td>{{ r.orders }}</td>
+        <td>{{ r.month_class }}</td>
+        <td>{{ r.months|join:", " }}</td>
+        <td>{{ r.total_value|floatformat:2 }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<!-- ✅ DataTable Script -->
+<script>
+$(document).ready(function() {
+    var table = $('#customerTable').DataTable({
+        pageLength: 50,
+        lengthMenu: [ [10, 25, 50, 100, -1], [10, 25, 50, 100, "All"] ],
+        initComplete: function () {
+            this.api().columns().every(function () {
+                var column = this;
+                var select = $('<select><option value="">All</option></select>')
+                    .appendTo($(column.header()).empty()) // clear existing header text for clean look
+                    .on('change', function () {
+                        var val = $.fn.dataTable.util.escapeRegex($(this).val());
+                        column.search(val ? '^' + val + '$' : '', true, false).draw();
+                    });
+
+                column.data().unique().sort().each(function (d) {
+                    if (d) select.append('<option value="'+d+'">'+d+'</option>')
+                });
+            });
+        }
+    });
+});
+</script>
+
+{% endblock %}

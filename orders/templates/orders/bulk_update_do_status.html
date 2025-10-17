@@ -1,0 +1,27 @@
+{% extends 'orders/base.html' %}
+{% block content %}
+<h2>Bulk Update DO Status</h2>
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div>
+        <label for="excel_file">Upload Excel file with DO numbers:</label>
+        <input type="file" name="excel_file" id="excel_file" required>
+    </div>
+    <div>
+        <label for="status">Select new status:</label>
+        <select name="status" id="status" required>
+            {% for status, label in status_choices %}
+                <option value="{{ status }}">{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button type="submit">Update Status</button>
+</form>
+{% if messages %}
+    <ul>
+    {% for message in messages %}
+        <li>{{ message }}</li>
+    {% endfor %}
+    </ul>
+{% endif %}
+{% endblock %}
