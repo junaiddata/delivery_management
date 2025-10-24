@@ -2804,3 +2804,666 @@ def customer_frequency_analysis(request):
         "end": end_date.strftime("%Y-%m"),
         "total_months": sorted([m.strftime("%b-%Y") for m in total_months])
     })
+
+
+
+
+
+# --- NEW imports at top ---
+import io
+from decimal import Decimal, InvalidOperation
+from datetime import datetime
+import pandas as pd
+
+from django.contrib import messages
+from django.shortcuts import render, redirect
+from django.db import transaction
+from django.http import HttpResponse
+from django.db.models import Count, Sum, Value
+from django.db.models.functions import TruncMonth, Coalesce
+
+from .forms import SAPInvoiceUploadForm
+from .models import SAPInvoice, SAPInvoiceUploadBatch
+
+# ---------- Helpers ----------
+def _coerce_decimal(x):
+    if pd.isna(x):
+        return Decimal("0.00")
+    if isinstance(x, (int, float)):
+        return Decimal(str(x))
+    s = str(x).replace(",", "").strip()
+    if s == "":
+        return Decimal("0.00")
+    try:
+        return Decimal(s)
+    except InvalidOperation:
+        return Decimal("0.00")
+
+def _read_sap_dataframe(uploaded_file):
+    # Import inside to avoid GET crashes if pandas/openpyxl aren't installed
+    import pandas as pd
+    from decimal import Decimal, InvalidOperation
+    from datetime import datetime
+
+    def _coerce_decimal(x):
+        if x is None or (isinstance(x, float) and pd.isna(x)):
+            return Decimal("0.00")
+        s = str(x).replace(",", "").strip()
+        if not s:
+            return Decimal("0.00")
+        try:
+            return Decimal(s)
+        except InvalidOperation:
+            return Decimal("0.00")
+
+    # 1) Read a small sample to find the header row (where expected column names appear)
+    probe = pd.read_excel(uploaded_file, header=None, nrows=20, dtype=str, engine="openpyxl")
+    probe = probe.applymap(lambda v: v.strip() if isinstance(v, str) else v)
+
+    expected_any = {"Date", "Customer Name", "Sales Employee", "Cancelled", "Document Total", "#"}
+    header_row = None
+    for i in range(min(20, len(probe))):
+        row_vals = set(str(v).strip() for v in probe.iloc[i].tolist() if v is not None and str(v).strip() != "")
+        # if at least 3 expected tokens found, assume this is the header
+        if len(expected_any.intersection(row_vals)) >= 3:
+            header_row = i
+            break
+    if header_row is None:
+        header_row = 0  # fallback
+
+    # 2) Re-read with the detected header
+    uploaded_file.seek(0)
+    df = pd.read_excel(uploaded_file, header=header_row, dtype=str, engine="openpyxl")
+
+    # Normalize headers and strip cells
+    df.columns = [str(c).strip() for c in df.columns]
+    df = df.applymap(lambda v: v.strip() if isinstance(v, str) else v)
+
+    cols = list(df.columns)
+
+    # 3) Find the invoice column
+    # Preferred: second column by position (index 1), because user confirmed 2nd '#' is invoice no.
+    inv_by_pos = None
+    if len(cols) > 1:
+        inv_by_pos = df.columns[1]
+
+    # Named fallbacks (pandas often renames duplicate '#' to '#.1')
+    name_candidates = ['#.1', '#2', 'Invoice', 'Invoice No', 'Invoice Number', 'Doc Num', 'DocNumber', '#']
+    inv_by_name = next((c for c in cols if c in name_candidates or c.lower() in {
+        '#.1', 'invoice', 'invoice no', 'invoice number', 'doc num', 'docnumber'
+    }), None)
+
+    invoice_col = inv_by_pos or inv_by_name
+    if invoice_col is None:
+        # last fallback: if there are at least 2 columns, force index 1
+        if len(cols) >= 2:
+            invoice_col = df.columns[1]
+        else:
+            raise ValueError(
+                f"Could not find the invoice number column. Seen columns: {cols}"
+            )
+
+    # 4) Resolve the rest by relaxed name matching
+    def _find(*names):
+        lowers = [n.lower() for n in names]
+        for c in cols:
+            lc = c.lower()
+            if lc in lowers:
+                return c
+        # try common variants
+        variants = {
+            "date": {"date", "posting date", "document date", "doc date"},
+            "customer name": {"customer name", "bp name", "bp", "customer"},
+            "sales employee": {"sales employee", "salesman", "sales emp"},
+            "cancelled": {"cancelled", "canceled", "cancel", "cancellation"},
+            "document total": {"document total", "doc total", "total", "amount"},
+        }
+        key = names[0].lower()
+        for v in variants.get(key, set()):
+            for c in cols:
+                if c.lower() == v:
+                    return c
+        return None
+
+    c_date  = _find("date")
+    c_cust  = _find("customer name")
+    c_sales = _find("sales employee")
+    c_canc  = _find("cancelled")
+    c_total = _find("document total")
+
+    missing = [n for n, v in [
+        ("Date", c_date), ("Customer Name", c_cust), ("Sales Employee", c_sales),
+        ("Cancelled", c_canc), ("Document Total", c_total)
+    ] if v is None]
+    if missing:
+        raise ValueError(f"Missing expected columns: {', '.join(missing)}. Seen: {cols}")
+
+    # 5) Build cleaned frame
+    out = pd.DataFrame({
+        "invoice_number": df[invoice_col],
+        "date_raw": df[c_date],
+        "customer_name": df[c_cust],
+        "salesman": df[c_sales].fillna(""),
+        "cancelled_raw": df[c_canc],
+        "document_total_raw": df[c_total],
+    })
+
+    # Keep only Cancelled == 'No' (case/space-insensitive)
+    out = out[out["cancelled_raw"].astype(str).str.strip().str.lower() == "no"].copy()
+
+    # Parse dates robustly: dd.mm.yy or dd.mm.yyyy or Excel serials already parsed
+    parsed = pd.to_datetime(out["date_raw"], dayfirst=True, errors="coerce")
+    # If parsing failed and values look like YYYY-MM-DD strings, try again without dayfirst
+    mask_bad = parsed.isna() & out["date_raw"].astype(str).str.match(r"^\d{4}-\d{2}-\d{2}$")
+    if mask_bad.any():
+        parsed.loc[mask_bad] = pd.to_datetime(out.loc[mask_bad, "date_raw"], errors="coerce")
+    out["date"] = parsed.dt.date
+
+    # Amount
+    out["document_total"] = out["document_total_raw"].map(_coerce_decimal)
+
+    # Final trims
+    out["invoice_number"] = out["invoice_number"].astype(str).str.strip()
+    out["customer_name"]  = out["customer_name"].astype(str).str.strip()
+    out["salesman"]       = out["salesman"].astype(str).str.strip()
+
+    # Drop invalids
+    out = out[(out["invoice_number"] != "") & out["date"].notna()]
+
+    # Return only required columns
+    return out[["invoice_number", "date", "customer_name", "salesman", "document_total"]]
+
+
+# utils or alongside your invoice reader
+def _read_sap_credit_dataframe(uploaded_file):
+    import pandas as pd
+    from decimal import Decimal, InvalidOperation
+
+    def _coerce_decimal(x):
+        s = "" if x is None else str(x)
+        s = s.replace(",", "").strip()
+        if not s:
+            return Decimal("0.00")
+        try:
+            return Decimal(s)
+        except InvalidOperation:
+            return Decimal("0.00")
+
+    # Probe for header
+    uploaded_file.seek(0)
+    probe = pd.read_excel(uploaded_file, header=None, nrows=20, dtype=str, engine="openpyxl")
+    probe = probe.applymap(lambda v: v.strip() if isinstance(v, str) else v)
+    expected_any = {"#", "Customer", "Customer Name", "Document Total", "Date"}
+    header_row = 0
+    for i in range(min(20, len(probe))):
+        row_vals = set(str(v).strip() for v in probe.iloc[i].tolist() if v not in (None, ""))
+        if len(expected_any.intersection(row_vals)) >= 3:
+            header_row = i
+            break
+
+    # Read full with detected header
+    uploaded_file.seek(0)
+    df = pd.read_excel(uploaded_file, header=header_row, dtype=str, engine="openpyxl")
+    df.columns = [str(c).strip() for c in df.columns]
+    df = df.applymap(lambda v: v.strip() if isinstance(v, str) else v)
+
+    cols = list(df.columns)
+
+    # Identify first and second '#' cols
+    hash_cols = [c for c in cols if c == "#" or c.startswith("#.")]
+    if len(hash_cols) >= 2:
+        credit_no_col = hash_cols[1]     # second '#'
+    elif len(cols) >= 2:
+        credit_no_col = cols[1]          # fallback: 2nd column by position
+    else:
+        raise ValueError(f"Could not find credit note number column. Seen: {cols}")
+
+    # Find other columns
+    def _pick(names, variants=None, required=True):
+        lc = {c.lower(): c for c in cols}
+        for n in names:
+            if n.lower() in lc:
+                return lc[n.lower()]
+        if variants:
+            for v in variants:
+                if v.lower() in lc:
+                    return lc[v.lower()]
+        if required:
+            raise ValueError(f"Missing required column among {names} / {variants}. Seen: {cols}")
+        return None
+
+    c_date  = _pick(["Date"], ["Posting Date", "Document Date", "Doc Date"])
+    c_cust  = _pick(["Customer", "Customer Name", "BP Name", "BP"])
+    c_total = _pick(["Document Total"], ["Doc Total", "Total", "Amount"])
+
+    out = pd.DataFrame({
+        "number_raw": df[credit_no_col],
+        "date_raw": df[c_date],
+        "customer_name": df[c_cust],
+        "document_total_raw": df[c_total],
+    })
+
+    # Parse date
+    parsed = pd.to_datetime(out["date_raw"], dayfirst=True, errors="coerce")
+    mask_bad = parsed.isna() & out["date_raw"].astype(str).str.match(r"^\d{4}-\d{2}-\d{2}$")
+    if mask_bad.any():
+        parsed.loc[mask_bad] = pd.to_datetime(out.loc[mask_bad, "date_raw"], errors="coerce")
+    out["date"] = parsed.dt.date
+
+    # Coerce amounts
+    out["document_total"] = out["document_total_raw"].map(_coerce_decimal)
+
+    # Trims
+    out["number"] = out["number_raw"].astype(str).str.strip()
+    out["customer_name"] = out["customer_name"].astype(str).str.strip()
+
+    # Drop invalids
+    out = out[(out["number"] != "") & out["date"].notna()]
+
+    return out[["number", "date", "customer_name", "document_total"]]
+
+# ---------- Views ----------
+# orders/views.py
+@transaction.atomic
+def sap_invoices_upload(request):
+    if request.method == "POST":
+        form = SAPInvoiceUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            f = request.FILES["file"]
+            try:
+                df = _read_sap_dataframe(f)
+            except Exception as e:
+                messages.error(request, f"Upload failed: {e}")
+                return redirect("sap_invoices_upload")
+
+            batch = SAPInvoiceUploadBatch.objects.create(
+                filename=getattr(f, "name", "sap_invoices.xlsx"),
+                note=form.cleaned_data.get("note", ""),
+                rows_ingested=0,
+            )
+
+            # --- metrics for transparency ---
+            total_rows = len(df)
+            inserted = 0
+            updated = 0
+
+            for row in df.to_dict(orient="records"):
+                obj, created = SAPInvoice.objects.update_or_create(
+                    invoice_number=row["invoice_number"],
+                    defaults={
+                        "date": row["date"],
+                        "customer_name": row["customer_name"],
+                        "salesman": row["salesman"],
+                        "cancelled": False,  # only 'No' rows reach here
+                        "document_total": row["document_total"],
+                        "upload_batch": batch,
+                    }
+                )
+                if created: inserted += 1
+                else: updated += 1
+
+            batch.rows_ingested = inserted
+            batch.save(update_fields=["rows_ingested"])
+
+            messages.success(
+                request,
+                f"Upload OK: total parsed {total_rows}, inserted {inserted}, updated {updated}."
+            )
+            # 👇 redirect to the LIST (or your SAP frequency page if you prefer)
+            return redirect("customer_frequency_analysis_sap")
+    else:
+        form = SAPInvoiceUploadForm()
+    return render(request, "sap_invoices/upload.html", {"form": form})
+
+@transaction.atomic
+def sap_credit_upload(request):
+    if request.method == "POST":
+        form = SAPInvoiceUploadForm(request.POST, request.FILES)  # reuse same simple form (file + optional note)
+        if form.is_valid():
+            f = request.FILES["file"]
+            try:
+                df = _read_sap_credit_dataframe(f)
+            except Exception as e:
+                messages.error(request, f"Credit upload failed: {e}")
+                return redirect("sap_credit_upload")
+
+            batch = SAPCreditNoteUploadBatch.objects.create(
+                filename=getattr(f, "name", "sap_credit_notes.xlsx"),
+                note=form.cleaned_data.get("note", ""),
+                rows_ingested=0,
+            )
+
+            total_rows = len(df)
+            inserted = 0
+            updated = 0
+
+            for row in df.to_dict(orient="records"):
+                obj, created = SAPCreditNote.objects.update_or_create(
+                    number=row["number"],
+                    defaults={
+                        "date": row["date"],
+                        "customer_name": row["customer_name"],
+                        "document_total": row["document_total"],
+                        "upload_batch": batch,
+                    }
+                )
+                if created: inserted += 1
+                else: updated += 1
+
+            batch.rows_ingested = inserted
+            batch.save(update_fields=["rows_ingested"])
+
+            messages.success(
+                request,
+                f"Credit upload OK: total parsed {total_rows}, inserted {inserted}, updated {updated}."
+            )
+            return redirect("customer_frequency_analysis_sap")
+    else:
+        form = SAPInvoiceUploadForm()
+    return render(request, "sap_invoices/upload_credit.html", {"form": form})
+
+ 
+def sap_invoices_list(request):
+    """Very simple list page to verify uploads worked."""
+    qs = SAPInvoice.objects.order_by("-date", "-created_at")[:500]
+    return render(request, "sap_invoices/list.html", {"invoices": qs})
+# --- put this near the top of views.py (module scope) ---
+SALES_USER_MAP = {
+    "muzain": ["B.MR.MUZAIN"],
+    "dip": ["D.RETAIL CUST DIP"],
+    "abubaqar": ["B. MR.RAFIQ ABU- PROJ","A.MR.RAFIQ ABU-TRD"],
+    "rashid": ["A.MR.RASHID", "A.MR.RASHID CONT"],
+    "parthiban": ["B.MR.PARTHIBAN"],
+    "siyab": ["A.MR.SIYAB", "A.MR.SIYAB CONT"],
+    "mr. nasheer": ["B.MR.NASHEER AHMAD"],
+    "deira 2 store": ["R.DEIRA 2"],
+    "rafiq": ["A.MR.RAFIQ"],
+    "krishnan": ["I.KRISHNAN", "A.KRISHNAN"],
+    "alabama": ["D. ALABAMA"],
+    "anish": ["ANISH DIP"],
+    "musharaf": ["A.MUSHARAF"],
+    "ibrahim": ["A.IBRAHIM"],
+    "adil": ["A.DIP ADIL"],
+    "kadar": ["A.DIP KADAR"],
+    "stephy": ["A.DIP STEFFY"],
+    "muzammil": ["A.DIP MUZAMMIL"],
+}
+
+def _is_admin(user):
+    uname = (getattr(user, "username", "") or "").lower().strip()
+    return bool(getattr(user, "is_superuser", False) or getattr(user, "is_staff", False) or uname == "admin")
+
+
+from datetime import datetime
+from django.db.models import Count, Sum, Value, DecimalField, Q
+from django.db.models.functions import TruncMonth, Coalesce
+from django.shortcuts import render
+from django.utils import timezone
+from dateutil.relativedelta import relativedelta
+
+PAGE_SIZE = 200  # tune as needed
+
+def _parse_cursor(cursor: str | None):
+    if not cursor:
+        return None, None
+    try:
+        customer, salesman = cursor.split("||", 1)
+        return customer, (None if salesman == "__NULL__" else salesman)
+    except Exception:
+        return None, None
+
+def _make_cursor(customer_name: str, salesman: str | None):
+    return f"{customer_name}||{salesman or '__NULL__'}"
+
+def customer_frequency_analysis_sap(request):
+    # Inputs
+    start_month_str = request.GET.get('start')
+    end_month_str   = request.GET.get('end')
+    name_q          = (request.GET.get('q') or "").strip()
+    after           = request.GET.get("after")
+    salesman_filter = (request.GET.get('salesman') or "").strip()
+
+    # Resolve user scope
+    user = request.user
+    is_admin = _is_admin(user)
+    uname = (getattr(user, "username", "") or "").lower().strip()
+    allowed_salesmen = SALES_USER_MAP.get(uname, [])
+
+    # Date range (default: last 6 months inclusive)
+    today = timezone.now().date().replace(day=1)
+    if start_month_str and end_month_str:
+        s_y, s_m = map(int, start_month_str.split("-"))
+        e_y, e_m = map(int, end_month_str.split("-"))
+        start_date = datetime(s_y, s_m, 1).date()
+        end_month_first = datetime(e_y, e_m, 1).date()
+        end_date = (end_month_first + relativedelta(months=1)) - relativedelta(days=1)
+    else:
+        start_date = (today - relativedelta(months=5))
+        end_date = (today + relativedelta(months=1)) - relativedelta(days=1)
+
+    # Base filtered queryset (only needed columns)
+    base = (SAPInvoice.objects
+            .only("id", "date", "customer_name", "salesman", "document_total")
+            .filter(date__range=[start_date, end_date]))
+
+    # Enforce visibility
+    if not is_admin:
+        # Lock data to the current user's mapped salesmen
+        if allowed_salesmen:
+            base = base.filter(salesman__in=allowed_salesmen)
+        else:
+            # Unknown/non-mapped user => show nothing safely
+            base = base.none()
+
+    # Apply Salesman query param:
+    # - Admins: honor any value
+    # - Non-admins: honor only if it’s in their allowed list; otherwise ignore it
+    if salesman_filter:
+        if is_admin:
+            base = base.filter(salesman__iexact=salesman_filter)
+        else:
+            if salesman_filter in allowed_salesmen:
+                base = base.filter(salesman__iexact=salesman_filter)
+            # else ignore silently (prevents bypass)
+
+    if name_q:
+        base = base.filter(customer_name__icontains=name_q)
+
+    # ----- GLOBAL STATS (independent of pagination) -----
+    total_months_qs = (base
+                       .annotate(m=TruncMonth("date"))
+                       .values_list("m", flat=True)
+                       .distinct())
+    total_months = list(total_months_qs)
+    total_months_count = len(total_months)
+
+    total_value_all = (base
+                       .aggregate(tv=Coalesce(
+                           Sum("document_total"),
+                           Value(0, output_field=DecimalField(max_digits=18, decimal_places=2))
+                       ))["tv"] or 0)
+
+    grouped_orders_all = (
+        base.values("customer_name", "salesman")
+            .annotate(orders=Count("id"))
+    )
+    one_time_count = sum(1 for r in grouped_orders_all if r["orders"] == 1)
+    two_time_count = sum(1 for r in grouped_orders_all if r["orders"] == 2)
+
+    customer_month_counts = (
+        base.annotate(m=TruncMonth("date"))
+            .values("customer_name")
+            .annotate(mcnt=Count("m", distinct=True))
+            .values("mcnt")
+    )
+    one_month_count = sum(1 for r in customer_month_counts if r["mcnt"] == 1)
+    two_month_count = sum(1 for r in customer_month_counts if r["mcnt"] == 2)
+    all_month_count = (
+        sum(1 for r in customer_month_counts
+            if total_months_count and r["mcnt"] == total_months_count)
+        if total_months_count else 0
+    )
+
+    stats = {
+        "one_month": one_month_count,
+        "two_month": two_month_count,
+        "all_month": all_month_count,
+        "one_time": one_time_count,
+        "two_time": two_time_count,
+        "total_value": float(total_value_all),
+    }
+
+    # ----- PAGE DATA (keyset pagination for the table) -----
+    grouped = (
+        base.values("customer_name", "salesman")
+            .annotate(
+                orders=Count("id"),
+                total_value=Coalesce(
+                    Sum("document_total"),
+                    Value(0, output_field=DecimalField(max_digits=18, decimal_places=2))
+                )
+            )
+            .order_by("customer_name", "salesman")
+    )
+
+    if after:
+        c_after, s_after = _parse_cursor(after)
+        if c_after is not None:
+            grouped = grouped.filter(
+                Q(customer_name__gt=c_after) |
+                (Q(customer_name=c_after) & Q(salesman__gt=s_after))
+            )
+
+    rows = list(grouped[:PAGE_SIZE + 1])
+    has_next = len(rows) > PAGE_SIZE
+    if has_next:
+        last_included = rows[PAGE_SIZE - 1]
+        next_cursor = _make_cursor(last_included["customer_name"], last_included["salesman"])
+        rows = rows[:PAGE_SIZE]
+    else:
+        next_cursor = None
+
+    # Months for only the current page pairs (small DISTINCT query)
+    pairs = [(r["customer_name"], r["salesman"]) for r in rows]
+    months_map = {}
+    if pairs:
+        q = Q()
+        for cust, sman in pairs:
+            q |= (Q(customer_name=cust) & Q(salesman=sman))
+        month_rows = (
+            base.filter(q)
+                .annotate(m=TruncMonth("date"))
+                .values("customer_name", "salesman", "m")
+                .distinct()
+        )
+        for mr in month_rows:
+            key = (mr["customer_name"], mr["salesman"])
+            months_map.setdefault(key, []).append(mr["m"])
+
+    # Build page results (unchanged)
+    results = []
+    for r in rows:
+        cust = r["customer_name"]
+        sman = r["salesman"] or ""
+        orders = r["orders"]
+        total = float(r["total_value"] or 0)
+        mlist = sorted(months_map.get((cust, r["salesman"]), []))
+        results.append({
+            "name": cust,
+            "salesman": sman,
+            "orders": orders,
+            "months": [m.strftime("%b-%Y") for m in mlist],
+            "order_class": "One-Time Customer" if orders == 1 else ("Two-Time Customer" if orders == 2 else f"{orders} Orders"),
+            "month_class": (
+                "One-Month Customer" if len(mlist) == 1 else
+                "Two-Month Customer" if len(mlist) == 2 else
+                ("All-Month Customer" if total_months_count and len(mlist) == total_months_count else f"{len(mlist)} Months")
+            ),
+            "total_value": round(total, 2),
+        })
+
+    # Salesmen dropdown list
+    if is_admin:
+        salesmen = (SAPInvoice.objects
+                    .exclude(salesman__isnull=True)
+                    .exclude(salesman="")
+                    .values_list("salesman", flat=True)
+                    .distinct()
+                    .order_by("salesman"))
+    else:
+        # limit to this user's mapped list (optionally filter to only those present in base)
+        if allowed_salesmen:
+            present = (base.values_list("salesman", flat=True).distinct())
+            # keep order of allowed_salesmen but only those present
+            present_set = set(present)
+            salesmen = [s for s in allowed_salesmen if s in present_set]
+        else:
+            salesmen = []
+
+    return render(request, "sap_invoices/customer_frequency_analysis_sap.html", {
+        "results": results,
+        "stats": stats,
+        "salesmen": salesmen,
+        "selected_salesman": salesman_filter if (is_admin or salesman_filter in (allowed_salesmen or [])) else "",
+        "start": start_date.strftime("%Y-%m"),
+        "end": end_date.strftime("%Y-%m"),
+        "total_months": sorted([m.strftime("%b-%Y") for m in total_months]),
+        "source": "SAP",
+        "has_next": has_next,
+        "next_cursor": next_cursor,
+        "q": name_q,
+    })
+
+
+def customer_frequency_export_sap(request):
+    # same filters as above
+    resp = HttpResponse(content_type='text/csv')
+    resp['Content-Disposition'] = 'attachment; filename="customer_frequency_sap.csv"'
+
+    # reuse the query to avoid duplicate logic
+    request.GET = request.GET.copy()  # ensure mutable for any tweaks
+    # small inline compute (not factoring to keep this answer compact)
+    start_month_str = request.GET.get('start')
+    end_month_str = request.GET.get('end')
+    today = timezone.now().date().replace(day=1)
+    if start_month_str and end_month_str:
+        s_y, s_m = map(int, start_month_str.split("-"))
+        e_y, e_m = map(int, end_month_str.split("-"))
+        start_date = datetime(s_y, s_m, 1).date()
+        end_date = (datetime(e_y, e_m, 1).date() + relativedelta(months=1)) - relativedelta(days=1)
+    else:
+        start_date = (today - relativedelta(months=5))
+        end_date = (today + relativedelta(months=1)) - relativedelta(days=1)
+
+    salesman_filter = (request.GET.get('salesman') or "").strip()
+    base = SAPInvoice.objects.filter(date__range=[start_date, end_date])
+    if salesman_filter:
+        base = base.filter(salesman__iexact=salesman_filter)
+
+    agg = (base
+           .values('customer_name', 'salesman')
+           .annotate(
+               orders=Count('id'),
+               total_value = Coalesce(Sum('document_total'), Value(0, output_field=DecimalField()))
+           ))
+
+    months_map = defaultdict(set)
+    for row in base.annotate(m=TruncMonth('date')).values('customer_name', 'm'):
+        months_map[row['customer_name']].add(row['m'])
+
+    import csv
+    w = csv.writer(resp)
+    w.writerow(['Customer','Salesman','Total Invoices','Month Classification','Months Bought','Total Value'])
+    for r in agg:
+        cust = r['customer_name']
+        mset = months_map[cust]
+        mcnt = len(mset)
+        total_months = set(base.annotate(m=TruncMonth('date')).values_list('m', flat=True).distinct())
+        if mcnt == 1: month_class = "One-Month Customer"
+        elif mcnt == 2: month_class = "Two-Month Customer"
+        elif len(total_months) and mcnt == len(total_months): month_class = "All-Month Customer"
+        else: month_class = f"{mcnt} Months"
+        w.writerow([cust, r['salesman'] or "", r['orders'],
+                    month_class, "; ".join(sorted(m.strftime("%b-%Y") for m in mset)),
+                    float(r['total_value'] or 0)])
+    return resp

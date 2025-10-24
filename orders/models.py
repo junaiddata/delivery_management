@@ -225,3 +225,78 @@ class CachedCustomerStats(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     count_every_month = models.IntegerField(default=0)
     customer_ids = models.JSONField(default=list)  # or TextField for comma-separated IDs
+
+
+
+# --- NEW: models for SAP invoice ingestion ---
+from decimal import Decimal
+from django.db import models
+
+class SAPInvoiceUploadBatch(models.Model):
+    """Tracks each Excel upload for auditability and easy rollback."""
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    filename = models.CharField(max_length=255)
+    rows_ingested = models.PositiveIntegerField(default=0)
+    note = models.CharField(max_length=255, blank=True, default="")
+
+    def __str__(self):
+        return f"{self.filename} ({self.rows_ingested} rows @ {self.uploaded_at:%Y-%m-%d %H:%M})"
+
+
+class SAPInvoice(models.Model):
+    """
+    Minimal fields required:
+    - invoice_number (# second column)
+    - date
+    - customer_name
+    - salesman
+    - cancelled (Y/N -> store boolean; import only Cancelled == 'No')
+    - document_total
+    """
+    invoice_number = models.CharField(max_length=40, unique=True, db_index=True)
+    date = models.DateField(db_index=True)
+    customer_name = models.CharField(max_length=255, db_index=True)
+    salesman = models.CharField(max_length=128, blank=True, default="", db_index=True)
+    cancelled = models.BooleanField(default=False)
+    document_total = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+
+    # audit
+    upload_batch = models.ForeignKey(SAPInvoiceUploadBatch, on_delete=models.PROTECT, related_name="invoices")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["date"]),
+            models.Index(fields=["customer_name"]),
+            models.Index(fields=["salesman"]),
+        ]
+
+    def __str__(self):
+        return f"{self.invoice_number} — {self.customer_name} — {self.date}"
+
+
+
+class SAPCreditNoteUploadBatch(models.Model):
+    created_at   = models.DateTimeField(auto_now_add=True)
+    filename     = models.CharField(max_length=255, blank=True, default="")
+    note         = models.TextField(blank=True, default="")
+    rows_ingested = models.IntegerField(default=0)
+
+    def __str__(self):
+        return f"CreditBatch {self.id} · {self.filename}"
+
+class SAPCreditNote(models.Model):
+    number         = models.CharField(max_length=64, unique=True)  # the second '#'
+    date           = models.DateField(db_index=True)
+    customer_name  = models.CharField(max_length=255, db_index=True)
+    document_total = models.DecimalField(max_digits=18, decimal_places=2)
+    upload_batch   = models.ForeignKey(SAPCreditNoteUploadBatch, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["date", "customer_name"]),
+        ]
+
+    def __str__(self):
+        return f"{self.number} · {self.customer_name} · {self.date}"

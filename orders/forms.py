@@ -10,3 +10,11 @@ class PreEnteredDOBulkForm(forms.Form):
         label='Delivery Order Numbers',
         help_text='Enter multiple DO numbers separated by comma, space, or newline'
     )
+
+
+class SAPInvoiceUploadForm(forms.Form):
+    file = forms.FileField(
+        label="Upload daily SAP Invoices (.xlsx)",
+        help_text="Excel file with the columns from SAP (Date, Customer Name, Sales Employee, Cancelled, Document Total, etc.)"
+    )
+    note = forms.CharField(required=False, max_length=255)

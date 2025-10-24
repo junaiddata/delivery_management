@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Customer Frequency Analysis</title>
+  <!-- Standalone styles: no dependency on base.html / Bootstrap -->
+  <style>
+    :root{
+      --bg:#f7f8fa; --card:#ffffff; --ink:#0f172a; --muted:#64748b; --line:#e5e7eb; --brand:#2563eb; --brand-ink:#1e40af;
+      --ok:#16a34a; --warn:#f59e0b; --info:#2563eb; --radius:14px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font:400 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial}
+    a{color:var(--brand)} a:hover{color:var(--brand-ink)}
+    .container{max-width:1200px;margin-inline:auto;padding:16px}
+    .topbar{display:flex;justify-content:space-between;align-items:center;background:var(--card);border-bottom:1px solid var(--line);padding:10px 16px;position:sticky;top:0;z-index:5}
+    .topbar a{text-decoration:none;font-weight:600}
+    .page-head{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center;margin:16px 0}
+    .title{font-size:20px;font-weight:700;letter-spacing:.2px}
+    .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;border:1px solid var(--line);background:#f8fafc;color:#0f172a;font-size:12px}
+
+    /* Stat grid */
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:12px 0 16px}
+    .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;box-shadow:0 6px 16px rgba(16,24,40,.06)}
+    .stat .label{font-size:12px;color:var(--muted)}
+    .stat .value{font-size:22px;font-weight:800;margin-top:4px}
+
+    /* Filters */
+    .filters{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-bottom:14px}
+    .field{display:flex;flex-direction:column;gap:6px}
+    .field label{font-size:12px;color:var(--muted)}
+    .input, select{height:34px;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:#fff}
+    .btn{height:34px;padding:0 12px;border-radius:10px;border:1px solid var(--brand);background:var(--brand);color:#fff;font-weight:600;cursor:pointer}
+    .btn.secondary{background:transparent;color:var(--brand);border-color:var(--brand)}
+
+    /* Months chips */
+    .chips{display:flex;gap:8px;overflow:auto;padding-bottom:6px}
+    .chip{padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:#f8fafc;white-space:nowrap}
+
+    /* Table */
+    .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:0 6px 16px rgba(16,24,40,.06)}
+    .table-wrap{width:100%;overflow:auto}
+    table{width:100%;border-collapse:separate;border-spacing:0}
+    thead th{position:sticky;top:0;background:#f9fafb;border-bottom:1px solid var(--line);text-align:left;font-size:12px;color:var(--muted);padding:10px}
+    tbody tr{border-bottom:1px solid var(--line)}
+    td{padding:10px}
+    .num{text-align:right}
+    .center{text-align:center}
+
+    /* Badges for classes */
+    .b{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px;border:1px solid}
+    .b-ok{background:#ecfdf5;border-color:#86efac;color:#166534}
+    .b-info{background:#eff6ff;border-color:#93c5fd;color:#1e3a8a}
+    .b-warn{background:#fffbeb;border-color:#fcd34d;color:#92400e}
+    .b-muted{background:#f3f4f6;border-color:#e5e7eb;color:#374151}
+
+    /* Responsive: table -> cards on <= 768px */
+    @media (max-width:768px){
+      .stats{grid-template-columns:repeat(2,1fr)}
+      .table-desktop{display:none}
+      .cards{display:grid;gap:10px;padding:10px}
+      .row-card{border:1px solid var(--line);border-radius:12px;padding:10px}
+      .row-line{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px dashed var(--line)}
+      .row-line:last-child{border-bottom:0}
+      .label-sm{color:var(--muted);font-size:12px;font-weight:600}
+    }
+    @media (min-width:769px){ .cards{display:none} }
+  </style>
+</head>
+<body>
+  <!-- Minimal top bar (home/logout) to mirror your base.html intent, but self-contained -->
+  <div class="topbar">
+    <div><a href="/">Home</a></div>
+    <div><a href="/logout">Logout</a></div>
+  </div>
+
+  <div class="container">
+    <div class="page-head">
+      <div class="title">Customer Frequency Analysis</div>
+      {% if source %}<span class="badge">Source: {{ source }}</span>{% endif %}
+    </div>
+
+    <!-- Stats on top -->
+    <section class="stats">
+      <div class="stat"><div class="label">One‑Month Customers</div><div class="value">{{ stats.one_month|default:0 }}</div></div>
+      <div class="stat"><div class="label">Two‑Month Customers</div><div class="value">{{ stats.two_month|default:0 }}</div></div>
+      <div class="stat"><div class="label">All‑Month Customers</div><div class="value">{{ stats.all_month|default:0 }}</div></div>
+      <div class="stat"><div class="label">Total Value ({{ start }} → {{ end }})</div><div class="value">{{ stats.total_value|floatformat:2 }}</div></div>
+    </section>
+
+    <!-- Filters -->
+    <form method="get" class="filters" id="filters">
+      <div class="field">
+        <label for="start">Start Date(YYYY‑MM)</label>
+        <input type="month" class="input" name="start" id="start" value="{{ start }}">
+      </div>
+      <div class="field">
+        <label for="end">End Date(YYYY‑MM)</label>
+        <input type="month" class="input" name="end" id="end" value="{{ end }}">
+      </div>
+      <div class="field">
+        <label for="salesman">Salesman</label>
+        <select name="salesman" id="salesman">
+          <option value="">All</option>
+          {% for s in salesmen %}
+            <option value="{{ s }}" {% if s == selected_salesman %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field" style="min-width:200px;flex:1">
+        <label for="q">Customer (search)</label>
+        <input type="text" class="input" name="q" id="q" value="{{ q }}" placeholder="Type a customer name…">
+      </div>
+      <div style="display:flex; gap:8px; margin-left:auto">
+        <button class="btn" type="submit">Apply</button>
+        <a class="btn secondary" href="?">Reset</a>
+      </div>
+    </form>
+
+    {% if total_months %}
+      <div class="card" style="margin: 10px 0 14px; padding:10px 12px;">
+        <div class="chips">
+          {% for m in total_months %}
+            <span class="chip">{{ m }}</span>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- Table for desktop/tablet -->
+    <section class="card table-desktop">
+      <div class="table-wrap">
+        <table>
+          <thead class="table-light">
+            <tr>
+               <th style="width:40px;">#</th> 
+              <th style="min-width:220px;">Customer</th>
+              <th>Salesman</th>
+              <th class="center">Invoices</th>
+              <th>Month Class
+                <div style="margin-top:6px">
+                  <select id="monthFilter" class="input" style="height:30px; width:100%">
+                    <option value="">All</option>
+                    <option value="1">1 month</option>
+                    <option value="2">2 months</option>
+                    <option value="all">All months</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </th>
+              <th>Order Class
+                <div style="margin-top:6px">
+                  <select id="orderFilter" class="input" style="height:30px; width:100%">
+                    <option value="">All</option>
+                    <option value="one">1-time</option>
+                    <option value="two">2-time</option>
+                    <option value="gt2">3+ orders</option>
+                  </select>
+                </div>
+              </th>
+              <th style="min-width:240px;">Months Bought</th>
+              <th class="num">Total Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in results %}
+            <tr>
+              <td class="center">{{ forloop.counter }}</td>
+              <td>{{ r.name }}</td>
+              <td>{{ r.salesman }}</td>
+              <td class="center">{{ r.orders }}</td>
+              <td>
+                {% if r.month_class == "All-Month Customer" %}
+                  <span class="b b-ok">{{ r.month_class }}</span>
+                {% elif r.month_class == "Two-Month Customer" %}
+                  <span class="b b-info">{{ r.month_class }}</span>
+                {% elif r.month_class == "One-Month Customer" %}
+                  <span class="b b-warn">{{ r.month_class }}</span>
+                {% else %}
+                  <span class="b b-muted">{{ r.month_class }}</span>
+                {% endif %}
+              </td>
+              <td>{{ r.order_class }}</td>
+              <td>
+                {% for m in r.months %}
+                  <span class="chip">{{ m }}</span>
+                {% empty %}
+                  <span style="color:var(--muted)">—</span>
+                {% endfor %}
+              </td>
+              <td class="num">{{ r.total_value|floatformat:2 }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px 8px">No results for the selected period/filters.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Mobile cards -->
+    <section class="cards">
+      <div style="display:flex; gap:8px; padding:0 10px 6px">
+        <select id="monthFilterMobile" class="input" style="height:34px; flex:1">
+          <option value="">Month Class: All</option>
+          <option value="1">1 month</option>
+          <option value="2">2 months</option>
+          <option value="all">All months</option>
+          <option value="other">Other</option>
+        </select>
+        <select id="orderFilterMobile" class="input" style="height:34px; flex:1">
+          <option value="">Order Class: All</option>
+          <option value="one">1-time</option>
+          <option value="two">2-time</option>
+          <option value="gt2">3+ orders</option>
+        </select>
+      </div>
+      {% for r in results %}
+        <div class="row-card">
+          <div class="row-line"><span class="label-sm">Customer</span><span>{{ r.name }}</span></div>
+          <div class="row-line"><span class="label-sm">Salesman</span><span>{{ r.salesman }}</span></div>
+          <div class="row-line"><span class="label-sm">Invoices</span><span>{{ r.orders }}</span></div>
+          <div class="row-line"><span class="label-sm">Month Class</span>
+            <span>
+              {% if r.month_class == "All-Month Customer" %}
+                <span class="b b-ok">{{ r.month_class }}</span>
+              {% elif r.month_class == "Two-Month Customer" %}
+                <span class="b b-info">{{ r.month_class }}</span>
+              {% elif r.month_class == "One-Month Customer" %}
+                <span class="b b-warn">{{ r.month_class }}</span>
+              {% else %}
+                <span class="b b-muted">{{ r.month_class }}</span>
+              {% endif %}
+            </span>
+          </div>
+          <div class="row-line"><span class="label-sm">Order Class</span><span>{{ r.order_class }}</span></div>
+          <div class="row-line" style="align-items:center"><span class="label-sm">Months Bought</span>
+            <span style="display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end">
+              {% for m in r.months %}
+                <span class="chip">{{ m }}</span>
+              {% empty %}
+                <span style="color:var(--muted)">—</span>
+              {% endfor %}
+            </span>
+          </div>
+          <div class="row-line"><span class="label-sm">Total Value</span><span>{{ r.total_value|floatformat:2 }}</span></div>
+        </div>
+      {% empty %}
+        <div class="row-card" style="text-align:center;color:var(--muted)">No results for the selected period/filters.</div>
+      {% endfor %}
+    </section>
+
+    <!-- Pagination (works for table and cards) -->
+    <div style="margin-top:12px; display:flex; justify-content:flex-end; gap:8px">
+      {% if has_next %}
+        <a class="btn secondary" href="?start={{ start }}&end={{ end }}&salesman={{ selected_salesman }}&q={{ q }}&after={{ next_cursor|urlencode }}">Next →</a>
+      {% endif %}
+    </div>
+
+  </div>
+<script>
+  (function(){
+    function normalizeMonthClass(text){
+      text = (text||'').toLowerCase();
+      if(text.indexOf('all-month') !== -1) return 'all';
+      if(text.indexOf('one-month') !== -1 || text.indexOf('1-month') !== -1) return '1';
+      if(text.indexOf('two-month') !== -1 || text.indexOf('2-month') !== -1) return '2';
+      // anything like "3 Months", "4 Months", etc.
+      if(text.indexOf('months') !== -1) return 'other';
+      return '';
+    }
+    function normalizeOrderClass(text){
+      text = (text||'').toLowerCase();
+      if(text.indexOf('one-time') !== -1 || text.indexOf('1-time') !== -1) return 'one';
+      if(text.indexOf('two-time') !== -1 || text.indexOf('2-time') !== -1) return 'two';
+      if(text.indexOf('orders') !== -1) return 'gt2';
+      return '';
+    }
+    function applyTableFilters(){
+      var m = document.getElementById('monthFilter');
+      var o = document.getElementById('orderFilter');
+      if(!m || !o) return;
+      var mv = m.value, ov = o.value;
+      var rows = document.querySelectorAll('table tbody tr');
+      rows.forEach(function(tr){
+        var monthCell = tr.children[4]; // Month Class column
+        var orderCell = tr.children[5]; // Order Class column
+        var mval = normalizeMonthClass(monthCell ? monthCell.innerText.trim() : '');
+        var oval = normalizeOrderClass(orderCell ? orderCell.innerText.trim() : '');
+        var okM = !mv || mv === mval;
+        var okO = !ov || ov === oval;
+        tr.style.display = (okM && okO) ? '' : 'none';
+      });
+    }
+    function applyCardFilters(){
+      var m = document.getElementById('monthFilterMobile');
+      var o = document.getElementById('orderFilterMobile');
+      if(!m || !o) return;
+      var mv = m.value, ov = o.value;
+      var cards = document.querySelectorAll('.row-card');
+      cards.forEach(function(card){
+        var monthLine = Array.from(card.querySelectorAll('.row-line')).find(x=>x.innerText.toLowerCase().startsWith('month class'));
+        var orderLine = Array.from(card.querySelectorAll('.row-line')).find(x=>x.innerText.toLowerCase().startsWith('order class'));
+        var mtext = monthLine ? monthLine.innerText.split('\n').pop().trim() : '';
+        var otext = orderLine ? orderLine.innerText.split('\n').pop().trim() : '';
+        var mval = normalizeMonthClass(mtext);
+        var oval = normalizeOrderClass(otext);
+        var okM = !mv || mv === mval;
+        var okO = !ov || ov === oval;
+        card.style.display = (okM && okO) ? '' : 'none';
+      });
+    }
+    var monthFilter = document.getElementById('monthFilter');
+    var orderFilter = document.getElementById('orderFilter');
+    if(monthFilter && orderFilter){
+      monthFilter.addEventListener('change', applyTableFilters);
+      orderFilter.addEventListener('change', applyTableFilters);
+    }
+    var monthFilterM = document.getElementById('monthFilterMobile');
+    var orderFilterM = document.getElementById('orderFilterMobile');
+    if(monthFilterM && orderFilterM){
+      monthFilterM.addEventListener('change', applyCardFilters);
+      orderFilterM.addEventListener('change', applyCardFilters);
+    }
+  })();
+</script>
+</body>
+</html>
