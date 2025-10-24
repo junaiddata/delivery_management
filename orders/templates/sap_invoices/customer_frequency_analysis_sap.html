@@ -78,7 +78,11 @@
   <div class="container">
     <div class="page-head">
       <div class="title">Customer Frequency Analysis</div>
+      {% if user.username == 'admin' %}
+        <a class="badge" href="{% url 'sap_invoices_upload' %}" style="text-decoration:none">Upload Invoices</a>
+      {% endif %}
       {% if source %}<span class="badge">Source: {{ source }}</span>{% endif %}
+      
     </div>
 
     <!-- Stats on top -->

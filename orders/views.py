@@ -2974,94 +2974,6 @@ def _read_sap_dataframe(uploaded_file):
     return out[["invoice_number", "date", "customer_name", "salesman", "document_total"]]
 
 
-# utils or alongside your invoice reader
-def _read_sap_credit_dataframe(uploaded_file):
-    import pandas as pd
-    from decimal import Decimal, InvalidOperation
-
-    def _coerce_decimal(x):
-        s = "" if x is None else str(x)
-        s = s.replace(",", "").strip()
-        if not s:
-            return Decimal("0.00")
-        try:
-            return Decimal(s)
-        except InvalidOperation:
-            return Decimal("0.00")
-
-    # Probe for header
-    uploaded_file.seek(0)
-    probe = pd.read_excel(uploaded_file, header=None, nrows=20, dtype=str, engine="openpyxl")
-    probe = probe.applymap(lambda v: v.strip() if isinstance(v, str) else v)
-    expected_any = {"#", "Customer", "Customer Name", "Document Total", "Date"}
-    header_row = 0
-    for i in range(min(20, len(probe))):
-        row_vals = set(str(v).strip() for v in probe.iloc[i].tolist() if v not in (None, ""))
-        if len(expected_any.intersection(row_vals)) >= 3:
-            header_row = i
-            break
-
-    # Read full with detected header
-    uploaded_file.seek(0)
-    df = pd.read_excel(uploaded_file, header=header_row, dtype=str, engine="openpyxl")
-    df.columns = [str(c).strip() for c in df.columns]
-    df = df.applymap(lambda v: v.strip() if isinstance(v, str) else v)
-
-    cols = list(df.columns)
-
-    # Identify first and second '#' cols
-    hash_cols = [c for c in cols if c == "#" or c.startswith("#.")]
-    if len(hash_cols) >= 2:
-        credit_no_col = hash_cols[1]     # second '#'
-    elif len(cols) >= 2:
-        credit_no_col = cols[1]          # fallback: 2nd column by position
-    else:
-        raise ValueError(f"Could not find credit note number column. Seen: {cols}")
-
-    # Find other columns
-    def _pick(names, variants=None, required=True):
-        lc = {c.lower(): c for c in cols}
-        for n in names:
-            if n.lower() in lc:
-                return lc[n.lower()]
-        if variants:
-            for v in variants:
-                if v.lower() in lc:
-                    return lc[v.lower()]
-        if required:
-            raise ValueError(f"Missing required column among {names} / {variants}. Seen: {cols}")
-        return None
-
-    c_date  = _pick(["Date"], ["Posting Date", "Document Date", "Doc Date"])
-    c_cust  = _pick(["Customer", "Customer Name", "BP Name", "BP"])
-    c_total = _pick(["Document Total"], ["Doc Total", "Total", "Amount"])
-
-    out = pd.DataFrame({
-        "number_raw": df[credit_no_col],
-        "date_raw": df[c_date],
-        "customer_name": df[c_cust],
-        "document_total_raw": df[c_total],
-    })
-
-    # Parse date
-    parsed = pd.to_datetime(out["date_raw"], dayfirst=True, errors="coerce")
-    mask_bad = parsed.isna() & out["date_raw"].astype(str).str.match(r"^\d{4}-\d{2}-\d{2}$")
-    if mask_bad.any():
-        parsed.loc[mask_bad] = pd.to_datetime(out.loc[mask_bad, "date_raw"], errors="coerce")
-    out["date"] = parsed.dt.date
-
-    # Coerce amounts
-    out["document_total"] = out["document_total_raw"].map(_coerce_decimal)
-
-    # Trims
-    out["number"] = out["number_raw"].astype(str).str.strip()
-    out["customer_name"] = out["customer_name"].astype(str).str.strip()
-
-    # Drop invalids
-    out = out[(out["number"] != "") & out["date"].notna()]
-
-    return out[["number", "date", "customer_name", "document_total"]]
-
 # ---------- Views ----------
 # orders/views.py
 @transaction.atomic
@@ -3115,10 +3027,15 @@ def sap_invoices_upload(request):
         form = SAPInvoiceUploadForm()
     return render(request, "sap_invoices/upload.html", {"form": form})
 
+# views.py
+from django.db import transaction
+from django.contrib import messages
+from django.shortcuts import redirect, render
+from .utils import _read_sap_credit_dataframe
 @transaction.atomic
 def sap_credit_upload(request):
     if request.method == "POST":
-        form = SAPInvoiceUploadForm(request.POST, request.FILES)  # reuse same simple form (file + optional note)
+        form = SAPInvoiceUploadForm(request.POST, request.FILES)
         if form.is_valid():
             f = request.FILES["file"]
             try:
@@ -3143,7 +3060,8 @@ def sap_credit_upload(request):
                     defaults={
                         "date": row["date"],
                         "customer_name": row["customer_name"],
-                        "document_total": row["document_total"],
+                        "salesman": row["salesman"],
+                        "document_total": row["document_total"],  # positive; subtracted in analysis
                         "upload_batch": batch,
                     }
                 )
@@ -3160,7 +3078,8 @@ def sap_credit_upload(request):
             return redirect("customer_frequency_analysis_sap")
     else:
         form = SAPInvoiceUploadForm()
-    return render(request, "sap_invoices/upload_credit.html", {"form": form})
+    return render(request, "sap_invoices/upload_credit.html", {"form": form, "page_title": "Upload SAP Credit Notes"})
+
 
  
 def sap_invoices_list(request):
@@ -3215,6 +3134,16 @@ def _parse_cursor(cursor: str | None):
 def _make_cursor(customer_name: str, salesman: str | None):
     return f"{customer_name}||{salesman or '__NULL__'}"
 
+# views.py
+from datetime import datetime
+from django.db.models import Count, Sum, Value, DecimalField, Q
+from django.db.models.functions import TruncMonth, Coalesce
+from django.shortcuts import render
+from django.utils import timezone
+from dateutil.relativedelta import relativedelta
+
+PAGE_SIZE = 200  # keep your page size
+
 def customer_frequency_analysis_sap(request):
     # Inputs
     start_month_str = request.GET.get('start')
@@ -3241,33 +3170,60 @@ def customer_frequency_analysis_sap(request):
         start_date = (today - relativedelta(months=5))
         end_date = (today + relativedelta(months=1)) - relativedelta(days=1)
 
-    # Base filtered queryset (only needed columns)
+    # Base filtered queryset (Invoices)
     base = (SAPInvoice.objects
             .only("id", "date", "customer_name", "salesman", "document_total")
             .filter(date__range=[start_date, end_date]))
 
     # Enforce visibility
     if not is_admin:
-        # Lock data to the current user's mapped salesmen
         if allowed_salesmen:
             base = base.filter(salesman__in=allowed_salesmen)
         else:
-            # Unknown/non-mapped user => show nothing safely
             base = base.none()
 
-    # Apply Salesman query param:
-    # - Admins: honor any value
-    # - Non-admins: honor only if it’s in their allowed list; otherwise ignore it
+    # Salesman param
     if salesman_filter:
         if is_admin:
             base = base.filter(salesman__iexact=salesman_filter)
         else:
             if salesman_filter in allowed_salesmen:
                 base = base.filter(salesman__iexact=salesman_filter)
-            # else ignore silently (prevents bypass)
 
     if name_q:
         base = base.filter(customer_name__icontains=name_q)
+
+    # ===== Credits with the same scope & filters (subtract by (customer, salesman)) =====
+    credits = SAPCreditNote.objects.filter(date__range=[start_date, end_date])
+
+    if not is_admin:
+        if allowed_salesmen:
+            credits = credits.filter(salesman__in=allowed_salesmen)
+        else:
+            credits = credits.none()
+
+    if salesman_filter:
+        if is_admin:
+            credits = credits.filter(salesman__iexact=salesman_filter)
+        else:
+            if salesman_filter in allowed_salesmen:
+                credits = credits.filter(salesman__iexact=salesman_filter)
+
+    if name_q:
+        credits = credits.filter(customer_name__icontains=name_q)
+
+    # Build map safely (no 3-tuple dict() issue)
+    credit_rows = (credits
+                   .values("customer_name", "salesman")
+                   .annotate(csum=Coalesce(Sum("document_total"),
+                                           Value(0, output_field=DecimalField(max_digits=18, decimal_places=2)))))
+    credit_pairs = { (r["customer_name"], r["salesman"]): float(r["csum"] or 0) for r in credit_rows }
+
+    total_credits_all = float(
+        credits.aggregate(tv=Coalesce(Sum("document_total"),
+                                      Value(0, output_field=DecimalField(max_digits=18, decimal_places=2))))["tv"] or 0
+    )
+    # ================================================================================
 
     # ----- GLOBAL STATS (independent of pagination) -----
     total_months_qs = (base
@@ -3310,10 +3266,11 @@ def customer_frequency_analysis_sap(request):
         "all_month": all_month_count,
         "one_time": one_time_count,
         "two_time": two_time_count,
-        "total_value": float(total_value_all),
+        # Net: invoices - credits (same scope)
+        "total_value": float(total_value_all) - total_credits_all,
     }
 
-    # ----- PAGE DATA (keyset pagination for the table) -----
+    # ----- PAGE DATA (keyset pagination) -----
     grouped = (
         base.values("customer_name", "salesman")
             .annotate(
@@ -3343,7 +3300,7 @@ def customer_frequency_analysis_sap(request):
     else:
         next_cursor = None
 
-    # Months for only the current page pairs (small DISTINCT query)
+    # Months for only the current page pairs
     pairs = [(r["customer_name"], r["salesman"]) for r in rows]
     months_map = {}
     if pairs:
@@ -3360,13 +3317,17 @@ def customer_frequency_analysis_sap(request):
             key = (mr["customer_name"], mr["salesman"])
             months_map.setdefault(key, []).append(mr["m"])
 
-    # Build page results (unchanged)
+    # Build page results (subtract exact pair credit)
     results = []
     for r in rows:
         cust = r["customer_name"]
         sman = r["salesman"] or ""
         orders = r["orders"]
-        total = float(r["total_value"] or 0)
+        inv_total = float(r["total_value"] or 0)
+
+        csum = credit_pairs.get((cust, r["salesman"]), 0.0)
+        net_total = inv_total - csum
+
         mlist = sorted(months_map.get((cust, r["salesman"]), []))
         results.append({
             "name": cust,
@@ -3379,10 +3340,10 @@ def customer_frequency_analysis_sap(request):
                 "Two-Month Customer" if len(mlist) == 2 else
                 ("All-Month Customer" if total_months_count and len(mlist) == total_months_count else f"{len(mlist)} Months")
             ),
-            "total_value": round(total, 2),
+            "total_value": round(net_total, 2),
         })
 
-    # Salesmen dropdown list
+    # Salesmen dropdown
     if is_admin:
         salesmen = (SAPInvoice.objects
                     .exclude(salesman__isnull=True)
@@ -3391,10 +3352,8 @@ def customer_frequency_analysis_sap(request):
                     .distinct()
                     .order_by("salesman"))
     else:
-        # limit to this user's mapped list (optionally filter to only those present in base)
         if allowed_salesmen:
-            present = (base.values_list("salesman", flat=True).distinct())
-            # keep order of allowed_salesmen but only those present
+            present = base.values_list("salesman", flat=True).distinct()
             present_set = set(present)
             salesmen = [s for s in allowed_salesmen if s in present_set]
         else:
@@ -3413,6 +3372,7 @@ def customer_frequency_analysis_sap(request):
         "next_cursor": next_cursor,
         "q": name_q,
     })
+
 
 
 def customer_frequency_export_sap(request):

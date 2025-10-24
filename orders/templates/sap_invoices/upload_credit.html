@@ -1,91 +1,138 @@
 {% load static %}
+{% load widget_tweaks %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Upload SAP Credit Notes</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body {
-      font-family: system-ui, sans-serif;
-      background: #f7f8fa;
-      color: #0f172a;
-      margin: 0;
+    :root{
+      --bg:#f7f8fa; --card:#ffffff; --ink:#0f172a; --muted:#64748b; --line:#e5e7eb;
+      --brand:#2563eb; --brand-ink:#1e40af; --radius:14px; --shadow:0 8px 24px rgba(2,6,23,.08);
+      --good:#16a34a; --bad:#dc2626;
     }
-    .container {
-      max-width: 600px;
-      margin: 60px auto;
-      background: #fff;
-      border-radius: 12px;
-      padding: 24px 28px;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
-    }
-    h2 { margin-top: 0; }
-    .form-group {
-      margin-bottom: 16px;
-    }
-    label {
-      display: block;
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 6px;
-    }
-    input[type=file],
-    textarea {
-      width: 100%;
-      padding: 8px;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      font-size: 14px;
-    }
-    button {
-      background: #2563eb;
-      border: none;
-      color: white;
-      font-weight: 600;
-      border-radius: 8px;
-      padding: 10px 16px;
-      cursor: pointer;
-    }
-    button:hover { background: #1e40af; }
-    .back {
-      display: inline-block;
-      margin-top: 20px;
-      color: #2563eb;
-      text-decoration: none;
-    }
-    .messages {
-      margin-bottom: 10px;
-      padding: 10px;
-      border-radius: 6px;
-    }
-    .messages.error { background: #fee2e2; color: #991b1b; }
-    .messages.success { background: #dcfce7; color: #166534; }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial}
+    .wrap{max-width:720px;margin:48px auto;padding:0 16px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+    .head{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+    .title{margin:0;font-weight:800;font-size:18px;letter-spacing:.2px}
+    .back{color:var(--brand);text-decoration:none;font-weight:700}
+    .body{padding:18px 20px}
+
+    .messages{padding:10px 12px;border-radius:10px;margin-bottom:12px;border:1px solid transparent}
+    .messages.success{background:#ecfdf5;border-color:#86efac;color:#065f46}
+    .messages.error{background:#fef2f2;border-color:#fecaca;color:#7f1d1d}
+
+    .label{font-size:12px;color:var(--muted);font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em}
+
+    /* Drop zone */
+    .drop{border:2px dashed #cbd5e1;border-radius:14px;background:linear-gradient(180deg,#fff,#fafcff);
+          min-height:180px;display:grid;place-items:center;gap:8px;padding:18px;text-align:center;cursor:pointer}
+    .drop:hover{border-color:var(--brand)}
+    .drop .big{font-size:16px;font-weight:800}
+    .drop .hint{font-size:13px;color:var(--muted)}
+    .file-pill{display:none;align-items:center;gap:8px;background:#eef2ff;border:1px solid #c7d2fe;
+               color:#1e40af;padding:6px 10px;border-radius:999px;font-size:13px;max-width:100%;overflow:auto}
+
+    .field{margin-top:14px}
+    .input, textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff}
+    textarea{min-height:90px;resize:vertical}
+
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:flex-end;margin-top:16px}
+    .btn{height:40px;padding:0 16px;border-radius:10px;border:1px solid var(--brand);background:var(--brand);color:#fff;font-weight:800;cursor:pointer}
+    .btn.secondary{background:transparent;color:var(--brand)}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+
+    .help{font-size:12px;color:var(--muted);margin-top:8px}
+    @media (max-width:520px){ .head{flex-direction:column;gap:8px;align-items:flex-start} }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h2>Upload SAP Credit Notes</h2>
-    {% if messages %}
-      {% for message in messages %}
-        <div class="messages {{ message.tags }}">{{ message }}</div>
-      {% endfor %}
-    {% endif %}
-
-    <form method="post" enctype="multipart/form-data">
-      {% csrf_token %}
-      <div class="form-group">
-        <label for="id_file">Select Excel File</label>
-        {{ form.file }}
+  <div class="wrap">
+    <div class="card">
+      <div class="head">
+        <h2 class="title">Upload SAP Credit Notes</h2>
+        <a class="back" href="{% url 'customer_frequency_analysis_sap' %}">← Back to Customer Frequency</a>
       </div>
-      <div class="form-group">
-        <label for="id_note">Note (optional)</label>
-        {{ form.note }}
-      </div>
-      <button type="submit">Upload & Process</button>
-    </form>
 
-    <a href="{% url 'customer_frequency_analysis_sap' %}" class="back">← Back to Customer Frequency</a>
+      <div class="body">
+        {% if messages %}
+          {% for message in messages %}
+            <div class="messages {{ message.tags }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+
+        <form method="post" enctype="multipart/form-data" id="uploadForm">
+          {% csrf_token %}
+
+          <div class="label">Excel File (.xlsx / .xls)</div>
+          <label class="drop" id="dropArea" aria-label="Upload area">
+            <input type="file" name="file" id="fileInput" accept=".xlsx,.xls" hidden>
+            <div class="big">Drag & Drop your file here</div>
+            <div class="hint">or click to browse</div>
+            <div class="help">We only import rows where <b>Type = Credit Note</b>. We also read <b>Document Number</b>, <b>Posting Date</b>, <b>Customer/Supplier Name</b>, <b>SlpName</b>, <b>Total Amount</b>.</div>
+            <div id="filePill" class="file-pill"></div>
+          </label>
+
+          <div class="field">
+            <div class="label">Note (optional)</div>
+            {% if form.note %}{{ form.note|add_class:"input" }}{% else %}
+              <textarea name="note" class="input" placeholder="E.g., Jan 2025 credit batch from SAP BI…"></textarea>
+            {% endif %}
+          </div>
+
+          <div class="row">
+            <button type="button" class="btn secondary" id="clearBtn">Clear</button>
+            <button type="submit" class="btn" id="submitBtn" disabled>Upload & Process</button>
+          </div>
+
+          <div class="help">Tip: if your export contains both invoices and credit notes, we will <b>automatically ignore non-credit rows</b>.</div>
+        </form>
+      </div>
+    </div>
   </div>
+
+<script>
+  (function(){
+    var drop = document.getElementById('dropArea');
+    var input = document.getElementById('fileInput');
+    var pill  = document.getElementById('filePill');
+    var submit= document.getElementById('submitBtn');
+    var clear = document.getElementById('clearBtn');
+
+    function prettyBytes(bytes){
+      var k=1024, sizes=['B','KB','MB','GB']; if(!bytes && bytes!==0) return '';
+      var i = Math.floor(Math.log(bytes)/Math.log(k));
+      return (bytes/Math.pow(k,i)).toFixed(1)+' '+sizes[i];
+    }
+    function setFile(file){
+      if(!file){
+        pill.style.display='none'; pill.textContent=''; submit.disabled=true; input.value='';
+        return;
+      }
+      pill.textContent = file.name + (file.size ? (' · ' + prettyBytes(file.size)) : '');
+      pill.style.display='inline-flex';
+      submit.disabled=false;
+    }
+
+    drop.addEventListener('click', function(){ input.click(); });
+    input.addEventListener('change', function(e){ setFile(e.target.files[0]); });
+
+    ['dragenter','dragover'].forEach(function(evt){
+      drop.addEventListener(evt, function(e){ e.preventDefault(); e.stopPropagation(); drop.style.borderColor='#94a3b8'; });
+    });
+    ['dragleave','drop'].forEach(function(evt){
+      drop.addEventListener(evt, function(e){ e.preventDefault(); e.stopPropagation(); drop.style.borderColor='#cbd5e1'; });
+    });
+    drop.addEventListener('drop', function(e){
+      var file = (e.dataTransfer.files||[])[0];
+      if(file){ input.files = e.dataTransfer.files; setFile(file); }
+    });
+
+    clear.addEventListener('click', function(){ setFile(null); });
+  })();
+</script>
 </body>
 </html>

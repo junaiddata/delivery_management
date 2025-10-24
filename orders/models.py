@@ -277,26 +277,31 @@ class SAPInvoice(models.Model):
 
 
 
+# models.py
+from django.db import models
+
 class SAPCreditNoteUploadBatch(models.Model):
-    created_at   = models.DateTimeField(auto_now_add=True)
-    filename     = models.CharField(max_length=255, blank=True, default="")
-    note         = models.TextField(blank=True, default="")
-    rows_ingested = models.IntegerField(default=0)
+    created_at     = models.DateTimeField(auto_now_add=True)
+    filename       = models.CharField(max_length=255, blank=True, default="")
+    note           = models.TextField(blank=True, default="")
+    rows_ingested  = models.IntegerField(default=0)
 
     def __str__(self):
         return f"CreditBatch {self.id} · {self.filename}"
 
 class SAPCreditNote(models.Model):
-    number         = models.CharField(max_length=64, unique=True)  # the second '#'
+    # One row per credit note number (after aggregating all its lines)
+    number         = models.CharField(max_length=64, unique=True, db_index=True)
     date           = models.DateField(db_index=True)
     customer_name  = models.CharField(max_length=255, db_index=True)
-    document_total = models.DecimalField(max_digits=18, decimal_places=2)
+    salesman       = models.CharField(max_length=255, blank=True, default="", db_index=True)  # SlpName
+    document_total = models.DecimalField(max_digits=18, decimal_places=2)  # stored as positive amount to subtract
     upload_batch   = models.ForeignKey(SAPCreditNoteUploadBatch, on_delete=models.SET_NULL, null=True, blank=True)
 
     class Meta:
         indexes = [
-            models.Index(fields=["date", "customer_name"]),
+            models.Index(fields=["date", "customer_name", "salesman"]),
         ]
 
     def __str__(self):
-        return f"{self.number} · {self.customer_name} · {self.date}"
+        return f"{self.number} · {self.customer_name} · {self.salesman} · {self.date}"
