@@ -3090,7 +3090,7 @@ def sap_invoices_list(request):
 SALES_USER_MAP = {
     "muzain": ["B.MR.MUZAIN"],
     "dip": ["D.RETAIL CUST DIP"],
-    "abubaqar": ["B. MR.RAFIQ ABU- PROJ","A.MR.RAFIQ ABU-TRD"],
+    "rafiqabu": ["B. MR.RAFIQ ABU- PROJ","A.MR.RAFIQ ABU-TRD"],
     "rashid": ["A.MR.RASHID", "A.MR.RASHID CONT"],
     "parthiban": ["B.MR.PARTHIBAN"],
     "siyab": ["A.MR.SIYAB", "A.MR.SIYAB CONT"],
