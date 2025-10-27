@@ -98,7 +98,7 @@
                         {% if order.status != 'Received by A/c' and order.status != 'Cancelled' %}
                             <form method="post" action="{% url 'mark_received_by_accounts' order.id %}" onsubmit="return confirmStatusChange();">
                                 {% csrf_token %}
-                                <button type="submit" class="btn btn-sm btn-warning">✅ Mark as Received</button>
+                                <button type="submit" class="btn btn-sm btn-warning" style="background-color: #ffc107 !important;">✅ Mark as Received</button>
                             </form>
                         {% else %}
                             <span class="text-success fw-bold">✔ Received by A/c</span>
