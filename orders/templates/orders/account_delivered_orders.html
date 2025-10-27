@@ -176,22 +176,20 @@
             margin-bottom: 10px;
         }
     }
-/* Force the warning button to stay yellow, overriding all global .btn rules */
-table .btn.btn-warning,
-form .btn.btn-warning,
+/* Force Bootstrap warning button to stay yellow, overriding base.html's generic button rule */
 button.btn-warning,
-.btn.btn-warning {
-    background-color: #ffc107 !important;
+.btn.btn-warning,
+form button.btn-warning {
+    background: #ffc107 !important;
     border-color: #ffc107 !important;
     color: #000 !important;
+    box-shadow: none !important;
 }
 
-/* Optional hover color */
-table .btn.btn-warning:hover,
-form .btn.btn-warning:hover,
+/* Keep hover consistent */
 button.btn-warning:hover,
 .btn.btn-warning:hover {
-    background-color: #e0a800 !important;
+    background: #e0a800 !important;
     border-color: #d39e00 !important;
     color: #000 !important;
 }
