@@ -176,17 +176,24 @@
             margin-bottom: 10px;
         }
     }
-        /* Preserve warning color even if overridden in base.html */
-    .btn.btn-warning {
-        background-color: #ffc107 !important;
-        border-color: #ffc107 !important;
-        color: #000 !important;
-    }
+/* Force the warning button to stay yellow, overriding all global .btn rules */
+table .btn.btn-warning,
+form .btn.btn-warning,
+button.btn-warning,
+.btn.btn-warning {
+    background-color: #ffc107 !important;
+    border-color: #ffc107 !important;
+    color: #000 !important;
+}
 
-    .btn.btn-warning:hover {
-        background-color: #e0a800 !important;
-        border-color: #d39e00 !important;
-        color: #000 !important;
-    }
+/* Optional hover color */
+table .btn.btn-warning:hover,
+form .btn.btn-warning:hover,
+button.btn-warning:hover,
+.btn.btn-warning:hover {
+    background-color: #e0a800 !important;
+    border-color: #d39e00 !important;
+    color: #000 !important;
+}
 </style>
 {% endblock %}
