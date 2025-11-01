@@ -165,6 +165,7 @@
               </th>
               <th style="min-width:240px;">Months Bought</th>
               <th class="num">Total Value</th>
+              <th class="num">GP </th>
             </tr>
           </thead>
           <tbody>
@@ -194,6 +195,7 @@
                 {% endfor %}
               </td>
               <td class="num">{{ r.total_value|floatformat:2 }}</td>
+              <td class="num">{{ r.gp_latest_upload|floatformat:2 }}</td>
             </tr>
             {% empty %}
             <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px 8px">No results for the selected period/filters.</td></tr>

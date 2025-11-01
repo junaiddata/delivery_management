@@ -305,3 +305,30 @@ class SAPCreditNote(models.Model):
 
     def __str__(self):
         return f"{self.number} · {self.customer_name} · {self.salesman} · {self.date}"
+    
+
+
+# NEW: per-upload GP totals from the uploaded file (all rows: Invoice + Credit Note)
+class SAPCreditUploadGPPair(models.Model):
+    upload_batch   = models.ForeignKey(SAPCreditNoteUploadBatch, on_delete=models.CASCADE, related_name="gp_pairs")
+    customer_name  = models.CharField(max_length=255, db_index=True)
+    salesman       = models.CharField(max_length=255, blank=True, default="", db_index=True)
+    gp_total       = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
+
+    class Meta:
+        unique_together = [("upload_batch", "customer_name", "salesman")]
+        indexes = [models.Index(fields=["customer_name", "salesman"])]
+
+
+# models.py
+class SAPCreditUploadGPLine(models.Model):
+    upload_batch  = models.ForeignKey(SAPCreditNoteUploadBatch, on_delete=models.CASCADE, related_name="gp_lines")
+    date          = models.DateField(db_index=True)                 # ← we’ll filter by date range
+    customer_name = models.CharField(max_length=255, db_index=True)
+    salesman      = models.CharField(max_length=255, blank=True, default="", db_index=True)
+    gp            = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["date", "customer_name", "salesman"]),
+        ]

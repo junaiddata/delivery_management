@@ -1,19 +1,10 @@
 # utils.py (or wherever your readers live)
+# utils.py (or wherever your readers live)
 def _read_sap_credit_dataframe(uploaded_file):
     """
-    Reads the credit export:
-      Columns typically seen:
-        ['#', 'Type', 'Document Number', 'Posting Date',
-         'Customer/Supplier No.', 'Customer/Supplier Name', 'SlpName',
-         'ItemCode', 'Dscription', 'FirmName', 'Quantity', 'Rate',
-         'Total Amount', 'GP']
-
-    Rules:
-      - Keep ONLY rows where Type == 'Credit Note'
-      - Ignore the first '#' column; use the 2nd '#' if present; otherwise use 'Document Number'
-      - Use Posting Date, Customer/Supplier Name, SlpName, Total Amount
-      - Amount is stored as POSITIVE (abs) and later subtracted in analysis
-      - Aggregate multiple lines per credit number/customer/salesman/date
+    Returns:
+      credits_df: number, date, customer_name, salesman, document_total (positive)
+      gp_pairs_df: customer_name, salesman, gp_total  (sum of GP over ALL rows in the file)
     """
     import pandas as pd
     from decimal import Decimal, InvalidOperation
@@ -21,20 +12,21 @@ def _read_sap_credit_dataframe(uploaded_file):
     def _dec(x):
         s = "" if x is None else str(x)
         s = s.replace(",", "").strip()
-        if not s:
+        if s == "":
             return Decimal("0.00")
         try:
             return Decimal(s)
         except InvalidOperation:
             return Decimal("0.00")
 
-    # 1) Probe header
+    # --- Probe header ---
     uploaded_file.seek(0)
     probe = pd.read_excel(uploaded_file, header=None, nrows=30, dtype=str, engine="openpyxl")
     probe = probe.applymap(lambda v: v.strip() if isinstance(v, str) else v)
+
     expected_any = {
         "#", "Type", "Document Number", "Posting Date",
-        "Customer/Supplier Name", "SlpName", "Total Amount"
+        "Customer/Supplier Name", "SlpName", "Total Amount", "GP"
     }
     header_row = 0
     for i in range(min(30, len(probe))):
@@ -43,14 +35,14 @@ def _read_sap_credit_dataframe(uploaded_file):
             header_row = i
             break
 
-    # 2) Read full with detected header
+    # --- Read full sheet once ---
     uploaded_file.seek(0)
     df = pd.read_excel(uploaded_file, header=header_row, dtype=str, engine="openpyxl")
     df.columns = [str(c).strip() for c in df.columns]
     df = df.applymap(lambda v: v.strip() if isinstance(v, str) else v)
     cols = list(df.columns)
 
-    # Resolve columns robustly
+    # Column resolvers
     def _pick(names, variants=None, required=True):
         lc = {c.lower(): c for c in cols}
         for n in names:
@@ -64,43 +56,67 @@ def _read_sap_credit_dataframe(uploaded_file):
             raise ValueError(f"Missing required column among {names} / {variants}. Seen: {cols}")
         return None
 
-    c_type  = _pick(["Type"])
-    c_date  = _pick(["Posting Date"], ["Document Date", "Date"])
-    c_cust  = _pick(["Customer/Supplier Name"], ["Customer Name", "Customer", "BP Name", "BP"])
-    c_sman  = _pick(["SlpName"], ["Sales Employee", "Salesman"], required=False)
-    c_total = _pick(["Total Amount"], ["Document Total", "Total", "Amount"])
-    # 2nd '#' if present, else Document Number
+    c_type   = _pick(["Type"])
+    c_date   = _pick(["Posting Date"], ["Document Date", "Date"])
+    c_cust   = _pick(["Customer/Supplier Name"], ["Customer Name", "Customer", "BP Name", "BP"])
+    c_sman   = _pick(["SlpName"], ["Sales Employee", "Salesman"], required=False)
+    c_total  = _pick(["Total Amount"], ["Document Total", "Total", "Amount"])
+    c_gp     = _pick(["GP"])  # required for this feature
+
+    # Find the 2nd "#" if present, else Document Number
     hash_cols = [c for c in cols if c == "#" or c.startswith("#.")]
     c_num = (hash_cols[1] if len(hash_cols) >= 2 else None) or _pick(["Document Number"])
 
-    # 3) Keep ONLY Credit Note type
-    df = df[df[c_type].astype(str).str.strip().str.lower() == "credit note"].copy()
+    # ---------- Build credits_df (only Type == Credit Note) ----------
+    df_credit = df[df[c_type].astype(str).str.lower() == "credit note"].copy()
 
-    # 4) Build normalized frame
-    out = pd.DataFrame({
-        "number": df[c_num].astype(str).str.strip(),
-        "date_raw": df[c_date],
-        "customer_name": df[c_cust].astype(str).str.strip(),
-        "salesman": (df[c_sman].astype(str).str.strip() if c_sman in df.columns else ""),
-        "amount_raw": df[c_total],
+    credits_df = pd.DataFrame({
+        "number":        df_credit[c_num].astype(str).str.strip(),
+        "date_raw":      df_credit[c_date],
+        "customer_name": df_credit[c_cust].astype(str).str.strip(),
+        "salesman":      (df_credit[c_sman].astype(str).str.strip() if c_sman in df_credit.columns else ""),
+        "amount_raw":    df_credit[c_total],
     })
 
-    # Parse date robustly
-    parsed = pd.to_datetime(out["date_raw"], dayfirst=True, errors="coerce")
-    mask_iso = parsed.isna() & out["date_raw"].astype(str).str.match(r"^\d{4}-\d{2}-\d{2}$")
+    parsed = pd.to_datetime(credits_df["date_raw"], dayfirst=True, errors="coerce")
+    mask_iso = parsed.isna() & credits_df["date_raw"].astype(str).str.match(r"^\d{4}-\d{2}-\d{2}$")
     if mask_iso.any():
-        parsed.loc[mask_iso] = pd.to_datetime(out.loc[mask_iso, "date_raw"], errors="coerce")
-    out["date"] = parsed.dt.date
+        parsed.loc[mask_iso] = pd.to_datetime(credits_df.loc[mask_iso, "date_raw"], errors="coerce")
+    credits_df["date"] = parsed.dt.date
 
-    # Amount as positive (abs) so we always subtract later
-    out["document_total"] = out["amount_raw"].map(_dec).abs()
+    credits_df["document_total"] = credits_df["amount_raw"].map(_dec).abs()
+    credits_df["salesman"] = credits_df["salesman"].fillna("").astype(str).str.strip()
+    credits_df = credits_df[(credits_df["number"] != "") & credits_df["date"].notna()]
 
-    # Trims & drop invalids
-    out["salesman"] = out["salesman"].fillna("").astype(str).str.strip()
-    out = out[(out["number"] != "") & out["date"].notna()]
+    credits_df = (credits_df.groupby(["number", "date", "customer_name", "salesman"], as_index=False)
+                             .agg({"document_total": "sum"}))
+    credits_df = credits_df[["number", "date", "customer_name", "salesman", "document_total"]]
 
-    # 5) Aggregate multiple lines per credit number/customer/salesman/date
-    out = (out.groupby(["number", "date", "customer_name", "salesman"], as_index=False)
-              .agg({"document_total": "sum"}))
+    # ---------- Build gp_pairs_df (ALL rows: Invoice + Credit Note) ----------
 
-    return out[["number", "date", "customer_name", "salesman", "document_total"]]
+    # ---------- Build gp_pairs_df (sum of GP grouped by (customer, salesman)) ----------
+
+    # Keep required columns, coerce GP, group by (customer, salesman)
+    gp_src = pd.DataFrame({
+        "date_raw":      df[c_date],
+        "customer_name": df[c_cust].astype(str).str.strip(),
+        "salesman":      (df[c_sman].astype(str).str.strip() if c_sman in df.columns else ""),
+        "gp_raw":        df[c_gp],
+    })
+    parsed = pd.to_datetime(gp_src["date_raw"], dayfirst=True, errors="coerce")
+    mask_iso = parsed.isna() & gp_src["date_raw"].astype(str).str.match(r"^\d{4}-\d{2}-\d{2}$")
+    if mask_iso.any():
+        parsed.loc[mask_iso] = pd.to_datetime(gp_src.loc[mask_iso, "date_raw"], errors="coerce")
+    gp_src["date"] = parsed.dt.date
+    gp_src["gp"] = gp_src["gp_raw"].map(_dec)     # keep sign; file already carries sign for CN/Invoice
+    gp_src["salesman"] = gp_src["salesman"].fillna("").astype(str).str.strip()
+    gp_lines_df = gp_src[gp_src["date"].notna()][["date", "customer_name", "salesman", "gp"]]
+
+    # ---------- Build gp_pairs_df ----------
+    gp_pairs_df = (
+        gp_lines_df.groupby(["customer_name", "salesman"], as_index=False)
+                   .agg({"gp": "sum"})
+                   .rename(columns={"gp": "gp_total"})
+    )
+
+    return credits_df, gp_pairs_df, gp_lines_df

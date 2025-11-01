@@ -3039,7 +3039,7 @@ def sap_credit_upload(request):
         if form.is_valid():
             f = request.FILES["file"]
             try:
-                df = _read_sap_credit_dataframe(f)
+                credits_df, gp_pairs_df, gp_lines_df = _read_sap_credit_dataframe(f)
             except Exception as e:
                 messages.error(request, f"Credit upload failed: {e}")
                 return redirect("sap_credit_upload")
@@ -3050,35 +3050,46 @@ def sap_credit_upload(request):
                 rows_ingested=0,
             )
 
-            total_rows = len(df)
+            # --- Store Credit Notes (as before) ---
+            total_rows = len(credits_df)
             inserted = 0
-            updated = 0
-
-            for row in df.to_dict(orient="records"):
+            updated  = 0
+            for row in credits_df.to_dict(orient="records"):
                 obj, created = SAPCreditNote.objects.update_or_create(
                     number=row["number"],
                     defaults={
                         "date": row["date"],
                         "customer_name": row["customer_name"],
                         "salesman": row["salesman"],
-                        "document_total": row["document_total"],  # positive; subtracted in analysis
+                        "document_total": row["document_total"],  # positive; subtracted later
                         "upload_batch": batch,
                     }
                 )
                 if created: inserted += 1
                 else: updated += 1
-
             batch.rows_ingested = inserted
             batch.save(update_fields=["rows_ingested"])
 
-            messages.success(
-                request,
-                f"Credit upload OK: total parsed {total_rows}, inserted {inserted}, updated {updated}."
-            )
+            # --- Store GP totals for (customer, salesman) from this file ---
+            # Save dated GP lines
+            gp_created = 0
+            objs = []
+            for row in gp_lines_df.to_dict(orient="records"):
+                objs.append(SAPCreditUploadGPLine(
+                    upload_batch=batch,
+                    date=row["date"],
+                    customer_name=row["customer_name"],
+                    salesman=row["salesman"],
+                    gp=row["gp"],
+                ))
+            SAPCreditUploadGPLine.objects.bulk_create(objs, batch_size=1000)
+            gp_created = len(objs)
+
+            messages.success(request, f"Credit upload OK. GP lines saved: {gp_created}.")
             return redirect("customer_frequency_analysis_sap")
     else:
         form = SAPInvoiceUploadForm()
-    return render(request, "sap_invoices/upload_credit.html", {"form": form, "page_title": "Upload SAP Credit Notes"})
+    return render(request, "sap_invoices/upload_credit.html", {"form": form})
 
 
  
@@ -3145,6 +3156,15 @@ from dateutil.relativedelta import relativedelta
 PAGE_SIZE = 200  # keep your page size
 
 def customer_frequency_analysis_sap(request):
+    from decimal import Decimal
+    from django.db.models import (
+        Sum, Count, Value, Q, DecimalField
+    )
+    from django.db.models.functions import Coalesce, TruncMonth
+    from django.utils import timezone
+    from datetime import datetime
+    from dateutil.relativedelta import relativedelta
+
     # Inputs
     start_month_str = request.GET.get('start')
     end_month_str   = request.GET.get('end')
@@ -3170,7 +3190,7 @@ def customer_frequency_analysis_sap(request):
         start_date = (today - relativedelta(months=5))
         end_date = (today + relativedelta(months=1)) - relativedelta(days=1)
 
-    # Base filtered queryset (Invoices)
+    # ===== Invoices base =====
     base = (SAPInvoice.objects
             .only("id", "date", "customer_name", "salesman", "document_total")
             .filter(date__range=[start_date, end_date]))
@@ -3182,18 +3202,17 @@ def customer_frequency_analysis_sap(request):
         else:
             base = base.none()
 
-    # Salesman param
+    # Apply filters
     if salesman_filter:
         if is_admin:
             base = base.filter(salesman__iexact=salesman_filter)
-        else:
-            if salesman_filter in allowed_salesmen:
-                base = base.filter(salesman__iexact=salesman_filter)
+        elif salesman_filter in allowed_salesmen:
+            base = base.filter(salesman__iexact=salesman_filter)
 
     if name_q:
         base = base.filter(customer_name__icontains=name_q)
 
-    # ===== Credits with the same scope & filters (subtract by (customer, salesman)) =====
+    # ===== Credits with the same scope =====
     credits = SAPCreditNote.objects.filter(date__range=[start_date, end_date])
 
     if not is_admin:
@@ -3203,46 +3222,66 @@ def customer_frequency_analysis_sap(request):
             credits = credits.none()
 
     if salesman_filter:
-        if is_admin:
+        if is_admin or salesman_filter in allowed_salesmen:
             credits = credits.filter(salesman__iexact=salesman_filter)
-        else:
-            if salesman_filter in allowed_salesmen:
-                credits = credits.filter(salesman__iexact=salesman_filter)
 
     if name_q:
         credits = credits.filter(customer_name__icontains=name_q)
 
-    # Build map safely (no 3-tuple dict() issue)
-    credit_rows = (credits
-                   .values("customer_name", "salesman")
-                   .annotate(csum=Coalesce(Sum("document_total"),
-                                           Value(0, output_field=DecimalField(max_digits=18, decimal_places=2)))))
-    credit_pairs = { (r["customer_name"], r["salesman"]): float(r["csum"] or 0) for r in credit_rows }
-
-    total_credits_all = float(
-        credits.aggregate(tv=Coalesce(Sum("document_total"),
-                                      Value(0, output_field=DecimalField(max_digits=18, decimal_places=2))))["tv"] or 0
+    credit_rows = (
+        credits.values("customer_name", "salesman")
+               .annotate(csum=Coalesce(Sum("document_total"),
+                                       Value(0, output_field=DecimalField(max_digits=18, decimal_places=2))))
     )
-    # ================================================================================
+    credit_pairs = {(r["customer_name"], r["salesman"]): float(r["csum"] or 0) for r in credit_rows}
+    total_credits_all = float(credits.aggregate(
+        tv=Coalesce(Sum("document_total"),
+                    Value(0, output_field=DecimalField(max_digits=18, decimal_places=2)))
+    )["tv"] or 0)
 
-    # ----- GLOBAL STATS (independent of pagination) -----
-    total_months_qs = (base
-                       .annotate(m=TruncMonth("date"))
-                       .values_list("m", flat=True)
-                       .distinct())
+    # ===== GP (date-aware) =====
+    latest_batch = SAPCreditNoteUploadBatch.objects.order_by("-id").first()
+    gp_pairs = {}
+    total_gp_filtered = 0.0
+
+    if latest_batch:
+        gp_qs = SAPCreditUploadGPLine.objects.filter(
+            upload_batch=latest_batch,
+            date__range=[start_date, end_date],
+        )
+
+        if not is_admin:
+            if allowed_salesmen:
+                gp_qs = gp_qs.filter(salesman__in=allowed_salesmen)
+            else:
+                gp_qs = gp_qs.none()
+
+        if salesman_filter:
+            if is_admin or salesman_filter in allowed_salesmen:
+                gp_qs = gp_qs.filter(salesman__iexact=salesman_filter)
+        if name_q:
+            gp_qs = gp_qs.filter(customer_name__icontains=name_q)
+
+        gp_rows = gp_qs.values("customer_name", "salesman").annotate(
+            gpsum=Coalesce(Sum("gp"), Value(0, output_field=DecimalField(max_digits=18, decimal_places=2)))
+        )
+        gp_pairs = {(r["customer_name"], r["salesman"]): float(r["gpsum"] or 0) for r in gp_rows}
+        total_gp_filtered = sum(gp_pairs.values())
+
+    # ===== Global stats =====
+    total_months_qs = (
+        base.annotate(m=TruncMonth("date")).values_list("m", flat=True).distinct()
+    )
     total_months = list(total_months_qs)
     total_months_count = len(total_months)
 
-    total_value_all = (base
-                       .aggregate(tv=Coalesce(
-                           Sum("document_total"),
-                           Value(0, output_field=DecimalField(max_digits=18, decimal_places=2))
-                       ))["tv"] or 0)
-
-    grouped_orders_all = (
-        base.values("customer_name", "salesman")
-            .annotate(orders=Count("id"))
+    total_value_all = (
+        base.aggregate(tv=Coalesce(Sum("document_total"),
+                                   Value(0, output_field=DecimalField(max_digits=18, decimal_places=2))))["tv"]
+        or 0
     )
+
+    grouped_orders_all = base.values("customer_name", "salesman").annotate(orders=Count("id"))
     one_time_count = sum(1 for r in grouped_orders_all if r["orders"] == 1)
     two_time_count = sum(1 for r in grouped_orders_all if r["orders"] == 2)
 
@@ -3266,18 +3305,18 @@ def customer_frequency_analysis_sap(request):
         "all_month": all_month_count,
         "one_time": one_time_count,
         "two_time": two_time_count,
-        # Net: invoices - credits (same scope)
         "total_value": float(total_value_all) - total_credits_all,
+        "gp_latest_upload": round(total_gp_filtered, 2),
     }
 
-    # ----- PAGE DATA (keyset pagination) -----
+    # ===== Pagination =====
     grouped = (
         base.values("customer_name", "salesman")
             .annotate(
                 orders=Count("id"),
                 total_value=Coalesce(
                     Sum("document_total"),
-                    Value(0, output_field=DecimalField(max_digits=18, decimal_places=2))
+                    Value(0, output_field=DecimalField(max_digits=18, decimal_places=2)),
                 )
             )
             .order_by("customer_name", "salesman")
@@ -3300,7 +3339,7 @@ def customer_frequency_analysis_sap(request):
     else:
         next_cursor = None
 
-    # Months for only the current page pairs
+    # ===== Month map for current page =====
     pairs = [(r["customer_name"], r["salesman"]) for r in rows]
     months_map = {}
     if pairs:
@@ -3317,7 +3356,7 @@ def customer_frequency_analysis_sap(request):
             key = (mr["customer_name"], mr["salesman"])
             months_map.setdefault(key, []).append(mr["m"])
 
-    # Build page results (subtract exact pair credit)
+    # ===== Final results =====
     results = []
     for r in rows:
         cust = r["customer_name"]
@@ -3325,32 +3364,37 @@ def customer_frequency_analysis_sap(request):
         orders = r["orders"]
         inv_total = float(r["total_value"] or 0)
 
-        csum = credit_pairs.get((cust, r["salesman"]), 0.0)
+        csum = credit_pairs.get((cust, sman), 0.0)
         net_total = inv_total - csum
+        gp_for_pair = gp_pairs.get((cust, sman), 0.0)
 
-        mlist = sorted(months_map.get((cust, r["salesman"]), []))
+        mlist = sorted(months_map.get((cust, sman), []))
         results.append({
             "name": cust,
             "salesman": sman,
             "orders": orders,
             "months": [m.strftime("%b-%Y") for m in mlist],
-            "order_class": "One-Time Customer" if orders == 1 else ("Two-Time Customer" if orders == 2 else f"{orders} Orders"),
+            "order_class": "One-Time Customer" if orders == 1 else (
+                "Two-Time Customer" if orders == 2 else f"{orders} Orders"),
             "month_class": (
                 "One-Month Customer" if len(mlist) == 1 else
                 "Two-Month Customer" if len(mlist) == 2 else
                 ("All-Month Customer" if total_months_count and len(mlist) == total_months_count else f"{len(mlist)} Months")
             ),
             "total_value": round(net_total, 2),
+            "gp_latest_upload": round(gp_for_pair, 2),
         })
 
-    # Salesmen dropdown
+    # ===== Salesmen dropdown =====
     if is_admin:
-        salesmen = (SAPInvoice.objects
-                    .exclude(salesman__isnull=True)
-                    .exclude(salesman="")
-                    .values_list("salesman", flat=True)
-                    .distinct()
-                    .order_by("salesman"))
+        salesmen = (
+            SAPInvoice.objects
+            .exclude(salesman__isnull=True)
+            .exclude(salesman="")
+            .values_list("salesman", flat=True)
+            .distinct()
+            .order_by("salesman")
+        )
     else:
         if allowed_salesmen:
             present = base.values_list("salesman", flat=True).distinct()
@@ -3359,6 +3403,7 @@ def customer_frequency_analysis_sap(request):
         else:
             salesmen = []
 
+    # ===== Render =====
     return render(request, "sap_invoices/customer_frequency_analysis_sap.html", {
         "results": results,
         "stats": stats,
