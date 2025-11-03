@@ -3009,10 +3009,13 @@ def customer_frequency_analysis_sap(request):
                     Value(0, output_field=DecimalField(max_digits=18, decimal_places=2)))
     )["tv"] or 0)
 
-    # ===== GP (date-aware) =====
+# ===== GP (date-aware) =====
     latest_batch = SAPCreditNoteUploadBatch.objects.order_by("-id").first()
+
+    # Always define these so template never crashes
     gp_pairs = {}
     total_gp_filtered = 0.0
+    total_gp_all = 0.0
 
     if latest_batch:
         gp_qs = SAPCreditUploadGPLine.objects.filter(
@@ -3033,20 +3036,33 @@ def customer_frequency_analysis_sap(request):
         if name_q:
             gp_qs = gp_qs.filter(customer_name__icontains=name_q)
 
-        # Group filter on GP
+        # Apply HO/Others/All
         gp_qs = _apply_group(gp_qs, group)
 
-        total_gp_all = 0.0
-        if latest_batch:
-            total_gp_all = float(
-                gp_qs.aggregate(
-                    gv=Coalesce(
-                        Sum("gp"),
-                        Value(0, output_field=DecimalField(max_digits=18, decimal_places=2))
-                    )
-                )["gv"] or 0
-            )
+        # Row-level GP used in the table
+        gp_rows = gp_qs.values("customer_name", "salesman").annotate(
+            gpsum=Coalesce(Sum("gp"), Value(0, output_field=DecimalField(max_digits=18, decimal_places=2)))
+        )
+        gp_pairs = {(r["customer_name"], r["salesman"]): float(r["gpsum"] or 0) for r in gp_rows}
 
+        # Total GP respecting all current filters (salesman/name/group/date)
+        total_gp_filtered = float(
+            gp_qs.aggregate(
+                tg=Coalesce(Sum("gp"), Value(0, output_field=DecimalField(max_digits=18, decimal_places=2)))
+            )["tg"] or 0
+        )
+
+        # If you also need an overall GP for the period but still respecting group (no name/salesman filter):
+        gp_qs_all = SAPCreditUploadGPLine.objects.filter(
+            upload_batch=latest_batch,
+            date__range=[start_date, end_date],
+        )
+        gp_qs_all = _apply_group(gp_qs_all, group)
+        total_gp_all = float(
+            gp_qs_all.aggregate(
+                tg=Coalesce(Sum("gp"), Value(0, output_field=DecimalField(max_digits=18, decimal_places=2)))
+            )["tg"] or 0
+        )
         gp_rows = gp_qs.values("customer_name", "salesman").annotate(
             gpsum=Coalesce(Sum("gp"), Value(0, output_field=DecimalField(max_digits=18, decimal_places=2)))
         )
