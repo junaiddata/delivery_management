@@ -3104,7 +3104,7 @@ def customer_frequency_analysis_sap(request):
         "two_time": two_time_count,
         "total_value": float(total_value_all) - total_credits_all,
         "gp_latest_upload": round(total_gp_filtered, 2),
-        "total_gp": round(total_gp_all, 2), 
+        "total_gp": round(total_gp_filtered, 2), 
     }
 
     # ===== Pagination =====
