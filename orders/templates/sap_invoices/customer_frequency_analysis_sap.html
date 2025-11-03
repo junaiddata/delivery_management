@@ -91,10 +91,11 @@
       <!-- <div class="stat"><div class="label">Two‑Month Customers</div><div class="value">{{ stats.two_month|default:0 }}</div></div> -->
       <div class="stat"><div class="label">All‑Month Customers</div><div class="value">{{ stats.all_month|default:0 }}</div></div>
       <div class="stat"><div class="label">Total Value ({{ start }} → {{ end }})</div><div class="value">{{ stats.total_value|floatformat:2 }}</div></div>
+  <!-- ✅ new line for total GP -->
       <div class="stat">
-      <div class="label">Total GP ({{ start }} → {{ end }})</div>
-      <div class="value">{{ stats.total_gp|floatformat:2 }}</div>
-    </div>
+        <div class="label">Total GP ({{ start }} → {{ end }})</div>
+        <div class="value">{{ stats.total_gp|floatformat:2 }}</div>
+      </div>
     </section>
 
     <!-- Filters -->

@@ -3010,64 +3010,62 @@ def customer_frequency_analysis_sap(request):
     )["tv"] or 0)
 
 # ===== GP (date-aware) =====
-    latest_batch = SAPCreditNoteUploadBatch.objects.order_by("-id").first()
-
-    # Always define these so template never crashes
+     # ===== GP (date-aware) =====
+    # Query ALL GP lines in the date range (do NOT limit to latest batch)
     gp_pairs = {}
     total_gp_filtered = 0.0
     total_gp_all = 0.0
 
-    if latest_batch:
-        gp_qs = SAPCreditUploadGPLine.objects.filter(
-            upload_batch=latest_batch,
-            date__range=[start_date, end_date],
+    gp_qs = SAPCreditUploadGPLine.objects.filter(
+        date__range=[start_date, end_date],
+    )
+
+    # Visibility enforcement
+    if not is_admin:
+        if allowed_salesmen:
+            gp_qs = gp_qs.filter(salesman__in=allowed_salesmen)
+        else:
+            gp_qs = gp_qs.none()
+
+    # Optional filters
+    if salesman_filter and (is_admin or salesman_filter in allowed_salesmen):
+        gp_qs = gp_qs.filter(salesman__iexact=salesman_filter)
+    if name_q:
+        gp_qs = gp_qs.filter(customer_name__icontains=name_q)
+
+    # Apply HO / Others / All group filter
+    gp_qs = _apply_group(gp_qs, group)
+
+    # Row-level GP used in the table (per customer/salesman)
+    gp_rows = gp_qs.values("customer_name", "salesman").annotate(
+        gpsum=Coalesce(
+            Sum("gp"),
+            Value(0, output_field=DecimalField(max_digits=18, decimal_places=2))
         )
+    )
+    gp_pairs = {(r["customer_name"], r["salesman"]): float(r["gpsum"] or 0) for r in gp_rows}
 
-        if not is_admin:
-            if allowed_salesmen:
-                gp_qs = gp_qs.filter(salesman__in=allowed_salesmen)
-            else:
-                gp_qs = gp_qs.none()
+    # Total GP respecting all *current* filters (salesman/name/group/date)
+    total_gp_filtered = float(
+        gp_qs.aggregate(
+            tg=Coalesce(
+                Sum("gp"),
+                Value(0, output_field=DecimalField(max_digits=18, decimal_places=2))
+            )
+        )["tg"] or 0
+    )
 
-        if salesman_filter:
-            if is_admin or salesman_filter in allowed_salesmen:
-                gp_qs = gp_qs.filter(salesman__iexact=salesman_filter)
-
-        if name_q:
-            gp_qs = gp_qs.filter(customer_name__icontains=name_q)
-
-        # Apply HO/Others/All
-        gp_qs = _apply_group(gp_qs, group)
-
-        # Row-level GP used in the table
-        gp_rows = gp_qs.values("customer_name", "salesman").annotate(
-            gpsum=Coalesce(Sum("gp"), Value(0, output_field=DecimalField(max_digits=18, decimal_places=2)))
-        )
-        gp_pairs = {(r["customer_name"], r["salesman"]): float(r["gpsum"] or 0) for r in gp_rows}
-
-        # Total GP respecting all current filters (salesman/name/group/date)
-        total_gp_filtered = float(
-            gp_qs.aggregate(
-                tg=Coalesce(Sum("gp"), Value(0, output_field=DecimalField(max_digits=18, decimal_places=2)))
-            )["tg"] or 0
-        )
-
-        # If you also need an overall GP for the period but still respecting group (no name/salesman filter):
-        gp_qs_all = SAPCreditUploadGPLine.objects.filter(
-            upload_batch=latest_batch,
-            date__range=[start_date, end_date],
-        )
-        gp_qs_all = _apply_group(gp_qs_all, group)
-        total_gp_all = float(
-            gp_qs_all.aggregate(
-                tg=Coalesce(Sum("gp"), Value(0, output_field=DecimalField(max_digits=18, decimal_places=2)))
-            )["tg"] or 0
-        )
-        gp_rows = gp_qs.values("customer_name", "salesman").annotate(
-            gpsum=Coalesce(Sum("gp"), Value(0, output_field=DecimalField(max_digits=18, decimal_places=2)))
-        )
-        gp_pairs = {(r["customer_name"], r["salesman"]): float(r["gpsum"] or 0) for r in gp_rows}
-        total_gp_filtered = sum(gp_pairs.values())
+    # Overall GP for the period but still respecting group (ignores name/salesman filters)
+    gp_qs_all = SAPCreditUploadGPLine.objects.filter(date__range=[start_date, end_date])
+    gp_qs_all = _apply_group(gp_qs_all, group)
+    total_gp_all = float(
+        gp_qs_all.aggregate(
+            tg=Coalesce(
+                Sum("gp"),
+                Value(0, output_field=DecimalField(max_digits=18, decimal_places=2))
+            )
+        )["tg"] or 0
+    )
 
     # ===== Global stats =====
     total_months_qs = base.annotate(m=TruncMonth("date")).values_list("m", flat=True).distinct()
@@ -3317,7 +3315,7 @@ def sap_unified_upload(request):
     Reuses existing batch models to keep FKs compatible:
       - SAPInvoice.upload_batch -> SAPInvoiceUploadBatch
       - SAPCreditNote.upload_batch -> SAPCreditNoteUploadBatch
-      - SAPCreditUploadGPLine.upload_batch -> SAPCreditNoteUploadBatch (latest credit batch)
+      - SAPCreditUploadGPLine.upload_batch -> SAPCreditNoteUploadBatch
     """
     if request.method == "POST":
         form = SAPInvoiceUploadForm(request.POST, request.FILES)
@@ -3326,13 +3324,11 @@ def sap_unified_upload(request):
 
         f = request.FILES["file"]
         try:
-            # NOTE: This expects your utils version that returns 4 DFs.
+            # expects utils to return 4 DFs
             invoices_df, credits_df, gp_lines_df, lines_df = _read_sap_unified_dataframe(f)
         except TypeError:
-            # Fallback if your utils still returns only 3 DFs
             try:
                 invoices_df, credits_df, gp_lines_df = _read_sap_unified_dataframe(f)
-                # Create an empty lines_df to keep code paths simple
                 import pandas as pd
                 lines_df = pd.DataFrame(columns=[
                     "doc_type", "number", "date", "customer_code", "customer_name",
@@ -3345,7 +3341,7 @@ def sap_unified_upload(request):
             messages.error(request, f"Upload failed: {e}")
             return redirect("sap_unified_upload")
 
-        # Create the TWO batches that your current FKs require
+        # Create the TWO batches your current FKs require
         inv_batch = SAPInvoiceUploadBatch.objects.create(
             filename=getattr(f, "name", "sap_unified.xlsx"),
             note=form.cleaned_data.get("note", ""),
@@ -3390,7 +3386,7 @@ def sap_unified_upload(request):
                     "date": row["date"],
                     "customer_name": row["customer_name"],
                     "salesman": row["salesman"],
-                    "document_total": row["document_total"],  # store positive, subtract later
+                    "document_total": row["document_total"],  # store positive
                     "upload_batch": cr_batch,
                 }
                 if _model_has_field(SAPCreditNote, "customer_code"):
@@ -3406,29 +3402,36 @@ def sap_unified_upload(request):
         cr_batch.rows_ingested = cr_inserted
         cr_batch.save(update_fields=["rows_ingested"])
 
-        # ---------------- GP lines (date-aware, under credit batch) ----------------
-        gp_objs = []
+        # ---------------- GP lines (UPsert, not bulk_create) ----------------
+        gp_created = gp_updated = 0
         if gp_lines_df is not None and not gp_lines_df.empty:
             for row in gp_lines_df.to_dict(orient="records"):
-                kwargs = {
-                    "upload_batch": cr_batch,
-                    "date": row["date"],
+                # Natural identity of a GP line across uploads
+                lookup = {
+                    "date":          row["date"],
                     "customer_name": row["customer_name"],
-                    "salesman": row["salesman"],
+                    "salesman":      row["salesman"],
+                }
+                # If your model has customer_code, include it in the identity
+                if _model_has_field(SAPCreditUploadGPLine, "customer_code"):
+                    lookup["customer_code"] = row.get("customer_code", "") or ""
+
+                defaults = {
+                    "upload_batch": cr_batch,   # keep last-batch pointer for audit
                     "gp": row["gp"],
                 }
-                # Only set if your model has the field
-                if _model_has_field(SAPCreditUploadGPLine, "customer_code"):
-                    kwargs["customer_code"] = row.get("customer_code", "") or None
 
-                gp_objs.append(SAPCreditUploadGPLine(**kwargs))
+                obj, created = SAPCreditUploadGPLine.objects.update_or_create(
+                    **lookup, defaults=defaults
+                )
+                if created: gp_created += 1
+                else:
+                    gp_updated += 1
 
-            SAPCreditUploadGPLine.objects.bulk_create(gp_objs, batch_size=1000)
-
-        # ---------------- Item lines (optional; requires SAPSalesLine model) ----------------
+        # ---------------- Item lines (optional; requires SAPSalesLine) ----------------
         lines_saved = 0
         try:
-            from .models import SAPSalesLine  # import here to keep optional
+            from .models import SAPSalesLine
             if lines_df is not None and not lines_df.empty:
                 line_objs = []
                 for row in lines_df.to_dict(orient="records"):
@@ -3452,7 +3455,6 @@ def sap_unified_upload(request):
                 SAPSalesLine.objects.bulk_create(line_objs, batch_size=2000)
                 lines_saved = len(line_objs)
         except Exception:
-            # If SAPSalesLine doesn't exist yet or any issue occurs, we silently skip items.
             lines_saved = 0
 
         messages.success(
@@ -3461,7 +3463,7 @@ def sap_unified_upload(request):
                 f"Upload OK. "
                 f"Invoices ins/upd: {inv_inserted}/{inv_updated}; "
                 f"Credits ins/upd: {cr_inserted}/{cr_updated}; "
-                f"GP lines: {len(gp_objs)}; "
+                f"GP lines ins/upd: {gp_created}/{gp_updated}; "
                 f"Items: {lines_saved}."
             )
         )
@@ -3470,7 +3472,6 @@ def sap_unified_upload(request):
     # GET
     form = SAPInvoiceUploadForm()
     return render(request, "sap_invoices/upload.html", {"form": form})
-
 
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET

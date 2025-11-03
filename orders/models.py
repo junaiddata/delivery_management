@@ -322,16 +322,27 @@ class SAPCreditUploadGPPair(models.Model):
 
 
 # models.py
+# models.py
+from django.db import models
+from decimal import Decimal
+
 class SAPCreditUploadGPLine(models.Model):
-    upload_batch  = models.ForeignKey(SAPCreditNoteUploadBatch, on_delete=models.CASCADE, related_name="gp_lines")
-    date          = models.DateField(db_index=True)                 # ← we’ll filter by date range
+    upload_batch  = models.ForeignKey("SAPCreditNoteUploadBatch", on_delete=models.CASCADE, related_name="gp_lines")
+    date          = models.DateField(db_index=True)
+    customer_code = models.CharField(max_length=64, blank=True, default="", db_index=True)  # <— add if not present
     customer_name = models.CharField(max_length=255, db_index=True)
     salesman      = models.CharField(max_length=255, blank=True, default="", db_index=True)
     gp            = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
 
     class Meta:
         indexes = [
-            models.Index(fields=["date", "customer_name", "salesman"]),
+            models.Index(fields=["date", "customer_code", "customer_name", "salesman"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["date", "customer_code", "customer_name", "salesman"],
+                name="uq_gp_day_code_cust_salesman",
+            )
         ]
 
 
