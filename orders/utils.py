@@ -1,10 +1,14 @@
-# utils.py (or wherever your readers live)
-# utils.py (or wherever your readers live)
-def _read_sap_credit_dataframe(uploaded_file):
+
+
+
+def _read_sap_unified_dataframe(uploaded_file):
     """
-    Returns:
-      credits_df: number, date, customer_name, salesman, document_total (positive)
-      gp_pairs_df: customer_name, salesman, gp_total  (sum of GP over ALL rows in the file)
+    Returns 4 dataframes:
+      invoices_df: number, date, customer_code, customer_name, salesman, document_total (float, +)
+      credits_df : number, date, customer_code, customer_name, salesman, document_total (float, +)
+      gp_lines_df: date,  customer_code, customer_name, salesman, gp (float, signed)
+      lines_df   : doc_type, number, date, customer_code, customer_name, salesman,
+                   item_code, item_desc, quantity (signed), rate, amount (signed), gp (signed)
     """
     import pandas as pd
     from decimal import Decimal, InvalidOperation
@@ -19,104 +23,156 @@ def _read_sap_credit_dataframe(uploaded_file):
         except InvalidOperation:
             return Decimal("0.00")
 
-    # --- Probe header ---
     uploaded_file.seek(0)
-    probe = pd.read_excel(uploaded_file, header=None, nrows=30, dtype=str, engine="openpyxl")
-    probe = probe.applymap(lambda v: v.strip() if isinstance(v, str) else v)
-
-    expected_any = {
-        "#", "Type", "Document Number", "Posting Date",
-        "Customer/Supplier Name", "SlpName", "Total Amount", "GP"
-    }
-    header_row = 0
-    for i in range(min(30, len(probe))):
-        row_vals = set(str(v).strip() for v in probe.iloc[i].tolist() if v not in (None, ""))
-        if len(expected_any.intersection(row_vals)) >= 3:
-            header_row = i
-            break
-
-    # --- Read full sheet once ---
-    uploaded_file.seek(0)
-    df = pd.read_excel(uploaded_file, header=header_row, dtype=str, engine="openpyxl")
+    df = pd.read_excel(uploaded_file, header=0, dtype=str, engine="openpyxl")
     df.columns = [str(c).strip() for c in df.columns]
     df = df.applymap(lambda v: v.strip() if isinstance(v, str) else v)
     cols = list(df.columns)
 
-    # Column resolvers
-    def _pick(names, variants=None, required=True):
+    EXACT = {
+        "type": "Type",
+        "number": "Document Number",
+        "date": "Posting Date",
+        "cust_code": "Customer/Supplier No.",
+        "cust_name": "Customer/Supplier Name",
+        "salesman": "SlpName",
+        "amount": "Total Amount",
+        "gp": "GP",
+        "item_code": "ItemCode",
+        "item_desc": "Dscription",
+        "qty": "Quantity",
+        "rate": "Rate",
+    }
+    VARIANTS = {
+        "type": ["Doc Type", "Document Type"],
+        "number": ["Doc Num", "DocNumber", "Document No."],
+        "date": ["Document Date", "Date"],
+        "cust_code": ["CustomerCode","Customer Code","Customer Code/ID","CardCode","BP Code","BP No","BP Number",
+                      "Customer/Supplier No","Customer/Supplier #"],
+        "cust_name": ["Customer Name", "Customer", "BP Name", "BP"],
+        "salesman": ["Sales Employee", "Salesman"],
+        "amount": ["Document Total", "Total", "Amount"],
+        "gp": ["Gross Profit","G.P."],
+        "item_code": ["Item Code","Code"],
+        "item_desc": ["Description","Item Description"],
+        "qty": ["Qty","Quantity Sold"],
+        "rate": ["Unit Price","Price"],
+    }
+
+    def pick(primary, required=True):
         lc = {c.lower(): c for c in cols}
-        for n in names:
-            c = lc.get(n.lower())
-            if c: return c
-        if variants:
-            for v in variants:
-                c = lc.get(v.lower())
-                if c: return c
+        p = EXACT[primary]
+        if p.lower() in lc: return lc[p.lower()]
+        for v in VARIANTS.get(primary, []):
+            if v.lower() in lc: return lc[v.lower()]
         if required:
-            raise ValueError(f"Missing required column among {names} / {variants}. Seen: {cols}")
+            raise ValueError(f"Missing required column '{EXACT[primary]}' (or variants {VARIANTS.get(primary, [])}). Seen: {cols}")
         return None
 
-    c_type   = _pick(["Type"])
-    c_date   = _pick(["Posting Date"], ["Document Date", "Date"])
-    c_cust   = _pick(["Customer/Supplier Name"], ["Customer Name", "Customer", "BP Name", "BP"])
-    c_sman   = _pick(["SlpName"], ["Sales Employee", "Salesman"], required=False)
-    c_total  = _pick(["Total Amount"], ["Document Total", "Total", "Amount"])
-    c_gp     = _pick(["GP"])  # required for this feature
+    c_type  = pick("type")
+    c_num   = pick("number")
+    c_date  = pick("date")
+    c_code  = pick("cust_code")
+    c_name  = pick("cust_name")
+    c_sman  = pick("salesman", required=False)
+    c_amt   = pick("amount")
+    c_gp    = pick("gp", required=False)
+    c_ic    = pick("item_code")
+    c_idesc = pick("item_desc", required=False)
+    c_qty   = pick("qty", required=False)
+    c_rate  = pick("rate", required=False)
 
-    # Find the 2nd "#" if present, else Document Number
-    hash_cols = [c for c in cols if c == "#" or c.startswith("#.")]
-    c_num = (hash_cols[1] if len(hash_cols) >= 2 else None) or _pick(["Document Number"])
-
-    # ---------- Build credits_df (only Type == Credit Note) ----------
-    df_credit = df[df[c_type].astype(str).str.lower() == "credit note"].copy()
-
-    credits_df = pd.DataFrame({
-        "number":        df_credit[c_num].astype(str).str.strip(),
-        "date_raw":      df_credit[c_date],
-        "customer_name": df_credit[c_cust].astype(str).str.strip(),
-        "salesman":      (df_credit[c_sman].astype(str).str.strip() if c_sman in df_credit.columns else ""),
-        "amount_raw":    df_credit[c_total],
-    })
-
-    parsed = pd.to_datetime(credits_df["date_raw"], dayfirst=True, errors="coerce")
-    mask_iso = parsed.isna() & credits_df["date_raw"].astype(str).str.match(r"^\d{4}-\d{2}-\d{2}$")
+    parsed_date = pd.to_datetime(df[c_date], dayfirst=True, errors="coerce")
+    mask_iso = parsed_date.isna() & df[c_date].astype(str).str.match(r"^\d{4}-\d{2}-\d{2}$")
     if mask_iso.any():
-        parsed.loc[mask_iso] = pd.to_datetime(credits_df.loc[mask_iso, "date_raw"], errors="coerce")
-    credits_df["date"] = parsed.dt.date
+        parsed_date.loc[mask_iso] = pd.to_datetime(df.loc[mask_iso, c_date], errors="coerce")
+    df["_date"]          = parsed_date.dt.date
+    df["_number"]        = df[c_num].astype(str).str.strip()
+    df["_customer_code"] = df[c_code].astype(str).str.strip()
+    df["_customer_name"] = df[c_name].astype(str).str.strip()
+    df["_salesman"]      = (df[c_sman].astype(str).str.strip() if c_sman in df.columns else "")
+    df["_amount"]        = df[c_amt].map(_dec)
+    df["_gp"]            = (df[c_gp].map(_dec) if c_gp in df.columns else Decimal("0.00"))
+    df["_item_code"]     = df[c_ic].astype(str).str.strip()
+    df["_item_desc"]     = (df[c_idesc].astype(str).str.strip() if c_idesc in df.columns else "")
+    df["_qty"]           = (df[c_qty].map(_dec) if c_qty in df.columns else Decimal("0.00"))
+    df["_rate"]          = (df[c_rate].map(_dec) if c_rate in df.columns else Decimal("0.00"))
 
-    credits_df["document_total"] = credits_df["amount_raw"].map(_dec).abs()
-    credits_df["salesman"] = credits_df["salesman"].fillna("").astype(str).str.strip()
-    credits_df = credits_df[(credits_df["number"] != "") & credits_df["date"].notna()]
+    valid = df[df["_date"].notna()].copy()
+    t = valid[c_type].astype(str).str.lower()
+    is_invoice = t.isin(["invoice","ar invoice","a/r invoice","a r invoice"])
+    is_credit  = t.str.contains("credit", na=False)
 
-    credits_df = (credits_df.groupby(["number", "date", "customer_name", "salesman"], as_index=False)
-                             .agg({"document_total": "sum"}))
-    credits_df = credits_df[["number", "date", "customer_name", "salesman", "document_total"]]
-
-    # ---------- Build gp_pairs_df (ALL rows: Invoice + Credit Note) ----------
-
-    # ---------- Build gp_pairs_df (sum of GP grouped by (customer, salesman)) ----------
-
-    # Keep required columns, coerce GP, group by (customer, salesman)
-    gp_src = pd.DataFrame({
-        "date_raw":      df[c_date],
-        "customer_name": df[c_cust].astype(str).str.strip(),
-        "salesman":      (df[c_sman].astype(str).str.strip() if c_sman in df.columns else ""),
-        "gp_raw":        df[c_gp],
-    })
-    parsed = pd.to_datetime(gp_src["date_raw"], dayfirst=True, errors="coerce")
-    mask_iso = parsed.isna() & gp_src["date_raw"].astype(str).str.match(r"^\d{4}-\d{2}-\d{2}$")
-    if mask_iso.any():
-        parsed.loc[mask_iso] = pd.to_datetime(gp_src.loc[mask_iso, "date_raw"], errors="coerce")
-    gp_src["date"] = parsed.dt.date
-    gp_src["gp"] = gp_src["gp_raw"].map(_dec)     # keep sign; file already carries sign for CN/Invoice
-    gp_src["salesman"] = gp_src["salesman"].fillna("").astype(str).str.strip()
-    gp_lines_df = gp_src[gp_src["date"].notna()][["date", "customer_name", "salesman", "gp"]]
-
-    # ---------- Build gp_pairs_df ----------
-    gp_pairs_df = (
-        gp_lines_df.groupby(["customer_name", "salesman"], as_index=False)
-                   .agg({"gp": "sum"})
-                   .rename(columns={"gp": "gp_total"})
+    # ---- Aggregated invoices
+    inv_raw = valid[is_invoice & (valid["_number"] != "")]
+    invoices_df = (
+        inv_raw.groupby(["_number","_date","_customer_code","_customer_name","_salesman"], as_index=False)
+               .agg(_document_total=("_amount","sum"))
+               .rename(columns={
+                   "_number":"number","_date":"date","_customer_code":"customer_code",
+                   "_customer_name":"customer_name","_salesman":"salesman","_document_total":"document_total"
+               })
     )
 
-    return credits_df, gp_pairs_df, gp_lines_df
+    # ---- Aggregated credits (store positive totals)
+    cr_raw = valid[is_credit & (valid["_number"] != "")]
+    cr_raw2 = cr_raw.copy()
+    cr_raw2.loc[:, "_amount"] = cr_raw2["_amount"].abs()
+    credits_df = (
+        cr_raw2.groupby(["_number","_date","_customer_code","_customer_name","_salesman"], as_index=False)
+               .agg(_document_total=("_amount","sum"))
+               .rename(columns={
+                   "_number":"number","_date":"date","_customer_code":"customer_code",
+                   "_customer_name":"customer_name","_salesman":"salesman","_document_total":"document_total"
+               })
+    )
+
+    # ---- GP lines (signed)
+    gp_src = valid[["_date","_customer_code","_customer_name","_salesman","_gp"]].copy()
+    gp_lines_df = gp_src.rename(columns={
+        "_date":"date","_customer_code":"customer_code","_customer_name":"customer_name",
+        "_salesman":"salesman","_gp":"gp"
+    })
+
+    # ---- Item lines (signed qty/amount; credits negative)
+    def signed(val, sign=-1):
+        return (val * sign)
+
+    inv_lines = valid[is_invoice & (valid["_number"] != "")]
+    inv_lines = inv_lines.assign(
+        doc_type="Invoice",
+        quantity=inv_lines["_qty"],
+        amount=inv_lines["_amount"],
+        gp=inv_lines["_gp"],
+    )
+
+    cr_lines = valid[is_credit & (valid["_number"] != "")]
+    cr_lines = cr_lines.assign(
+        doc_type="Credit",
+        quantity=signed(cr_lines["_qty"], -1),
+        amount=signed(cr_lines["_amount"].abs(), -1),
+        gp=cr_lines["_gp"],  # keep original sign
+    )
+
+    all_lines = pd.concat([inv_lines, cr_lines], ignore_index=True, sort=False)
+
+    lines_df = all_lines.loc[:, [
+        "doc_type",
+        "_number","_date","_customer_code","_customer_name","_salesman",
+        "_item_code","_item_desc","quantity","_rate","amount","gp"
+    ]].rename(columns={
+        "_number":"number","_date":"date","_customer_code":"customer_code","_customer_name":"customer_name",
+        "_salesman":"salesman","_item_code":"item_code","_item_desc":"item_desc","_rate":"rate"
+    })
+
+    # Final numeric types
+    if not invoices_df.empty: invoices_df["document_total"] = invoices_df["document_total"].astype(float)
+    if not credits_df.empty:  credits_df["document_total"]  = credits_df["document_total"].astype(float)
+    if not gp_lines_df.empty: gp_lines_df["gp"]             = gp_lines_df["gp"].astype(float)
+    if not lines_df.empty:
+        lines_df["quantity"] = lines_df["quantity"].astype(float)
+        lines_df["rate"]     = lines_df["rate"].astype(float)
+        lines_df["amount"]   = lines_df["amount"].astype(float)
+        lines_df["gp"]       = lines_df["gp"].astype(float)
+
+    return invoices_df, credits_df, gp_lines_df, lines_df

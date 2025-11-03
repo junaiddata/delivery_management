@@ -255,6 +255,7 @@ class SAPInvoice(models.Model):
     """
     invoice_number = models.CharField(max_length=40, unique=True, db_index=True)
     date = models.DateField(db_index=True)
+    customer_code = models.CharField(max_length=64, blank=True, default="", db_index=True)
     customer_name = models.CharField(max_length=255, db_index=True)
     salesman = models.CharField(max_length=128, blank=True, default="", db_index=True)
     cancelled = models.BooleanField(default=False)
@@ -332,3 +333,47 @@ class SAPCreditUploadGPLine(models.Model):
         indexes = [
             models.Index(fields=["date", "customer_name", "salesman"]),
         ]
+
+
+
+
+# models.py
+from decimal import Decimal
+from django.db import models
+
+class SAPSalesLine(models.Model):
+    DOC_TYPES = (("Invoice", "Invoice"), ("Credit", "Credit"))
+
+    # link to whichever batch created it; keep both nullable for simplicity
+    inv_batch = models.ForeignKey(
+        "SAPInvoiceUploadBatch", on_delete=models.SET_NULL, null=True, blank=True, related_name="sales_lines"
+    )
+    cr_batch = models.ForeignKey(
+        "SAPCreditNoteUploadBatch", on_delete=models.SET_NULL, null=True, blank=True, related_name="sales_lines"
+    )
+
+    doc_type      = models.CharField(max_length=16, choices=DOC_TYPES)  # Invoice/Credit
+    number        = models.CharField(max_length=64, db_index=True)
+    date          = models.DateField(db_index=True)
+
+    customer_code = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    customer_name = models.CharField(max_length=255, db_index=True)
+    salesman      = models.CharField(max_length=255, blank=True, default="", db_index=True)
+
+    item_code     = models.CharField(max_length=128, db_index=True)
+    item_desc     = models.CharField(max_length=512, blank=True, default="")
+    quantity      = models.DecimalField(max_digits=18, decimal_places=3, default=Decimal("0.000"))  # signed
+    rate          = models.DecimalField(max_digits=18, decimal_places=3, default=Decimal("0.000"))
+    amount        = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))   # signed
+    gp            = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))   # signed
+
+    created_at    = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["date", "item_code"]),
+            models.Index(fields=["salesman", "item_code"]),
+        ]
+
+    def __str__(self):
+        return f"{self.doc_type} {self.number} · {self.item_code} · {self.quantity}"

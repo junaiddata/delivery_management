@@ -79,7 +79,7 @@
     <div class="page-head">
       <div class="title">Customer Frequency Analysis</div>
       {% if user.username == 'admin' %}
-        <a class="badge" href="{% url 'sap_invoices_upload' %}" style="text-decoration:none">Upload Invoices</a>
+        <a class="badge" href="{% url 'sap_unified_upload' %}" style="text-decoration:none">Upload Invoices</a>
       {% endif %}
       {% if source %}<span class="badge">Source: {{ source }}</span>{% endif %}
       
@@ -88,13 +88,25 @@
     <!-- Stats on top -->
     <section class="stats">
       <div class="stat"><div class="label">One‑Month Customers</div><div class="value">{{ stats.one_month|default:0 }}</div></div>
-      <div class="stat"><div class="label">Two‑Month Customers</div><div class="value">{{ stats.two_month|default:0 }}</div></div>
+      <!-- <div class="stat"><div class="label">Two‑Month Customers</div><div class="value">{{ stats.two_month|default:0 }}</div></div> -->
       <div class="stat"><div class="label">All‑Month Customers</div><div class="value">{{ stats.all_month|default:0 }}</div></div>
       <div class="stat"><div class="label">Total Value ({{ start }} → {{ end }})</div><div class="value">{{ stats.total_value|floatformat:2 }}</div></div>
+      <div class="stat">
+      <div class="label">Total GP ({{ start }} → {{ end }})</div>
+      <div class="value">{{ stats.total_gp|floatformat:2 }}</div>
+    </div>
     </section>
 
     <!-- Filters -->
     <form method="get" class="filters" id="filters">
+      <div class="field">
+        <label for="group">Group</label>
+        <select name="group" id="group" class="input" onchange="this.form.submit()">
+          <option value="HO" {% if group == 'HO' %}selected{% endif %}>HO</option>
+          <option value="Others" {% if group == 'Others' %}selected{% endif %}>Others</option>
+          <option value="All" {% if group == 'All' %}selected{% endif %}>All</option>
+        </select>
+      </div>
       <div class="field">
         <label for="start">Start Date(YYYY‑MM)</label>
         <input type="month" class="input" name="start" id="start" value="{{ start }}">
@@ -260,7 +272,10 @@
     <!-- Pagination (works for table and cards) -->
     <div style="margin-top:12px; display:flex; justify-content:flex-end; gap:8px">
       {% if has_next %}
-        <a class="btn secondary" href="?start={{ start }}&end={{ end }}&salesman={{ selected_salesman }}&q={{ q }}&after={{ next_cursor|urlencode }}">Next →</a>
+        <a class="btn secondary"
+   href="?start={{ start }}&end={{ end }}&salesman={{ selected_salesman }}&q={{ q }}&group={{ group }}&after={{ next_cursor|urlencode }}">
+      Next →
+    </a>
       {% endif %}
     </div>
 

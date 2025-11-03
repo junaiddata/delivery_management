@@ -2728,6 +2728,7 @@ def customer_frequency_analysis(request):
         "salesman": "",
         "name": "",
         "total_value": 0.0
+        
     })
 
     for order in delivery_orders.annotate(month=TruncMonth('date')):
@@ -2823,7 +2824,7 @@ from django.db.models import Count, Sum, Value
 from django.db.models.functions import TruncMonth, Coalesce
 
 from .forms import SAPInvoiceUploadForm
-from .models import SAPInvoice, SAPInvoiceUploadBatch
+from .models import SAPInvoice
 
 # ---------- Helpers ----------
 def _coerce_decimal(x):
@@ -2839,259 +2840,23 @@ def _coerce_decimal(x):
     except InvalidOperation:
         return Decimal("0.00")
 
-def _read_sap_dataframe(uploaded_file):
-    # Import inside to avoid GET crashes if pandas/openpyxl aren't installed
-    import pandas as pd
-    from decimal import Decimal, InvalidOperation
-    from datetime import datetime
 
-    def _coerce_decimal(x):
-        if x is None or (isinstance(x, float) and pd.isna(x)):
-            return Decimal("0.00")
-        s = str(x).replace(",", "").strip()
-        if not s:
-            return Decimal("0.00")
-        try:
-            return Decimal(s)
-        except InvalidOperation:
-            return Decimal("0.00")
+from django.db.models import Q
 
-    # 1) Read a small sample to find the header row (where expected column names appear)
-    probe = pd.read_excel(uploaded_file, header=None, nrows=20, dtype=str, engine="openpyxl")
-    probe = probe.applymap(lambda v: v.strip() if isinstance(v, str) else v)
+HO_PREFIXES = ("A.", "B.", "Z.","D.","ANISH DIP")
 
-    expected_any = {"Date", "Customer Name", "Sales Employee", "Cancelled", "Document Total", "#"}
-    header_row = None
-    for i in range(min(20, len(probe))):
-        row_vals = set(str(v).strip() for v in probe.iloc[i].tolist() if v is not None and str(v).strip() != "")
-        # if at least 3 expected tokens found, assume this is the header
-        if len(expected_any.intersection(row_vals)) >= 3:
-            header_row = i
-            break
-    if header_row is None:
-        header_row = 0  # fallback
+def _ho_q():
+    q = Q(salesman__istartswith=HO_PREFIXES[0])
+    for p in HO_PREFIXES[1:]:
+        q |= Q(salesman__istartswith=p)
+    return q
 
-    # 2) Re-read with the detected header
-    uploaded_file.seek(0)
-    df = pd.read_excel(uploaded_file, header=header_row, dtype=str, engine="openpyxl")
-
-    # Normalize headers and strip cells
-    df.columns = [str(c).strip() for c in df.columns]
-    df = df.applymap(lambda v: v.strip() if isinstance(v, str) else v)
-
-    cols = list(df.columns)
-
-    # 3) Find the invoice column
-    # Preferred: second column by position (index 1), because user confirmed 2nd '#' is invoice no.
-    inv_by_pos = None
-    if len(cols) > 1:
-        inv_by_pos = df.columns[1]
-
-    # Named fallbacks (pandas often renames duplicate '#' to '#.1')
-    name_candidates = ['#.1', '#2', 'Invoice', 'Invoice No', 'Invoice Number', 'Doc Num', 'DocNumber', '#']
-    inv_by_name = next((c for c in cols if c in name_candidates or c.lower() in {
-        '#.1', 'invoice', 'invoice no', 'invoice number', 'doc num', 'docnumber'
-    }), None)
-
-    invoice_col = inv_by_pos or inv_by_name
-    if invoice_col is None:
-        # last fallback: if there are at least 2 columns, force index 1
-        if len(cols) >= 2:
-            invoice_col = df.columns[1]
-        else:
-            raise ValueError(
-                f"Could not find the invoice number column. Seen columns: {cols}"
-            )
-
-    # 4) Resolve the rest by relaxed name matching
-    def _find(*names):
-        lowers = [n.lower() for n in names]
-        for c in cols:
-            lc = c.lower()
-            if lc in lowers:
-                return c
-        # try common variants
-        variants = {
-            "date": {"date", "posting date", "document date", "doc date"},
-            "customer name": {"customer name", "bp name", "bp", "customer"},
-            "sales employee": {"sales employee", "salesman", "sales emp"},
-            "cancelled": {"cancelled", "canceled", "cancel", "cancellation"},
-            "document total": {"document total", "doc total", "total", "amount"},
-        }
-        key = names[0].lower()
-        for v in variants.get(key, set()):
-            for c in cols:
-                if c.lower() == v:
-                    return c
-        return None
-
-    c_date  = _find("date")
-    c_cust  = _find("customer name")
-    c_sales = _find("sales employee")
-    c_canc  = _find("cancelled")
-    c_total = _find("document total")
-
-    missing = [n for n, v in [
-        ("Date", c_date), ("Customer Name", c_cust), ("Sales Employee", c_sales),
-        ("Cancelled", c_canc), ("Document Total", c_total)
-    ] if v is None]
-    if missing:
-        raise ValueError(f"Missing expected columns: {', '.join(missing)}. Seen: {cols}")
-
-    # 5) Build cleaned frame
-    out = pd.DataFrame({
-        "invoice_number": df[invoice_col],
-        "date_raw": df[c_date],
-        "customer_name": df[c_cust],
-        "salesman": df[c_sales].fillna(""),
-        "cancelled_raw": df[c_canc],
-        "document_total_raw": df[c_total],
-    })
-
-    # Keep only Cancelled == 'No' (case/space-insensitive)
-    out = out[out["cancelled_raw"].astype(str).str.strip().str.lower() == "no"].copy()
-
-    # Parse dates robustly: dd.mm.yy or dd.mm.yyyy or Excel serials already parsed
-    parsed = pd.to_datetime(out["date_raw"], dayfirst=True, errors="coerce")
-    # If parsing failed and values look like YYYY-MM-DD strings, try again without dayfirst
-    mask_bad = parsed.isna() & out["date_raw"].astype(str).str.match(r"^\d{4}-\d{2}-\d{2}$")
-    if mask_bad.any():
-        parsed.loc[mask_bad] = pd.to_datetime(out.loc[mask_bad, "date_raw"], errors="coerce")
-    out["date"] = parsed.dt.date
-
-    # Amount
-    out["document_total"] = out["document_total_raw"].map(_coerce_decimal)
-
-    # Final trims
-    out["invoice_number"] = out["invoice_number"].astype(str).str.strip()
-    out["customer_name"]  = out["customer_name"].astype(str).str.strip()
-    out["salesman"]       = out["salesman"].astype(str).str.strip()
-
-    # Drop invalids
-    out = out[(out["invoice_number"] != "") & out["date"].notna()]
-
-    # Return only required columns
-    return out[["invoice_number", "date", "customer_name", "salesman", "document_total"]]
-
-
-# ---------- Views ----------
-# orders/views.py
-@transaction.atomic
-def sap_invoices_upload(request):
-    if request.method == "POST":
-        form = SAPInvoiceUploadForm(request.POST, request.FILES)
-        if form.is_valid():
-            f = request.FILES["file"]
-            try:
-                df = _read_sap_dataframe(f)
-            except Exception as e:
-                messages.error(request, f"Upload failed: {e}")
-                return redirect("sap_invoices_upload")
-
-            batch = SAPInvoiceUploadBatch.objects.create(
-                filename=getattr(f, "name", "sap_invoices.xlsx"),
-                note=form.cleaned_data.get("note", ""),
-                rows_ingested=0,
-            )
-
-            # --- metrics for transparency ---
-            total_rows = len(df)
-            inserted = 0
-            updated = 0
-
-            for row in df.to_dict(orient="records"):
-                obj, created = SAPInvoice.objects.update_or_create(
-                    invoice_number=row["invoice_number"],
-                    defaults={
-                        "date": row["date"],
-                        "customer_name": row["customer_name"],
-                        "salesman": row["salesman"],
-                        "cancelled": False,  # only 'No' rows reach here
-                        "document_total": row["document_total"],
-                        "upload_batch": batch,
-                    }
-                )
-                if created: inserted += 1
-                else: updated += 1
-
-            batch.rows_ingested = inserted
-            batch.save(update_fields=["rows_ingested"])
-
-            messages.success(
-                request,
-                f"Upload OK: total parsed {total_rows}, inserted {inserted}, updated {updated}."
-            )
-            # 👇 redirect to the LIST (or your SAP frequency page if you prefer)
-            return redirect("customer_frequency_analysis_sap")
-    else:
-        form = SAPInvoiceUploadForm()
-    return render(request, "sap_invoices/upload.html", {"form": form})
-
-# views.py
-from django.db import transaction
-from django.contrib import messages
-from django.shortcuts import redirect, render
-from .utils import _read_sap_credit_dataframe
-@transaction.atomic
-def sap_credit_upload(request):
-    if request.method == "POST":
-        form = SAPInvoiceUploadForm(request.POST, request.FILES)
-        if form.is_valid():
-            f = request.FILES["file"]
-            try:
-                credits_df, gp_pairs_df, gp_lines_df = _read_sap_credit_dataframe(f)
-            except Exception as e:
-                messages.error(request, f"Credit upload failed: {e}")
-                return redirect("sap_credit_upload")
-
-            batch = SAPCreditNoteUploadBatch.objects.create(
-                filename=getattr(f, "name", "sap_credit_notes.xlsx"),
-                note=form.cleaned_data.get("note", ""),
-                rows_ingested=0,
-            )
-
-            # --- Store Credit Notes (as before) ---
-            total_rows = len(credits_df)
-            inserted = 0
-            updated  = 0
-            for row in credits_df.to_dict(orient="records"):
-                obj, created = SAPCreditNote.objects.update_or_create(
-                    number=row["number"],
-                    defaults={
-                        "date": row["date"],
-                        "customer_name": row["customer_name"],
-                        "salesman": row["salesman"],
-                        "document_total": row["document_total"],  # positive; subtracted later
-                        "upload_batch": batch,
-                    }
-                )
-                if created: inserted += 1
-                else: updated += 1
-            batch.rows_ingested = inserted
-            batch.save(update_fields=["rows_ingested"])
-
-            # --- Store GP totals for (customer, salesman) from this file ---
-            # Save dated GP lines
-            gp_created = 0
-            objs = []
-            for row in gp_lines_df.to_dict(orient="records"):
-                objs.append(SAPCreditUploadGPLine(
-                    upload_batch=batch,
-                    date=row["date"],
-                    customer_name=row["customer_name"],
-                    salesman=row["salesman"],
-                    gp=row["gp"],
-                ))
-            SAPCreditUploadGPLine.objects.bulk_create(objs, batch_size=1000)
-            gp_created = len(objs)
-
-            messages.success(request, f"Credit upload OK. GP lines saved: {gp_created}.")
-            return redirect("customer_frequency_analysis_sap")
-    else:
-        form = SAPInvoiceUploadForm()
-    return render(request, "sap_invoices/upload_credit.html", {"form": form})
-
-
+def _apply_group(qs, group: str):
+    if group == "HO":
+        return qs.filter(_ho_q())
+    elif group == "Others":
+        return qs.exclude(_ho_q())  # includes blank/null salesman
+    return qs
  
 def sap_invoices_list(request):
     """Very simple list page to verify uploads worked."""
@@ -3171,6 +2936,7 @@ def customer_frequency_analysis_sap(request):
     name_q          = (request.GET.get('q') or "").strip()
     after           = request.GET.get("after")
     salesman_filter = (request.GET.get('salesman') or "").strip()
+    group           = (request.GET.get("group") or "HO").strip()   # "All" | "HO" | "Others"
 
     # Resolve user scope
     user = request.user
@@ -3204,13 +2970,14 @@ def customer_frequency_analysis_sap(request):
 
     # Apply filters
     if salesman_filter:
-        if is_admin:
-            base = base.filter(salesman__iexact=salesman_filter)
-        elif salesman_filter in allowed_salesmen:
+        if is_admin or (salesman_filter in allowed_salesmen):
             base = base.filter(salesman__iexact=salesman_filter)
 
     if name_q:
         base = base.filter(customer_name__icontains=name_q)
+
+    # Group filter (HO / Others / All)
+    base = _apply_group(base, group)
 
     # ===== Credits with the same scope =====
     credits = SAPCreditNote.objects.filter(date__range=[start_date, end_date])
@@ -3227,6 +2994,9 @@ def customer_frequency_analysis_sap(request):
 
     if name_q:
         credits = credits.filter(customer_name__icontains=name_q)
+
+    # Group filter on credits
+    credits = _apply_group(credits, group)
 
     credit_rows = (
         credits.values("customer_name", "salesman")
@@ -3259,8 +3029,23 @@ def customer_frequency_analysis_sap(request):
         if salesman_filter:
             if is_admin or salesman_filter in allowed_salesmen:
                 gp_qs = gp_qs.filter(salesman__iexact=salesman_filter)
+
         if name_q:
             gp_qs = gp_qs.filter(customer_name__icontains=name_q)
+
+        # Group filter on GP
+        gp_qs = _apply_group(gp_qs, group)
+
+        total_gp_all = 0.0
+        if latest_batch:
+            total_gp_all = float(
+                gp_qs.aggregate(
+                    gv=Coalesce(
+                        Sum("gp"),
+                        Value(0, output_field=DecimalField(max_digits=18, decimal_places=2))
+                    )
+                )["gv"] or 0
+            )
 
         gp_rows = gp_qs.values("customer_name", "salesman").annotate(
             gpsum=Coalesce(Sum("gp"), Value(0, output_field=DecimalField(max_digits=18, decimal_places=2)))
@@ -3269,9 +3054,7 @@ def customer_frequency_analysis_sap(request):
         total_gp_filtered = sum(gp_pairs.values())
 
     # ===== Global stats =====
-    total_months_qs = (
-        base.annotate(m=TruncMonth("date")).values_list("m", flat=True).distinct()
-    )
+    total_months_qs = base.annotate(m=TruncMonth("date")).values_list("m", flat=True).distinct()
     total_months = list(total_months_qs)
     total_months_count = len(total_months)
 
@@ -3307,6 +3090,7 @@ def customer_frequency_analysis_sap(request):
         "two_time": two_time_count,
         "total_value": float(total_value_all) - total_credits_all,
         "gp_latest_upload": round(total_gp_filtered, 2),
+        "total_gp": round(total_gp_all, 2), 
     }
 
     # ===== Pagination =====
@@ -3385,12 +3169,15 @@ def customer_frequency_analysis_sap(request):
             "gp_latest_upload": round(gp_for_pair, 2),
         })
 
-    # ===== Salesmen dropdown =====
+    # ===== Salesmen dropdown (respect group) =====
     if is_admin:
         salesmen = (
-            SAPInvoice.objects
-            .exclude(salesman__isnull=True)
-            .exclude(salesman="")
+            _apply_group(
+                SAPInvoice.objects
+                    .exclude(salesman__isnull=True)
+                    .exclude(salesman=""),
+                group
+            )
             .values_list("salesman", flat=True)
             .distinct()
             .order_by("salesman")
@@ -3416,6 +3203,7 @@ def customer_frequency_analysis_sap(request):
         "has_next": has_next,
         "next_cursor": next_cursor,
         "q": name_q,
+        "group": group,  # expose to template (for a <select> or URL param)
     })
 
 
@@ -3472,3 +3260,265 @@ def customer_frequency_export_sap(request):
                     month_class, "; ".join(sorted(m.strftime("%b-%Y") for m in mset)),
                     float(r['total_value'] or 0)])
     return resp
+
+
+
+
+
+
+from django.db import transaction
+from django.contrib import messages
+from django.shortcuts import redirect, render
+
+from django.db import transaction
+from django.contrib import messages
+from django.shortcuts import redirect, render
+from django.db.models import Q
+
+from .forms import SAPInvoiceUploadForm
+from .utils import _read_sap_unified_dataframe
+from .models import (
+    SAPInvoice, SAPInvoiceUploadBatch,
+    SAPCreditNote, SAPCreditNoteUploadBatch,
+    SAPCreditUploadGPLine,
+    # Optional: uncomment if you've added the item-lines model
+    # SAPSalesLine,
+)
+
+def _model_has_field(model_cls, field_name: str) -> bool:
+    from django.core.exceptions import FieldDoesNotExist
+    try:
+        model_cls._meta.get_field(field_name)
+        return True
+    except FieldDoesNotExist:
+        return False
+
+
+@transaction.atomic
+def sap_unified_upload(request):
+    """
+    Single upload for Invoices + Credit Notes + GP lines (+ Item lines, optional).
+    Reuses existing batch models to keep FKs compatible:
+      - SAPInvoice.upload_batch -> SAPInvoiceUploadBatch
+      - SAPCreditNote.upload_batch -> SAPCreditNoteUploadBatch
+      - SAPCreditUploadGPLine.upload_batch -> SAPCreditNoteUploadBatch (latest credit batch)
+    """
+    if request.method == "POST":
+        form = SAPInvoiceUploadForm(request.POST, request.FILES)
+        if not form.is_valid():
+            return render(request, "sap_invoices/upload.html", {"form": form})
+
+        f = request.FILES["file"]
+        try:
+            # NOTE: This expects your utils version that returns 4 DFs.
+            invoices_df, credits_df, gp_lines_df, lines_df = _read_sap_unified_dataframe(f)
+        except TypeError:
+            # Fallback if your utils still returns only 3 DFs
+            try:
+                invoices_df, credits_df, gp_lines_df = _read_sap_unified_dataframe(f)
+                # Create an empty lines_df to keep code paths simple
+                import pandas as pd
+                lines_df = pd.DataFrame(columns=[
+                    "doc_type", "number", "date", "customer_code", "customer_name",
+                    "salesman", "item_code", "item_desc", "quantity", "rate", "amount", "gp"
+                ])
+            except Exception as e:
+                messages.error(request, f"Upload failed: {e}")
+                return redirect("sap_unified_upload")
+        except Exception as e:
+            messages.error(request, f"Upload failed: {e}")
+            return redirect("sap_unified_upload")
+
+        # Create the TWO batches that your current FKs require
+        inv_batch = SAPInvoiceUploadBatch.objects.create(
+            filename=getattr(f, "name", "sap_unified.xlsx"),
+            note=form.cleaned_data.get("note", ""),
+            rows_ingested=0,
+        )
+        cr_batch = SAPCreditNoteUploadBatch.objects.create(
+            filename=getattr(f, "name", "sap_unified.xlsx"),
+            note=form.cleaned_data.get("note", ""),
+            rows_ingested=0,
+        )
+
+        # ---------------- Invoices ----------------
+        inv_inserted = inv_updated = 0
+        if not invoices_df.empty:
+            for row in invoices_df.to_dict(orient="records"):
+                defaults = {
+                    "date": row["date"],
+                    "customer_name": row["customer_name"],
+                    "salesman": row["salesman"],
+                    "cancelled": False,
+                    "document_total": row["document_total"],
+                    "upload_batch": inv_batch,
+                }
+                if _model_has_field(SAPInvoice, "customer_code"):
+                    defaults["customer_code"] = row.get("customer_code", "") or ""
+
+                _, created = SAPInvoice.objects.update_or_create(
+                    invoice_number=row["number"],
+                    defaults=defaults,
+                )
+                if created: inv_inserted += 1
+                else:       inv_updated  += 1
+
+        inv_batch.rows_ingested = inv_inserted
+        inv_batch.save(update_fields=["rows_ingested"])
+
+        # ---------------- Credits ----------------
+        cr_inserted = cr_updated = 0
+        if not credits_df.empty:
+            for row in credits_df.to_dict(orient="records"):
+                defaults = {
+                    "date": row["date"],
+                    "customer_name": row["customer_name"],
+                    "salesman": row["salesman"],
+                    "document_total": row["document_total"],  # store positive, subtract later
+                    "upload_batch": cr_batch,
+                }
+                if _model_has_field(SAPCreditNote, "customer_code"):
+                    defaults["customer_code"] = row.get("customer_code", "") or ""
+
+                _, created = SAPCreditNote.objects.update_or_create(
+                    number=row["number"],
+                    defaults=defaults,
+                )
+                if created: cr_inserted += 1
+                else:       cr_updated  += 1
+
+        cr_batch.rows_ingested = cr_inserted
+        cr_batch.save(update_fields=["rows_ingested"])
+
+        # ---------------- GP lines (date-aware, under credit batch) ----------------
+        gp_objs = []
+        if gp_lines_df is not None and not gp_lines_df.empty:
+            for row in gp_lines_df.to_dict(orient="records"):
+                kwargs = {
+                    "upload_batch": cr_batch,
+                    "date": row["date"],
+                    "customer_name": row["customer_name"],
+                    "salesman": row["salesman"],
+                    "gp": row["gp"],
+                }
+                # Only set if your model has the field
+                if _model_has_field(SAPCreditUploadGPLine, "customer_code"):
+                    kwargs["customer_code"] = row.get("customer_code", "") or None
+
+                gp_objs.append(SAPCreditUploadGPLine(**kwargs))
+
+            SAPCreditUploadGPLine.objects.bulk_create(gp_objs, batch_size=1000)
+
+        # ---------------- Item lines (optional; requires SAPSalesLine model) ----------------
+        lines_saved = 0
+        try:
+            from .models import SAPSalesLine  # import here to keep optional
+            if lines_df is not None and not lines_df.empty:
+                line_objs = []
+                for row in lines_df.to_dict(orient="records"):
+                    is_credit = str(row.get("doc_type", "")).lower().startswith("credit")
+                    line_objs.append(SAPSalesLine(
+                        inv_batch = (None if is_credit else inv_batch),
+                        cr_batch  = (cr_batch if is_credit else None),
+                        doc_type  = ("Credit" if is_credit else "Invoice"),
+                        number    = row.get("number", ""),
+                        date      = row.get("date"),
+                        customer_code = row.get("customer_code", "") or "",
+                        customer_name = row.get("customer_name", "") or "",
+                        salesman      = row.get("salesman", "") or "",
+                        item_code     = row.get("item_code", "") or "",
+                        item_desc     = row.get("item_desc", "") or "",
+                        quantity      = row.get("quantity", 0) or 0,
+                        rate          = row.get("rate", 0) or 0,
+                        amount        = row.get("amount", 0) or 0,
+                        gp            = row.get("gp", 0) or 0,
+                    ))
+                SAPSalesLine.objects.bulk_create(line_objs, batch_size=2000)
+                lines_saved = len(line_objs)
+        except Exception:
+            # If SAPSalesLine doesn't exist yet or any issue occurs, we silently skip items.
+            lines_saved = 0
+
+        messages.success(
+            request,
+            (
+                f"Upload OK. "
+                f"Invoices ins/upd: {inv_inserted}/{inv_updated}; "
+                f"Credits ins/upd: {cr_inserted}/{cr_updated}; "
+                f"GP lines: {len(gp_objs)}; "
+                f"Items: {lines_saved}."
+            )
+        )
+        return redirect("customer_frequency_analysis_sap")
+
+    # GET
+    form = SAPInvoiceUploadForm()
+    return render(request, "sap_invoices/upload.html", {"form": form})
+
+
+from django.http import JsonResponse
+from django.views.decorators.http import require_GET
+from django.db.models import Sum, Value, DecimalField
+from django.db.models.functions import Coalesce
+
+@require_GET
+def api_item_summary(request):
+    """
+    GET /api/items/summary?start=YYYY-MM&end=YYYY-MM&group=HO|Others|All&item=search
+    Returns: [{item_code, item_desc, total_qty, total_amount}]
+    - start/end are month-based like your report; optional
+    - group uses the same HO/Others filter
+    - item is a substring filter on code or description
+    """
+    from datetime import datetime
+    from dateutil.relativedelta import relativedelta
+    from django.utils import timezone
+
+    start_month_str = request.GET.get("start")
+    end_month_str   = request.GET.get("end")
+    group           = (request.GET.get("group") or "HO").strip()
+    item_q          = (request.GET.get("item") or "").strip()
+
+    # Month range (defaults to last 6 months, like the report)
+    today = timezone.now().date().replace(day=1)
+    if start_month_str and end_month_str:
+        s_y, s_m = map(int, start_month_str.split("-"))
+        e_y, e_m = map(int, end_month_str.split("-"))
+        start_date = datetime(s_y, s_m, 1).date()
+        end_month_first = datetime(e_y, e_m, 1).date()
+        end_date = (end_month_first + relativedelta(months=1)) - relativedelta(days=1)
+    else:
+        start_date = today.replace(month=1, day=1)
+        end_date   = today.replace(month=12, day=31)
+
+    qs = SAPSalesLine.objects.filter(date__range=[start_date, end_date])
+
+    # Apply HO/Others
+    qs = _apply_group(qs, group)
+
+    # Optional item search
+    if item_q:
+        qs = qs.filter(Q(item_code__icontains=item_q) | Q(item_desc__icontains=item_q))
+
+    agg = (
+        qs.values("item_code", "item_desc")
+          .annotate(
+              total_qty=Coalesce(Sum("quantity"),
+                                 Value(0, output_field=DecimalField(max_digits=18, decimal_places=3))),
+              total_amount=Coalesce(Sum("amount"),
+                                    Value(0, output_field=DecimalField(max_digits=18, decimal_places=2))),
+          )
+          .order_by("item_code")
+    )
+
+    # Convert Decimals safely
+    data = [
+        {
+            "item_code":   r["item_code"],
+            "item_desc":   r["item_desc"],
+            "total_qty":   float(r["total_qty"] or 0),
+            "total_amount": float(r["total_amount"] or 0),
+        }
+        for r in agg
+    ]
+    return JsonResponse({"results": data}, json_dumps_params={"ensure_ascii": False})

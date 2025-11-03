@@ -1,6 +1,5 @@
 from django.contrib import admin
-from .models import Vehicle, DeliveryOrder, Role, DeliveryItemWise, TransferOrder, Customer, CreditPayment, PreEnteredDO,MessageStatus,CustomerReply
-
+from .models import *
 admin.site.register(Vehicle)
 @admin.register(DeliveryOrder)
 class DeliveryOrderAdmin(admin.ModelAdmin):
@@ -26,3 +25,6 @@ admin.site.register(TransferOrder)
 admin.site.register(CreditPayment)
 admin.site.register(Customer)
 admin.site.register(PreEnteredDO)
+admin.site.register(SAPInvoice)
+admin.site.register(SAPCreditNote)
+
