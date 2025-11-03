@@ -3105,6 +3105,11 @@ def customer_frequency_analysis_sap(request):
         "total_value": float(total_value_all) - total_credits_all,
         "gp_latest_upload": round(total_gp_filtered, 2),
         "total_gp": round(total_gp_filtered, 2), 
+        "gp_percent": round(
+        (total_gp_filtered / (float(total_value_all) - total_credits_all) * 100)
+        if (float(total_value_all) - total_credits_all) else 0,
+        2
+    ),
     }
 
     # ===== Pagination =====
@@ -3167,6 +3172,7 @@ def customer_frequency_analysis_sap(request):
         gp_for_pair = gp_pairs.get((cust, sman), 0.0)
 
         mlist = sorted(months_map.get((cust, sman), []))
+        gp_percent = (gp_for_pair / net_total * 100.0) if net_total else 0.0
         results.append({
             "name": cust,
             "salesman": sman,
@@ -3181,6 +3187,7 @@ def customer_frequency_analysis_sap(request):
             ),
             "total_value": round(net_total, 2),
             "gp_latest_upload": round(gp_for_pair, 2),
+            "gp_percent": round(gp_percent, 2),  # ✅ new key
         })
 
     # ===== Salesmen dropdown (respect group) =====

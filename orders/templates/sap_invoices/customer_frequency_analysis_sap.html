@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  {% load humanize %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Customer Frequency Analysis</title>
@@ -85,18 +86,37 @@
       
     </div>
 
-    <!-- Stats on top -->
-    <section class="stats">
-      <div class="stat"><div class="label">One‑Month Customers</div><div class="value">{{ stats.one_month|default:0 }}</div></div>
-      <!-- <div class="stat"><div class="label">Two‑Month Customers</div><div class="value">{{ stats.two_month|default:0 }}</div></div> -->
-      <div class="stat"><div class="label">All‑Month Customers</div><div class="value">{{ stats.all_month|default:0 }}</div></div>
-      <div class="stat"><div class="label">Total Value ({{ start }} → {{ end }})</div><div class="value">{{ stats.total_value|floatformat:2 }}</div></div>
-  <!-- ✅ new line for total GP -->
-      <div class="stat">
-        <div class="label">Total GP ({{ start }} → {{ end }})</div>
-        <div class="value">{{ stats.total_gp|floatformat:2 }}</div>
-      </div>
-    </section>
+<section class="stats" style="grid-template-columns: repeat(6, 1fr); gap: 8px;">
+  <div class="stat" style="padding: 8px 10px;">
+    <div class="label" style="font-size: 11px;">One-Month</div>
+    <div class="value" style="font-size: 18px;">{{ stats.one_month|default:0|intcomma }}</div>
+  </div>
+
+  <div class="stat" style="padding: 8px 10px;">
+    <div class="label" style="font-size: 11px;">Two-Month Customers</div>
+    <div class="value" style="font-size: 18px;">{{ stats.two_month|default:0|intcomma }}</div>
+  </div>
+
+  <div class="stat" style="padding: 8px 10px;">
+    <div class="label" style="font-size: 11px;">All-Month</div>
+    <div class="value" style="font-size: 18px;">{{ stats.all_month|default:0|intcomma }}</div>
+  </div>
+
+  <div class="stat" style="padding: 8px 10px;">
+    <div class="label" style="font-size: 11px;">Total Value</div>
+    <div class="value" style="font-size: 18px;">{{ stats.total_value|floatformat:2|intcomma }}</div>
+  </div>
+
+  <div class="stat" style="padding: 8px 10px;">
+    <div class="label" style="font-size: 11px;">Total GP</div>
+    <div class="value" style="font-size: 18px;">{{ stats.total_gp|floatformat:2|intcomma }}</div>
+  </div>
+
+  <div class="stat" style="padding: 8px 10px;">
+    <div class="label" style="font-size: 11px;">GP %</div>
+    <div class="value" style="font-size: 18px;">{{ stats.gp_percent|floatformat:2 }}%</div>
+  </div>
+</section>
 
     <!-- Filters -->
     <form method="get" class="filters" id="filters">
@@ -179,6 +199,7 @@
               <th style="min-width:240px;">Months Bought</th>
               <th class="num">Total Value</th>
               <th class="num">GP </th>
+              <th class="num">GP %</th>
             </tr>
           </thead>
           <tbody>
@@ -209,6 +230,13 @@
               </td>
               <td class="num">{{ r.total_value|floatformat:2 }}</td>
               <td class="num">{{ r.gp_latest_upload|floatformat:2 }}</td>
+              <td class="num">
+                {% if r.total_value %}
+                  {{ r.gp_percent|floatformat:2 }}%
+                {% else %}
+                  —
+                {% endif %}
+              </td>
             </tr>
             {% empty %}
             <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px 8px">No results for the selected period/filters.</td></tr>
