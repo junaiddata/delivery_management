@@ -153,3 +153,19 @@ MEDIA_URL = '/media/'
 
 STATIC_ROOT = '/var/www/delivery_management/static'
 STATIC_URL = '/static/'
+
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "file": {
+            "level": "ERROR",
+            "class": "logging.FileHandler",
+            "filename": BASE_DIR / "errors.log",
+        },
+    },
+    "loggers": {
+        "django": {"handlers": ["file"], "level": "ERROR", "propagate": True},
+    },
+}
