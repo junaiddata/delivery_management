@@ -106,7 +106,7 @@
     <div class="label" style="font-size: 11px;">Total Value</div>
     <div class="value" style="font-size: 18px;">{{ stats.total_value|floatformat:2|intcomma }}</div>
   </div>
-
+  {% if user.username == 'admin' %}
   <div class="stat" style="padding: 8px 10px;">
     <div class="label" style="font-size: 11px;">Total GP</div>
     <div class="value" style="font-size: 18px;">{{ stats.total_gp|floatformat:2|intcomma }}</div>
@@ -116,6 +116,7 @@
     <div class="label" style="font-size: 11px;">GP %</div>
     <div class="value" style="font-size: 18px;">{{ stats.gp_percent|floatformat:2 }}%</div>
   </div>
+  {% endif %}
 </section>
 
     <!-- Filters -->
@@ -198,8 +199,10 @@
               </th>
               <th style="min-width:240px;">Months Bought</th>
               <th class="num">Total Value</th>
+              {%if user.username == 'admin' %}
               <th class="num">GP </th>
               <th class="num">GP %</th>
+              {% endif %}
             </tr>
           </thead>
           <tbody>
@@ -229,6 +232,7 @@
                 {% endfor %}
               </td>
               <td class="num">{{ r.total_value|floatformat:2 }}</td>
+              {%if user.username == 'admin' %}
               <td class="num">{{ r.gp_latest_upload|floatformat:2 }}</td>
               <td class="num">
                 {% if r.total_value %}
@@ -237,6 +241,7 @@
                   —
                 {% endif %}
               </td>
+              {% endif %}
             </tr>
             {% empty %}
             <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px 8px">No results for the selected period/filters.</td></tr>
