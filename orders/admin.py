@@ -27,4 +27,7 @@ admin.site.register(Customer)
 admin.site.register(PreEnteredDO)
 admin.site.register(SAPInvoice)
 admin.site.register(SAPCreditNote)
+admin.site.register(SAPCreditNoteUploadBatch)
+admin.site.register(SAPInvoiceUploadBatch)
+
 
