@@ -3489,21 +3489,21 @@ from django.db.models.functions import Coalesce
 def api_item_summary(request):
     """
     GET /api/items/summary?start=YYYY-MM&end=YYYY-MM&group=HO|Others|All&item=search
-    Returns: [{item_code, item_desc, total_qty, total_amount}]
-    - start/end are month-based like your report; optional
-    - group uses the same HO/Others filter
-    - item is a substring filter on code or description
+    Returns one row per item_code with totals de-duped per (item_code, number).
     """
     from datetime import datetime
     from dateutil.relativedelta import relativedelta
     from django.utils import timezone
+    from django.db.models import Q, Sum, Value, DecimalField, Max
+    from django.db.models.functions import Coalesce
+    from collections import defaultdict
 
     start_month_str = request.GET.get("start")
     end_month_str   = request.GET.get("end")
     group           = (request.GET.get("group") or "HO").strip()
     item_q          = (request.GET.get("item") or "").strip()
 
-    # Month range (defaults to last 6 months, like the report)
+    # Default: whole current year
     today = timezone.now().date().replace(day=1)
     if start_month_str and end_month_str:
         s_y, s_m = map(int, start_month_str.split("-"))
@@ -3516,33 +3516,47 @@ def api_item_summary(request):
         end_date   = today.replace(month=12, day=31)
 
     qs = SAPSalesLine.objects.filter(date__range=[start_date, end_date])
-
-    # Apply HO/Others
     qs = _apply_group(qs, group)
 
-    # Optional item search
     if item_q:
         qs = qs.filter(Q(item_code__icontains=item_q) | Q(item_desc__icontains=item_q))
 
-    agg = (
-        qs.values("item_code", "item_desc")
+    # Choose a stable description per item_code (any, via MAX)
+    desc_map = {
+        r["item_code"]: r["item_desc"] or ""
+        for r in qs.values("item_code").annotate(item_desc=Max("item_desc"))
+    }
+
+    # Stage 1 (DB): collapse within a document (item_code, number)
+    per_doc = list(
+        qs.values("item_code", "number")
           .annotate(
-              total_qty=Coalesce(Sum("quantity"),
-                                 Value(0, output_field=DecimalField(max_digits=18, decimal_places=3))),
-              total_amount=Coalesce(Sum("amount"),
-                                    Value(0, output_field=DecimalField(max_digits=18, decimal_places=2))),
+              qty_per_doc=Coalesce(
+                  Sum("quantity"),
+                  Value(0, output_field=DecimalField(max_digits=18, decimal_places=3)),
+              ),
+              amt_per_doc=Coalesce(
+                  Sum("amount"),
+                  Value(0, output_field=DecimalField(max_digits=18, decimal_places=2)),
+              ),
           )
-          .order_by("item_code")
     )
 
-    # Convert Decimals safely
-    data = [
-        {
-            "item_code":   r["item_code"],
-            "item_desc":   r["item_desc"],
-            "total_qty":   float(r["total_qty"] or 0),
-            "total_amount": float(r["total_amount"] or 0),
-        }
-        for r in agg
-    ]
+    # Stage 2 (Python): roll up per item_code
+    totals_qty = defaultdict(float)
+    totals_amt = defaultdict(float)
+    for r in per_doc:
+        code = r["item_code"]
+        totals_qty[code] += float(r["qty_per_doc"] or 0)
+        totals_amt[code] += float(r["amt_per_doc"] or 0)
+
+    # Build response sorted by item_code
+    codes_sorted = sorted(totals_qty.keys())
+    data = [{
+        "item_code": code,
+        "item_desc": desc_map.get(code, ""),
+        "total_qty": round(totals_qty[code], 3),
+        "total_amount": round(totals_amt[code], 2),
+    } for code in codes_sorted]
+
     return JsonResponse({"results": data}, json_dumps_params={"ensure_ascii": False})
