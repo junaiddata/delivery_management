@@ -349,13 +349,14 @@ class SAPCreditUploadGPLine(models.Model):
 
 
 # models.py
+# models.py
 from decimal import Decimal
 from django.db import models
+from django.db.models import UniqueConstraint
 
 class SAPSalesLine(models.Model):
     DOC_TYPES = (("Invoice", "Invoice"), ("Credit", "Credit"))
 
-    # link to whichever batch created it; keep both nullable for simplicity
     inv_batch = models.ForeignKey(
         "SAPInvoiceUploadBatch", on_delete=models.SET_NULL, null=True, blank=True, related_name="sales_lines"
     )
@@ -385,6 +386,14 @@ class SAPSalesLine(models.Model):
             models.Index(fields=["date", "item_code"]),
             models.Index(fields=["salesman", "item_code"]),
         ]
+        constraints = [
+            UniqueConstraint(
+                fields=["doc_type", "number", "item_code"],
+                name="uniq_doc_type_number_item_code",
+            )
+        ]
 
     def __str__(self):
         return f"{self.doc_type} {self.number} · {self.item_code} · {self.quantity}"
+    
+

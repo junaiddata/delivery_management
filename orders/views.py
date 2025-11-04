@@ -3436,33 +3436,45 @@ def sap_unified_upload(request):
                     gp_updated += 1
 
         # ---------------- Item lines (optional; requires SAPSalesLine) ----------------
-        lines_saved = 0
+        lines_created = lines_updated = 0
         try:
             from .models import SAPSalesLine
             if lines_df is not None and not lines_df.empty:
-                line_objs = []
                 for row in lines_df.to_dict(orient="records"):
-                    is_credit = str(row.get("doc_type", "")).lower().startswith("credit")
-                    line_objs.append(SAPSalesLine(
-                        inv_batch = (None if is_credit else inv_batch),
-                        cr_batch  = (cr_batch if is_credit else None),
-                        doc_type  = ("Credit" if is_credit else "Invoice"),
-                        number    = row.get("number", ""),
-                        date      = row.get("date"),
-                        customer_code = row.get("customer_code", "") or "",
-                        customer_name = row.get("customer_name", "") or "",
-                        salesman      = row.get("salesman", "") or "",
-                        item_code     = row.get("item_code", "") or "",
-                        item_desc     = row.get("item_desc", "") or "",
-                        quantity      = row.get("quantity", 0) or 0,
-                        rate          = row.get("rate", 0) or 0,
-                        amount        = row.get("amount", 0) or 0,
-                        gp            = row.get("gp", 0) or 0,
-                    ))
-                SAPSalesLine.objects.bulk_create(line_objs, batch_size=2000)
-                lines_saved = len(line_objs)
+                    is_credit = str(row.get("doc_type", "")).strip().lower().startswith("credit")
+                    doc_type  = "Credit" if is_credit else "Invoice"
+
+                    # normalize keys (avoid whitespace/case dupes)
+                    number    = (row.get("number") or "").strip()
+                    item_code = (row.get("item_code") or "").strip()
+
+                    lookup = {
+                        "doc_type": doc_type,
+                        "number": number,
+                        "item_code": item_code,
+                    }
+                    defaults = {
+                        "date": row.get("date"),
+                        "customer_code": (row.get("customer_code") or "").strip(),
+                        "customer_name": (row.get("customer_name") or "").strip(),
+                        "salesman": (row.get("salesman") or "").strip(),
+                        "item_desc": (row.get("item_desc") or "").strip(),
+                        "quantity": row.get("quantity") or 0,
+                        "rate": row.get("rate") or 0,
+                        "amount": row.get("amount") or 0,
+                        "gp": row.get("gp") or 0,
+                        # keep last batch pointers for audit
+                        "inv_batch": None if is_credit else inv_batch,
+                        "cr_batch": cr_batch if is_credit else None,
+                    }
+
+                    _, created = SAPSalesLine.objects.update_or_create(
+                        **lookup, defaults=defaults
+                    )
+                    if created: lines_created += 1
+                    else:       lines_updated += 1
         except Exception:
-            lines_saved = 0
+            lines_created = lines_updated = 0
 
         messages.success(
             request,
@@ -3471,7 +3483,7 @@ def sap_unified_upload(request):
                 f"Invoices ins/upd: {inv_inserted}/{inv_updated}; "
                 f"Credits ins/upd: {cr_inserted}/{cr_updated}; "
                 f"GP lines ins/upd: {gp_created}/{gp_updated}; "
-                f"Items: {lines_saved}."
+                f"Items ins/upd: {lines_created}/{lines_updated}."
             )
         )
         return redirect("customer_frequency_analysis_sap")
@@ -3529,17 +3541,17 @@ def api_item_summary(request):
 
     # Stage 1 (DB): collapse within a document (item_code, number)
     per_doc = list(
-        qs.values("item_code", "number")
-          .annotate(
-              qty_per_doc=Coalesce(
-                  Sum("quantity"),
-                  Value(0, output_field=DecimalField(max_digits=18, decimal_places=3)),
-              ),
-              amt_per_doc=Coalesce(
-                  Sum("amount"),
-                  Value(0, output_field=DecimalField(max_digits=18, decimal_places=2)),
-              ),
-          )
+        qs.values("item_code", "doc_type", "number")
+        .annotate(
+            qty_per_doc=Coalesce(
+                Sum("quantity"),
+                Value(0, output_field=DecimalField(max_digits=18, decimal_places=3)),
+            ),
+            amt_per_doc=Coalesce(
+                Sum("amount"),
+                Value(0, output_field=DecimalField(max_digits=18, decimal_places=2)),
+            ),
+        )
     )
 
     # Stage 2 (Python): roll up per item_code
