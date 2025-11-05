@@ -3585,6 +3585,14 @@ from django.db import transaction
 from .models import SAPFact
 from .forms import SAPInvoiceUploadForm  # reuse your existing file form
 from .utils import read_simple_lines
+from django.db.models.functions import Concat  # add this import
+from django.db import transaction
+from django.contrib import messages
+from django.shortcuts import render, redirect
+from django.db.models import Q
+from django.db.models import Value
+
+# ... import SAPFact, SAPInvoiceUploadForm, read_simple_lines ...
 
 @transaction.atomic
 def sap_upload_simple(request):
@@ -3592,15 +3600,44 @@ def sap_upload_simple(request):
         form = SAPInvoiceUploadForm(request.POST, request.FILES)
         if not form.is_valid():
             return render(request, "sap_invoices/upload.html", {"form": form})
+
         f = request.FILES["file"]
+        df = read_simple_lines(f)  # ← keeps Excel signs exactly
 
-        df = read_simple_lines(f)  # pandas DataFrame
-        numbers = list(df["number"].unique())
+        # Guard: nothing parsed?
+        if df.empty:
+            messages.error(request, "No valid rows found in the file (date parse?).")
+            return redirect("sap_upload_simple")
 
-        # delete existing rows for these documents
-        SAPFact.objects.filter(number__in=numbers).delete()
+        # OPTIONAL (recommended if you upload by month):
+        # If you pass ?month=YYYY-MM in the form, uncomment this block to filter the DF
+        # month_str = (request.POST.get("month") or "").strip()
+        # if month_str:
+        #     from datetime import datetime as _dt
+        #     y, m = map(int, month_str.split("-"))
+        #     start = _dt(y, m, 1).date()
+        #     from dateutil.relativedelta import relativedelta
+        #     end = (start + relativedelta(months=1))
+        #     df = df[(df["date"] >= start) & (df["date"] < end)].copy()
 
-        # bulk insert
+        # Build unique (doc_type, number) pairs from the file
+        pairs = (
+            df[["doc_type", "number"]]
+            .astype(str)
+            .apply(lambda s: f"{s['doc_type'].strip()}::{s['number'].strip()}", axis=1)
+            .drop_duplicates()
+            .tolist()
+        )
+
+        # --- delete in safe batches using an annotated key ---
+        if pairs:
+            BATCH = 500  # keep <= 900 for SQLite var limit
+            qs_annot = SAPFact.objects.annotate(key=Concat("doc_type", Value("::"), "number"))
+            for i in range(0, len(pairs), BATCH):
+                chunk = pairs[i:i+BATCH]
+                qs_annot.filter(key__in=chunk)._raw_delete(qs_annot.db)  # fast bulk delete
+
+        # Bulk insert rows
         objs = [
             SAPFact(
                 doc_type=row.doc_type,
@@ -3612,16 +3649,19 @@ def sap_upload_simple(request):
                 item_code=row.item_code,
                 item_desc=row.item_desc,
                 item_mfr=row.item_mfr,
-                quantity=row.quantity,
-                net_sales=row.net_sales,
-                gross_profit=row.gross_profit,
+                quantity=row.quantity,        # signs preserved
+                net_sales=row.net_sales,      # signs preserved
+                gross_profit=row.gross_profit,# signs preserved
                 row_idx=row.row_idx,
             )
             for _, row in df.iterrows()
         ]
         SAPFact.objects.bulk_create(objs, batch_size=5000)
 
-        messages.success(request, f"Uploaded {len(objs)} rows across {len(numbers)} documents.")
+        messages.success(
+            request,
+            f"Uploaded {len(objs)} rows across {len(pairs)} documents."
+        )
         return redirect("customer_frequency_simple")
 
     return render(request, "sap_invoices/upload.html", {"form": SAPInvoiceUploadForm()})
@@ -3639,15 +3679,26 @@ from django.db.models import Sum, Value, DecimalField, Max, Q
 from django.db.models.functions import Coalesce
 
 # GET /api/items/unique-qty?item=search
+from django.http import JsonResponse
+from django.views.decorators.http import require_GET
+from django.db.models import Sum, Value, DecimalField, Max, Q
+from django.db.models.functions import Coalesce
+
 @require_GET
 def api_item_unique_qty(request):
+    """
+    Returns net quantity per item_code.
+    - De-dupes within a document by (item_code, doc_type, number)
+    - Then rolls up per item_code
+    - Signs are preserved from SAPFact (credits negative), matching Excel
+    """
     item_q = (request.GET.get("item") or "").strip()
 
     base = SAPFact.objects.all()
     if item_q:
         base = base.filter(Q(item_code__icontains=item_q) | Q(item_desc__icontains=item_q))
 
-    # Stable description per item_code (any; use MAX)
+    # Pick a stable description per item (any; using MAX)
     desc_map = {
         r["item_code"]: r["item_desc"] or ""
         for r in base.values("item_code").annotate(
@@ -3655,9 +3706,10 @@ def api_item_unique_qty(request):
         )
     }
 
-    # Stage 1: collapse duplicates WITHIN each document: (item_code, number)
+    # Stage 1: collapse duplicates *within* each document
+    # IMPORTANT: include doc_type so Invoice and Credit Memo with same number are not merged
     per_doc = list(
-        base.values("item_code", "number")
+        base.values("item_code", "doc_type", "number")
             .annotate(
                 qty_per_doc=Coalesce(
                     Sum("quantity"),
@@ -3666,7 +3718,7 @@ def api_item_unique_qty(request):
             )
     )
 
-    # Stage 2: roll up per item_code (in Python to avoid "aggregate over aggregate" error)
+    # Stage 2: roll up per item_code in Python (avoid "aggregate over aggregate")
     from collections import defaultdict
     totals_qty = defaultdict(float)
     for r in per_doc:
@@ -3676,7 +3728,7 @@ def api_item_unique_qty(request):
     data = [{
         "item_code": code,
         "item_desc": desc_map.get(code, ""),
-        "total_qty": round(totals_qty[code], 3),  # net: credits subtract
+        "total_qty": round(totals_qty[code], 3),  # credits stay negative if present
     } for code in sorted(totals_qty.keys())]
 
     return JsonResponse({"results": data}, json_dumps_params={"ensure_ascii": False})
@@ -3818,7 +3870,9 @@ def customer_frequency_simple(request):
     base = _apply_group(base, group)
 
     # -------- Global Stats --------
-    total_months = list(base.annotate(m=TruncMonth("date")).values_list("m", flat=True).distinct())
+    total_months = list(
+        base.annotate(m=TruncMonth("date")).values_list("m", flat=True).distinct()
+    )
     total_months_count = len(total_months)
 
     customer_month_counts = (
@@ -3854,15 +3908,25 @@ def customer_frequency_simple(request):
     }
 
     # -------- Grouped Rows + Pagination --------
+    # orders must be distinct by (doc_type, number)
     grouped = (
-        base.annotate(sman_norm=Coalesce("salesman", Value("")))
+        base.annotate(
+                sman_norm=Coalesce("salesman", Value("")),
+            )
             .values("customer_name", "sman_norm")
             .annotate(
-                orders=Count("number", distinct=True),
-                total_value=Coalesce(Sum("net_sales"),
-                                     Value(0, output_field=DecimalField(max_digits=18, decimal_places=2))),
-                total_gp=Coalesce(Sum("gross_profit"),
-                                  Value(0, output_field=DecimalField(max_digits=18, decimal_places=2))),
+                orders=Count(
+                    Concat("doc_type", Value("::"), "number"),
+                    distinct=True
+                ),
+                total_value=Coalesce(
+                    Sum("net_sales"),
+                    Value(0, output_field=DecimalField(max_digits=18, decimal_places=2)),
+                ),
+                total_gp=Coalesce(
+                    Sum("gross_profit"),
+                    Value(0, output_field=DecimalField(max_digits=18, decimal_places=2)),
+                ),
             )
             .order_by("customer_name", "sman_norm")
     )
@@ -3891,7 +3955,10 @@ def customer_frequency_simple(request):
     if pairs:
         q = Q()
         for cust, sman in pairs:
-            q |= (Q(customer_name=cust) & Q(salesman=sman))
+            if sman:
+                q |= (Q(customer_name=cust) & Q(salesman=sman))
+            else:
+                q |= (Q(customer_name=cust) & (Q(salesman="") | Q(salesman__isnull=True)))
         month_rows = (
             base.filter(q)
                 .annotate(m=TruncMonth("date"))
@@ -3930,7 +3997,7 @@ def customer_frequency_simple(request):
             "month_class": month_class,
             "total_value": round(inv_total, 2),
             "total_gp": round(gp_total, 2),
-            "gp_latest_upload": round(gp_total, 2),   # <-- add this line to satisfy template
+            "gp_latest_upload": round(gp_total, 2),  # keep template compatibility
             "gp_percent": round(gp_pct, 2),
         })
 
