@@ -397,3 +397,46 @@ class SAPSalesLine(models.Model):
         return f"{self.doc_type} {self.number} · {self.item_code} · {self.quantity}"
     
 
+
+
+
+
+
+
+
+# models.py
+from django.db import models
+from decimal import Decimal
+
+class SAPFact(models.Model):
+    DOC_TYPES = (("Invoice", "Invoice"), ("Credit", "Credit"))
+
+    doc_type       = models.CharField(max_length=16, choices=DOC_TYPES)   # from "Document Type"
+    number         = models.CharField(max_length=64, db_index=True)       # "Document Number"
+    date           = models.DateField(db_index=True)                      # "PostingDate"
+
+    customer_code  = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    customer_name  = models.CharField(max_length=255, db_index=True)
+    salesman       = models.CharField(max_length=255, blank=True, default="", db_index=True)
+
+    item_code      = models.CharField(max_length=128, db_index=True)
+    item_desc      = models.CharField(max_length=512, blank=True, default="")
+    item_mfr       = models.CharField(max_length=255, blank=True, default="")
+
+    quantity       = models.DecimalField(max_digits=18, decimal_places=3, default=Decimal("0.000"))  # signed
+    net_sales      = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))   # signed
+    gross_profit   = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))   # signed
+
+    # Optional: if same (number,item_code) can repeat in Excel, keep a row index to avoid overwrites
+    row_idx        = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["date", "salesman"]),
+            models.Index(fields=["date", "item_code"]),
+            models.Index(fields=["customer_name", "salesman"]),
+        ]
+        unique_together = [("number", "item_code", "row_idx")]
+
+    def __str__(self):
+        return f"{self.doc_type} {self.number} · {self.item_code} · {self.date}"

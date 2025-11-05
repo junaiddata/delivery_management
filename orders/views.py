@@ -3297,7 +3297,7 @@ from django.shortcuts import redirect, render
 from django.db.models import Q
 
 from .forms import SAPInvoiceUploadForm
-from .utils import _read_sap_unified_dataframe
+
 from .models import (
     SAPInvoice, SAPInvoiceUploadBatch,
     SAPCreditNote, SAPCreditNoteUploadBatch,
@@ -3572,3 +3572,397 @@ def api_item_summary(request):
     } for code in codes_sorted]
 
     return JsonResponse({"results": data}, json_dumps_params={"ensure_ascii": False})
+
+
+
+
+
+
+# views.py
+from django.contrib import messages
+from django.shortcuts import render, redirect
+from django.db import transaction
+from .models import SAPFact
+from .forms import SAPInvoiceUploadForm  # reuse your existing file form
+from .utils import read_simple_lines
+
+@transaction.atomic
+def sap_upload_simple(request):
+    if request.method == "POST":
+        form = SAPInvoiceUploadForm(request.POST, request.FILES)
+        if not form.is_valid():
+            return render(request, "sap_invoices/upload.html", {"form": form})
+        f = request.FILES["file"]
+
+        df = read_simple_lines(f)  # pandas DataFrame
+        numbers = list(df["number"].unique())
+
+        # delete existing rows for these documents
+        SAPFact.objects.filter(number__in=numbers).delete()
+
+        # bulk insert
+        objs = [
+            SAPFact(
+                doc_type=row.doc_type,
+                number=row.number,
+                date=row.date,
+                customer_code=row.customer_code,
+                customer_name=row.customer_name,
+                salesman=row.salesman,
+                item_code=row.item_code,
+                item_desc=row.item_desc,
+                item_mfr=row.item_mfr,
+                quantity=row.quantity,
+                net_sales=row.net_sales,
+                gross_profit=row.gross_profit,
+                row_idx=row.row_idx,
+            )
+            for _, row in df.iterrows()
+        ]
+        SAPFact.objects.bulk_create(objs, batch_size=5000)
+
+        messages.success(request, f"Uploaded {len(objs)} rows across {len(numbers)} documents.")
+        return redirect("customer_frequency_simple")
+
+    return render(request, "sap_invoices/upload.html", {"form": SAPInvoiceUploadForm()})
+
+
+
+
+
+
+
+
+from django.http import JsonResponse
+from django.views.decorators.http import require_GET
+from django.db.models import Sum, Value, DecimalField, Max, Q
+from django.db.models.functions import Coalesce
+
+# GET /api/items/unique-qty?item=search
+@require_GET
+def api_item_unique_qty(request):
+    item_q = (request.GET.get("item") or "").strip()
+
+    base = SAPFact.objects.all()
+    if item_q:
+        base = base.filter(Q(item_code__icontains=item_q) | Q(item_desc__icontains=item_q))
+
+    # Stable description per item_code (any; use MAX)
+    desc_map = {
+        r["item_code"]: r["item_desc"] or ""
+        for r in base.values("item_code").annotate(
+            item_desc=Coalesce(Max("item_desc"), Value(""))
+        )
+    }
+
+    # Stage 1: collapse duplicates WITHIN each document: (item_code, number)
+    per_doc = list(
+        base.values("item_code", "number")
+            .annotate(
+                qty_per_doc=Coalesce(
+                    Sum("quantity"),
+                    Value(0, output_field=DecimalField(max_digits=18, decimal_places=3)),
+                )
+            )
+    )
+
+    # Stage 2: roll up per item_code (in Python to avoid "aggregate over aggregate" error)
+    from collections import defaultdict
+    totals_qty = defaultdict(float)
+    for r in per_doc:
+        code = r["item_code"]
+        totals_qty[code] += float(r["qty_per_doc"] or 0.0)
+
+    data = [{
+        "item_code": code,
+        "item_desc": desc_map.get(code, ""),
+        "total_qty": round(totals_qty[code], 3),  # net: credits subtract
+    } for code in sorted(totals_qty.keys())]
+
+    return JsonResponse({"results": data}, json_dumps_params={"ensure_ascii": False})
+
+
+
+# views.py
+from datetime import datetime
+from decimal import Decimal
+from dateutil.relativedelta import relativedelta
+
+from django.db.models import Count, Sum, Value, DecimalField, Q
+from django.db.models.functions import TruncMonth, Coalesce
+from django.shortcuts import render
+from django.utils import timezone
+
+from .models import SAPFact
+
+
+# =========================
+#  Visibility & Grouping
+# =========================
+SALES_USER_MAP = {
+    "muzain": ["B.MR.MUZAIN"],
+    "dip": ["D.RETAIL CUST DIP"],
+    "rafiqabu": ["B. MR.RAFIQ ABU- PROJ","A.MR.RAFIQ ABU-TRD"],
+    "rashid": ["A.MR.RASHID", "A.MR.RASHID CONT"],
+    "parthiban": ["B.MR.PARTHIBAN"],
+    "siyab": ["A.MR.SIYAB", "A.MR.SIYAB CONT"],
+    "mr. nasheer": ["B.MR.NASHEER AHMAD"],
+    "deira 2 store": ["R.DEIRA 2"],
+    "rafiq": ["A.MR.RAFIQ"],
+    "krishnan": ["I.KRISHNAN", "A.KRISHNAN"],
+    "alabama": ["D. ALABAMA"],
+    "anish": ["ANISH DIP"],
+    "musharaf": ["A.MUSHARAF"],
+    "ibrahim": ["A.IBRAHIM"],
+    "adil": ["A.DIP ADIL"],
+    "kadar": ["A.DIP KADAR"],
+    "stephy": ["A.DIP STEFFY"],
+    "muzammil": ["A.DIP MUZAMMIL"],
+}
+
+def _is_admin(user):
+    uname = (getattr(user, "username", "") or "").lower().strip()
+    return bool(getattr(user, "is_superuser", False) or getattr(user, "is_staff", False) or uname == "admin")
+
+# HO/Others split — keep same behavior you had
+HO_PREFIXES = ("A.", "B.", "Z.", "D.", "ANISH DIP")
+
+def _ho_q():
+    q = Q(salesman__istartswith=HO_PREFIXES[0])
+    for p in HO_PREFIXES[1:]:
+        q |= Q(salesman__istartswith=p)
+    return q
+
+def _apply_group(qs, group: str):
+    if group == "HO":
+        return qs.filter(_ho_q())
+    elif group == "Others":
+        return qs.exclude(_ho_q())  # includes blank/null salesman
+    return qs
+
+
+# =========================
+#  Cursor Pagination Utils
+# =========================
+PAGE_SIZE = 200
+
+def _parse_cursor(cursor: str | None):
+    if not cursor:
+        return None, None
+    try:
+        customer, salesman = cursor.split("||", 1)
+        return customer, ("" if salesman == "__NULL__" else salesman)
+    except Exception:
+        return None, None
+
+def _make_cursor(customer_name: str, salesman: str | None):
+    s = (salesman or "")
+    return f"{customer_name}||{s or '__NULL__'}"
+
+
+# =========================
+#  Main View
+# =========================
+def customer_frequency_simple(request):
+    """
+    Customer frequency analysis from SAPFact (single-table).
+    - Date range (default: last 6 months)
+    - Group: HO / Others / All
+    - Salesman dropdown + search by customer
+    - Per-user visibility via SALES_USER_MAP (non-admins see only their mappings)
+    - Cursor-based pagination
+    """
+    # -------- Inputs --------
+    start_month_str = request.GET.get('start')
+    end_month_str   = request.GET.get('end')
+    name_q          = (request.GET.get('q') or "").strip()
+    after           = request.GET.get("after")
+    salesman_filter = (request.GET.get('salesman') or "").strip()
+    group           = (request.GET.get("group") or "HO").strip()  # "HO" | "Others" | "All"
+
+    # -------- Date Range (default last 6 months inclusive) --------
+    today = timezone.now().date().replace(day=1)
+    if start_month_str and end_month_str:
+        s_y, s_m = map(int, start_month_str.split("-"))
+        e_y, e_m = map(int, end_month_str.split("-"))
+        start_date = datetime(s_y, s_m, 1).date()
+        end_date = (datetime(e_y, e_m, 1).date() + relativedelta(months=1)) - relativedelta(days=1)
+    else:
+        start_date = (today - relativedelta(months=5))
+        end_date = (today + relativedelta(months=1)) - relativedelta(days=1)
+
+    # -------- Base Query --------
+    base = SAPFact.objects.filter(date__range=[start_date, end_date])
+
+    # -------- Visibility Enforcement --------
+    user = request.user
+    is_admin = _is_admin(user)
+    uname = (getattr(user, "username", "") or "").lower().strip()
+    allowed_salesmen = SALES_USER_MAP.get(uname, [])
+
+    if not is_admin:
+        if allowed_salesmen:
+            base = base.filter(salesman__in=allowed_salesmen)
+        else:
+            base = base.none()
+
+    # -------- Input Filters --------
+    if salesman_filter:
+        if is_admin or salesman_filter in (allowed_salesmen or []):
+            base = base.filter(salesman__iexact=salesman_filter)
+
+    if name_q:
+        base = base.filter(customer_name__icontains=name_q)
+
+    # -------- Group (HO/Others/All) --------
+    base = _apply_group(base, group)
+
+    # -------- Global Stats --------
+    total_months = list(base.annotate(m=TruncMonth("date")).values_list("m", flat=True).distinct())
+    total_months_count = len(total_months)
+
+    customer_month_counts = (
+        base.annotate(m=TruncMonth("date"))
+            .values("customer_name")
+            .annotate(mcnt=Count("m", distinct=True))
+            .values("mcnt")
+    )
+    one_month_count = sum(1 for r in customer_month_counts if r["mcnt"] == 1)
+    two_month_count = sum(1 for r in customer_month_counts if r["mcnt"] == 2)
+    all_month_count = (
+        sum(1 for r in customer_month_counts if total_months_count and r["mcnt"] == total_months_count)
+        if total_months_count else 0
+    )
+
+    total_value_all = float(
+        base.aggregate(tv=Coalesce(Sum("net_sales"),
+                                   Value(0, output_field=DecimalField(max_digits=18, decimal_places=2))))["tv"] or 0
+    )
+    total_gp_all = float(
+        base.aggregate(tg=Coalesce(Sum("gross_profit"),
+                                   Value(0, output_field=DecimalField(max_digits=18, decimal_places=2))))["tg"] or 0
+    )
+    gp_percent = (total_gp_all / total_value_all * 100.0) if total_value_all else 0.0
+
+    stats = {
+        "one_month": one_month_count,
+        "two_month": two_month_count,
+        "all_month": all_month_count,
+        "total_value": round(total_value_all, 2),
+        "total_gp": round(total_gp_all, 2),
+        "gp_percent": round(gp_percent, 2),
+    }
+
+    # -------- Grouped Rows + Pagination --------
+    grouped = (
+        base.annotate(sman_norm=Coalesce("salesman", Value("")))
+            .values("customer_name", "sman_norm")
+            .annotate(
+                orders=Count("number", distinct=True),
+                total_value=Coalesce(Sum("net_sales"),
+                                     Value(0, output_field=DecimalField(max_digits=18, decimal_places=2))),
+                total_gp=Coalesce(Sum("gross_profit"),
+                                  Value(0, output_field=DecimalField(max_digits=18, decimal_places=2))),
+            )
+            .order_by("customer_name", "sman_norm")
+    )
+
+    # Cursor (after)
+    if after:
+        c_after, s_after = _parse_cursor(after)
+        if c_after is not None:
+            grouped = grouped.filter(
+                Q(customer_name__gt=c_after) |
+                (Q(customer_name=c_after) & Q(sman_norm__gt=s_after))
+            )
+
+    rows = list(grouped[:PAGE_SIZE + 1])
+    has_next = len(rows) > PAGE_SIZE
+    if has_next:
+        last_included = rows[PAGE_SIZE - 1]
+        next_cursor = _make_cursor(last_included["customer_name"], last_included["sman_norm"])
+        rows = rows[:PAGE_SIZE]
+    else:
+        next_cursor = None
+
+    # -------- Month labels per (customer, salesman) on current page --------
+    pairs = [(r["customer_name"], r["sman_norm"]) for r in rows]
+    months_map = {}
+    if pairs:
+        q = Q()
+        for cust, sman in pairs:
+            q |= (Q(customer_name=cust) & Q(salesman=sman))
+        month_rows = (
+            base.filter(q)
+                .annotate(m=TruncMonth("date"))
+                .values("customer_name", "salesman", "m")
+                .distinct()
+        )
+        for mr in month_rows:
+            key = (mr["customer_name"], (mr["salesman"] or ""))
+            months_map.setdefault(key, []).append(mr["m"])
+
+    # -------- Final rows for template --------
+    results = []
+    for r in rows:
+        cust = r["customer_name"]
+        sman = r["sman_norm"] or ""
+        inv_total = float(r["total_value"] or 0)
+        gp_total  = float(r["total_gp"] or 0)
+
+        mlist = sorted(months_map.get((cust, sman), []))
+        gp_pct = (gp_total / inv_total * 100.0) if inv_total else 0.0
+
+        orders = int(r["orders"])
+        order_class = "One-Time Customer" if orders == 1 else ("Two-Time Customer" if orders == 2 else f"{orders} Orders")
+        month_class = (
+            "One-Month Customer" if len(mlist) == 1 else
+            "Two-Month Customer" if len(mlist) == 2 else
+            ("All-Month Customer" if total_months_count and len(mlist) == total_months_count else f"{len(mlist)} Months")
+        )
+
+        results.append({
+            "name": cust,
+            "salesman": sman,
+            "orders": orders,
+            "months": [m.strftime("%b-%Y") for m in mlist],
+            "order_class": order_class,
+            "month_class": month_class,
+            "total_value": round(inv_total, 2),
+            "total_gp": round(gp_total, 2),
+            "gp_latest_upload": round(gp_total, 2),   # <-- add this line to satisfy template
+            "gp_percent": round(gp_pct, 2),
+        })
+
+    # -------- Salesmen dropdown (respect visibility & HO/Others) --------
+    if is_admin:
+        salesmen = (
+            _apply_group(
+                SAPFact.objects.exclude(salesman__isnull=True).exclude(salesman=""),
+                group
+            )
+            .filter(date__range=[start_date, end_date])
+            .values_list("salesman", flat=True)
+            .distinct()
+            .order_by("salesman")
+        )
+    else:
+        present = base.values_list("salesman", flat=True).distinct()
+        present_set = set(present)
+        salesmen = [s for s in (allowed_salesmen or []) if s in present_set]
+
+    # -------- Render --------
+    return render(request, "sap_invoices/customer_frequency_simple.html", {
+        "results": results,
+        "stats": stats,
+        "salesmen": salesmen,
+        "selected_salesman": salesman_filter if (is_admin or salesman_filter in (allowed_salesmen or [])) else "",
+        "start": start_date.strftime("%Y-%m"),
+        "end": end_date.strftime("%Y-%m"),
+        "total_months": sorted([m.strftime("%b-%Y") for m in total_months]),
+        "source": "SAP (simple)",
+        "has_next": has_next,
+        "next_cursor": next_cursor,
+        "q": name_q,
+        "group": group,
+    })
