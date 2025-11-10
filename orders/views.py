@@ -3298,285 +3298,6 @@ from django.db.models import Q
 
 from .forms import SAPInvoiceUploadForm
 
-from .models import (
-    SAPInvoice, SAPInvoiceUploadBatch,
-    SAPCreditNote, SAPCreditNoteUploadBatch,
-    SAPCreditUploadGPLine,
-    # Optional: uncomment if you've added the item-lines model
-    # SAPSalesLine,
-)
-
-def _model_has_field(model_cls, field_name: str) -> bool:
-    from django.core.exceptions import FieldDoesNotExist
-    try:
-        model_cls._meta.get_field(field_name)
-        return True
-    except FieldDoesNotExist:
-        return False
-
-
-@transaction.atomic
-def sap_unified_upload(request):
-    """
-    Single upload for Invoices + Credit Notes + GP lines (+ Item lines, optional).
-    Reuses existing batch models to keep FKs compatible:
-      - SAPInvoice.upload_batch -> SAPInvoiceUploadBatch
-      - SAPCreditNote.upload_batch -> SAPCreditNoteUploadBatch
-      - SAPCreditUploadGPLine.upload_batch -> SAPCreditNoteUploadBatch
-    """
-    if request.method == "POST":
-        form = SAPInvoiceUploadForm(request.POST, request.FILES)
-        if not form.is_valid():
-            return render(request, "sap_invoices/upload.html", {"form": form})
-
-        f = request.FILES["file"]
-        try:
-            # expects utils to return 4 DFs
-            invoices_df, credits_df, gp_lines_df, lines_df = _read_sap_unified_dataframe(f)
-        except TypeError:
-            try:
-                invoices_df, credits_df, gp_lines_df = _read_sap_unified_dataframe(f)
-                import pandas as pd
-                lines_df = pd.DataFrame(columns=[
-                    "doc_type", "number", "date", "customer_code", "customer_name",
-                    "salesman", "item_code", "item_desc", "quantity", "rate", "amount", "gp"
-                ])
-            except Exception as e:
-                messages.error(request, f"Upload failed: {e}")
-                return redirect("sap_unified_upload")
-        except Exception as e:
-            messages.error(request, f"Upload failed: {e}")
-            return redirect("sap_unified_upload")
-
-        # Create the TWO batches your current FKs require
-        inv_batch = SAPInvoiceUploadBatch.objects.create(
-            filename=getattr(f, "name", "sap_unified.xlsx"),
-            note=form.cleaned_data.get("note", ""),
-            rows_ingested=0,
-        )
-        cr_batch = SAPCreditNoteUploadBatch.objects.create(
-            filename=getattr(f, "name", "sap_unified.xlsx"),
-            note=form.cleaned_data.get("note", ""),
-            rows_ingested=0,
-        )
-
-        # ---------------- Invoices ----------------
-        inv_inserted = inv_updated = 0
-        if not invoices_df.empty:
-            for row in invoices_df.to_dict(orient="records"):
-                defaults = {
-                    "date": row["date"],
-                    "customer_name": row["customer_name"],
-                    "salesman": row["salesman"],
-                    "cancelled": False,
-                    "document_total": row["document_total"],
-                    "upload_batch": inv_batch,
-                }
-                if _model_has_field(SAPInvoice, "customer_code"):
-                    defaults["customer_code"] = row.get("customer_code", "") or ""
-
-                _, created = SAPInvoice.objects.update_or_create(
-                    invoice_number=row["number"],
-                    defaults=defaults,
-                )
-                if created: inv_inserted += 1
-                else:       inv_updated  += 1
-
-        inv_batch.rows_ingested = inv_inserted
-        inv_batch.save(update_fields=["rows_ingested"])
-
-        # ---------------- Credits ----------------
-        cr_inserted = cr_updated = 0
-        if not credits_df.empty:
-            for row in credits_df.to_dict(orient="records"):
-                defaults = {
-                    "date": row["date"],
-                    "customer_name": row["customer_name"],
-                    "salesman": row["salesman"],
-                    "document_total": row["document_total"],  # store positive
-                    "upload_batch": cr_batch,
-                }
-                if _model_has_field(SAPCreditNote, "customer_code"):
-                    defaults["customer_code"] = row.get("customer_code", "") or ""
-
-                _, created = SAPCreditNote.objects.update_or_create(
-                    number=row["number"],
-                    defaults=defaults,
-                )
-                if created: cr_inserted += 1
-                else:       cr_updated  += 1
-
-        cr_batch.rows_ingested = cr_inserted
-        cr_batch.save(update_fields=["rows_ingested"])
-
-        # ---------------- GP lines (UPsert, not bulk_create) ----------------
-        gp_created = gp_updated = 0
-        if gp_lines_df is not None and not gp_lines_df.empty:
-            for row in gp_lines_df.to_dict(orient="records"):
-                # Natural identity of a GP line across uploads
-                lookup = {
-                    "date":          row["date"],
-                    "customer_name": row["customer_name"],
-                    "salesman":      row["salesman"],
-                }
-                # If your model has customer_code, include it in the identity
-                if _model_has_field(SAPCreditUploadGPLine, "customer_code"):
-                    lookup["customer_code"] = row.get("customer_code", "") or ""
-
-                defaults = {
-                    "upload_batch": cr_batch,   # keep last-batch pointer for audit
-                    "gp": row["gp"],
-                }
-
-                obj, created = SAPCreditUploadGPLine.objects.update_or_create(
-                    **lookup, defaults=defaults
-                )
-                if created: gp_created += 1
-                else:
-                    gp_updated += 1
-
-        # ---------------- Item lines (optional; requires SAPSalesLine) ----------------
-        lines_created = lines_updated = 0
-        try:
-            from .models import SAPSalesLine
-            if lines_df is not None and not lines_df.empty:
-                for row in lines_df.to_dict(orient="records"):
-                    is_credit = str(row.get("doc_type", "")).strip().lower().startswith("credit")
-                    doc_type  = "Credit" if is_credit else "Invoice"
-
-                    # normalize keys (avoid whitespace/case dupes)
-                    number    = (row.get("number") or "").strip()
-                    item_code = (row.get("item_code") or "").strip()
-
-                    lookup = {
-                        "doc_type": doc_type,
-                        "number": number,
-                        "item_code": item_code,
-                    }
-                    defaults = {
-                        "date": row.get("date"),
-                        "customer_code": (row.get("customer_code") or "").strip(),
-                        "customer_name": (row.get("customer_name") or "").strip(),
-                        "salesman": (row.get("salesman") or "").strip(),
-                        "item_desc": (row.get("item_desc") or "").strip(),
-                        "quantity": row.get("quantity") or 0,
-                        "rate": row.get("rate") or 0,
-                        "amount": row.get("amount") or 0,
-                        "gp": row.get("gp") or 0,
-                        # keep last batch pointers for audit
-                        "inv_batch": None if is_credit else inv_batch,
-                        "cr_batch": cr_batch if is_credit else None,
-                    }
-
-                    _, created = SAPSalesLine.objects.update_or_create(
-                        **lookup, defaults=defaults
-                    )
-                    if created: lines_created += 1
-                    else:       lines_updated += 1
-        except Exception:
-            lines_created = lines_updated = 0
-
-        messages.success(
-            request,
-            (
-                f"Upload OK. "
-                f"Invoices ins/upd: {inv_inserted}/{inv_updated}; "
-                f"Credits ins/upd: {cr_inserted}/{cr_updated}; "
-                f"GP lines ins/upd: {gp_created}/{gp_updated}; "
-                f"Items ins/upd: {lines_created}/{lines_updated}."
-            )
-        )
-        return redirect("customer_frequency_analysis_sap")
-
-    # GET
-    form = SAPInvoiceUploadForm()
-    return render(request, "sap_invoices/upload.html", {"form": form})
-
-from django.http import JsonResponse
-from django.views.decorators.http import require_GET
-from django.db.models import Sum, Value, DecimalField
-from django.db.models.functions import Coalesce
-
-@require_GET
-def api_item_summary(request):
-    """
-    GET /api/items/summary?start=YYYY-MM&end=YYYY-MM&group=HO|Others|All&item=search
-    Returns one row per item_code with totals de-duped per (item_code, number).
-    """
-    from datetime import datetime
-    from dateutil.relativedelta import relativedelta
-    from django.utils import timezone
-    from django.db.models import Q, Sum, Value, DecimalField, Max
-    from django.db.models.functions import Coalesce
-    from collections import defaultdict
-
-    start_month_str = request.GET.get("start")
-    end_month_str   = request.GET.get("end")
-    group           = (request.GET.get("group") or "HO").strip()
-    item_q          = (request.GET.get("item") or "").strip()
-
-    # Default: whole current year
-    today = timezone.now().date().replace(day=1)
-    if start_month_str and end_month_str:
-        s_y, s_m = map(int, start_month_str.split("-"))
-        e_y, e_m = map(int, end_month_str.split("-"))
-        start_date = datetime(s_y, s_m, 1).date()
-        end_month_first = datetime(e_y, e_m, 1).date()
-        end_date = (end_month_first + relativedelta(months=1)) - relativedelta(days=1)
-    else:
-        start_date = today.replace(month=1, day=1)
-        end_date   = today.replace(month=12, day=31)
-
-    qs = SAPSalesLine.objects.filter(date__range=[start_date, end_date])
-    qs = _apply_group(qs, group)
-
-    if item_q:
-        qs = qs.filter(Q(item_code__icontains=item_q) | Q(item_desc__icontains=item_q))
-
-    # Choose a stable description per item_code (any, via MAX)
-    desc_map = {
-        r["item_code"]: r["item_desc"] or ""
-        for r in qs.values("item_code").annotate(item_desc=Max("item_desc"))
-    }
-
-    # Stage 1 (DB): collapse within a document (item_code, number)
-    per_doc = list(
-        qs.values("item_code", "doc_type", "number")
-        .annotate(
-            qty_per_doc=Coalesce(
-                Sum("quantity"),
-                Value(0, output_field=DecimalField(max_digits=18, decimal_places=3)),
-            ),
-            amt_per_doc=Coalesce(
-                Sum("amount"),
-                Value(0, output_field=DecimalField(max_digits=18, decimal_places=2)),
-            ),
-        )
-    )
-
-    # Stage 2 (Python): roll up per item_code
-    totals_qty = defaultdict(float)
-    totals_amt = defaultdict(float)
-    for r in per_doc:
-        code = r["item_code"]
-        totals_qty[code] += float(r["qty_per_doc"] or 0)
-        totals_amt[code] += float(r["amt_per_doc"] or 0)
-
-    # Build response sorted by item_code
-    codes_sorted = sorted(totals_qty.keys())
-    data = [{
-        "item_code": code,
-        "item_desc": desc_map.get(code, ""),
-        "total_qty": round(totals_qty[code], 3),
-        "total_amount": round(totals_amt[code], 2),
-    } for code in codes_sorted]
-
-    return JsonResponse({"results": data}, json_dumps_params={"ensure_ascii": False})
-
-
-
-
-
 
 # views.py
 from django.contrib import messages
@@ -3678,19 +3399,80 @@ from django.views.decorators.http import require_GET
 from django.db.models import Sum, Value, DecimalField, Max, Q
 from django.db.models.functions import Coalesce
 
-# GET /api/items/unique-qty?item=search
-from django.http import JsonResponse
-from django.views.decorators.http import require_GET
-from django.db.models import Sum, Value, DecimalField, Max, Q
-from django.db.models.functions import Coalesce
+# # GET /api/items/unique-qty?item=search
+# from django.http import JsonResponse
+# from django.views.decorators.http import require_GET
+# from django.db.models import Sum, Value, DecimalField, Max, Q
+# from django.db.models.functions import Coalesce
+
+# @require_GET
+# def api_item_unique_qty(request):
+#     """
+#     Returns net quantity per item_code.
+#     - De-dupes within a document by (item_code, doc_type, number)
+#     - Then rolls up per item_code
+#     - Signs are preserved from SAPFact (credits negative), matching Excel
+#     """
+#     item_q = (request.GET.get("item") or "").strip()
+
+#     base = SAPFact.objects.all()
+#     if item_q:
+#         base = base.filter(Q(item_code__icontains=item_q) | Q(item_desc__icontains=item_q))
+
+#     # Pick a stable description per item (any; using MAX)
+#     desc_map = {
+#         r["item_code"]: r["item_desc"] or ""
+#         for r in base.values("item_code").annotate(
+#             item_desc=Coalesce(Max("item_desc"), Value(""))
+#         )
+#     }
+
+#     # Stage 1: collapse duplicates *within* each document
+#     # IMPORTANT: include doc_type so Invoice and Credit Memo with same number are not merged
+#     per_doc = list(
+#         base.values("item_code", "doc_type", "number")
+#             .annotate(
+#                 qty_per_doc=Coalesce(
+#                     Sum("quantity"),
+#                     Value(0, output_field=DecimalField(max_digits=18, decimal_places=3)),
+#                 )
+#             )
+#     )
+
+#     # Stage 2: roll up per item_code in Python (avoid "aggregate over aggregate")
+#     from collections import defaultdict
+#     totals_qty = defaultdict(float)
+#     for r in per_doc:
+#         code = r["item_code"]
+#         totals_qty[code] += float(r["qty_per_doc"] or 0.0)
+
+#     data = [{
+#         "item_code": code,
+#         "item_desc": desc_map.get(code, ""),
+#         "total_qty": round(totals_qty[code], 3),  # credits stay negative if present
+#     } for code in sorted(totals_qty.keys())]
+
+#     return JsonResponse({"results": data}, json_dumps_params={"ensure_ascii": False})
+
+
+
+# keep this consistent with the rest of your app
+HO_PREFIXES = ("A.", "B.", "Z.", "ANISH DIP", "D.")
+
+def _is_ho(salesman: str) -> bool:
+    s = (salesman or "").strip().upper()
+    return any(s.startswith(p.upper()) for p in HO_PREFIXES)
 
 @require_GET
 def api_item_unique_qty(request):
     """
-    Returns net quantity per item_code.
-    - De-dupes within a document by (item_code, doc_type, number)
-    - Then rolls up per item_code
-    - Signs are preserved from SAPFact (credits negative), matching Excel
+    GET /api/items/unique-qty?item=search
+    Returns one row per item_code with:
+      - total_qty  : all salesmen
+      - ho_qty     : only HO (prefix-matched)
+      - others_qty : non-HO
+    De-dupes within a document by (item_code, doc_type, number).
+    Signs preserved (credits negative).
     """
     item_q = (request.GET.get("item") or "").strip()
 
@@ -3698,18 +3480,16 @@ def api_item_unique_qty(request):
     if item_q:
         base = base.filter(Q(item_code__icontains=item_q) | Q(item_desc__icontains=item_q))
 
-    # Pick a stable description per item (any; using MAX)
+    # Stable description per item_code
     desc_map = {
         r["item_code"]: r["item_desc"] or ""
-        for r in base.values("item_code").annotate(
-            item_desc=Coalesce(Max("item_desc"), Value(""))
-        )
+        for r in base.values("item_code").annotate(item_desc=Coalesce(Max("item_desc"), Value("")))
     }
 
-    # Stage 1: collapse duplicates *within* each document
-    # IMPORTANT: include doc_type so Invoice and Credit Memo with same number are not merged
+    # Stage 1: de-dupe inside each document
+    # include salesman so we can split HO vs Others later
     per_doc = list(
-        base.values("item_code", "doc_type", "number")
+        base.values("item_code", "doc_type", "number", "salesman")
             .annotate(
                 qty_per_doc=Coalesce(
                     Sum("quantity"),
@@ -3718,21 +3498,32 @@ def api_item_unique_qty(request):
             )
     )
 
-    # Stage 2: roll up per item_code in Python (avoid "aggregate over aggregate")
+    # Stage 2: roll up per item_code, split into HO and Others
     from collections import defaultdict
-    totals_qty = defaultdict(float)
+    totals_all    = defaultdict(float)
+    totals_ho     = defaultdict(float)
+    totals_others = defaultdict(float)
+
     for r in per_doc:
         code = r["item_code"]
-        totals_qty[code] += float(r["qty_per_doc"] or 0.0)
+        qty  = float(r["qty_per_doc"] or 0.0)
+        totals_all[code] += qty
+        if _is_ho(r.get("salesman", "")):
+            totals_ho[code] += qty
+        else:
+            totals_others[code] += qty
 
+    # Build response
+    codes = sorted(totals_all.keys())
     data = [{
-        "item_code": code,
-        "item_desc": desc_map.get(code, ""),
-        "total_qty": round(totals_qty[code], 3),  # credits stay negative if present
-    } for code in sorted(totals_qty.keys())]
+        "item_code":  code,
+        "item_desc":  desc_map.get(code, ""),
+        "total_qty":  round(totals_all[code], 3),
+        "ho_qty":     round(totals_ho[code], 3),
+        "others_qty": round(totals_others[code], 3),
+    } for code in codes]
 
     return JsonResponse({"results": data}, json_dumps_params={"ensure_ascii": False})
-
 
 
 # views.py

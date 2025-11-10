@@ -113,13 +113,12 @@ urlpatterns = [
 
 
 urlpatterns += [
-path("sap/upload/", sap_unified_upload, name="sap_unified_upload"),
 path("sap/uploadnew/",sap_upload_simple, name="sap_upload_simple"),
 path('sap-invoices/', views.sap_invoices_list, name='sap_invoices_list'),
 path('credit/customer-frequency-sap/', views.customer_frequency_analysis_sap, name='customer_frequency_analysis_sap'),
 # optional CSV export of the frequency view
 path('credit/customer-frequency-sap/export.csv', views.customer_frequency_export_sap, name='customer_frequency_export_sap'),
-path("api/items/summary", api_item_summary, name="api_item_summary"),
+
 
 
 path("sap/frequency", customer_frequency_simple, name="customer_frequency_simple"),
