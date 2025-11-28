@@ -3605,25 +3605,22 @@ def _make_cursor(customer_name: str, salesman: str | None):
 
 # =========================
 #  Main View
-# =========================
+@login_required
 def customer_frequency_simple(request):
     """
     Customer frequency analysis from SAPFact (single-table).
-    - Date range (default: last 6 months)
-    - Group: HO / Others / All
-    - Salesman dropdown + search by customer
-    - Per-user visibility via SALES_USER_MAP (non-admins see only their mappings)
-    - Cursor-based pagination
     """
     # -------- Inputs --------
     start_month_str = request.GET.get('start')
     end_month_str   = request.GET.get('end')
     name_q          = (request.GET.get('q') or "").strip()
     after           = request.GET.get("after")
-    salesman_filter = (request.GET.get('salesman') or "").strip()
-    group           = (request.GET.get("group") or "HO").strip()  # "HO" | "Others" | "All"
+    
+    # We don't need the single 'salesman' get anymore for filtering, just the list
+    group           = (request.GET.get("group") or "HO").strip()  
+    selected_salesman = request.GET.getlist('salesman') # <--- Get the LIST
 
-    # -------- Date Range (default last 6 months inclusive) --------
+    # -------- Date Range --------
     today = timezone.now().date().replace(day=1)
     if start_month_str and end_month_str:
         s_y, s_m = map(int, start_month_str.split("-"))
@@ -3634,7 +3631,7 @@ def customer_frequency_simple(request):
         start_date = (today - relativedelta(months=5))
         end_date = (today + relativedelta(months=1)) - relativedelta(days=1)
 
-    # -------- Base Query --------
+    # -------- Base Query (Variable is named 'base') --------
     base = SAPFact.objects.filter(date__range=[start_date, end_date])
 
     # -------- Visibility Enforcement --------
@@ -3650,9 +3647,13 @@ def customer_frequency_simple(request):
             base = base.none()
 
     # -------- Input Filters --------
-    if salesman_filter:
-        if is_admin or salesman_filter in (allowed_salesmen or []):
-            base = base.filter(salesman__iexact=salesman_filter)
+    
+    # ✅ FIX 1: Use 'base' instead of 'qs', and filter by the list
+    if selected_salesman:
+        # Filter out empty strings if any
+        clean_list = [s for s in selected_salesman if s.strip()]
+        if clean_list:
+            base = base.filter(salesman__in=clean_list)
 
     if name_q:
         base = base.filter(customer_name__icontains=name_q)
@@ -3699,7 +3700,6 @@ def customer_frequency_simple(request):
     }
 
     # -------- Grouped Rows + Pagination --------
-    # orders must be distinct by (doc_type, number)
     grouped = (
         base.annotate(
                 sman_norm=Coalesce("salesman", Value("")),
@@ -3788,7 +3788,7 @@ def customer_frequency_simple(request):
             "month_class": month_class,
             "total_value": round(inv_total, 2),
             "total_gp": round(gp_total, 2),
-            "gp_latest_upload": round(gp_total, 2),  # keep template compatibility
+            "gp_latest_upload": round(gp_total, 2),
             "gp_percent": round(gp_pct, 2),
         })
 
@@ -3814,7 +3814,8 @@ def customer_frequency_simple(request):
         "results": results,
         "stats": stats,
         "salesmen": salesmen,
-        "selected_salesman": salesman_filter if (is_admin or salesman_filter in (allowed_salesmen or [])) else "",
+        # ✅ FIX 2: Pass the LIST 'selected_salesman' so the checkboxes work
+        "selected_salesman": selected_salesman, 
         "start": start_date.strftime("%Y-%m"),
         "end": end_date.strftime("%Y-%m"),
         "total_months": sorted([m.strftime("%b-%Y") for m in total_months]),
