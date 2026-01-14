@@ -219,7 +219,7 @@ def upload_file(request):
 @login_required
 @role_required('Security')
 def security_vehicle_list(request):
-    vehicles = Vehicle.objects.exclude(id__in=[12, 13,22,21])
+    vehicles = Vehicle.objects.exclude(id__in=[12, 13,22,21,24,25])
     return render(request, 'orders/security_vehicle_list.html', {'vehicles': vehicles})
 
 
@@ -393,11 +393,12 @@ def update_vehicle(request, vehicle_id):
 
         # Get the selected driver
         driver = request.POST.get('driver')
-        new_driver = 'Customer' if vehicle and vehicle_id == 12 else driver
+        new_driver = 'Customer' if vehicle and vehicle_id == 12 else 'Salesman' if vehicle and vehicle_id == 24 else 'Rental' if vehicle and vehicle_id == 25 else driver
 
-        new_status = 'Delivered' if vehicle and vehicle.id == 12 else 'Partial Delivery' if vehicle and vehicle.vehicle_number=='SELF PARTIAL' else 'On Hold' if vehicle and vehicle.vehicle_number == 'HOLD' else 'GRV' if vehicle and vehicle.id == 13 else 'Cancelled' if vehicle and vehicle.vehicle_number=='Cancelled' else 'Loaded'
+
+        new_status = 'Delivered' if vehicle and vehicle.vehicle_number in  ['Self Pickup','SALESMAN','Rental Vehicle'] else 'Partial Delivery' if vehicle and vehicle.vehicle_number=='SELF PARTIAL' else 'On Hold' if vehicle and vehicle.vehicle_number == 'HOLD' else 'GRV' if vehicle and vehicle.id == 13 else 'Cancelled' if vehicle and vehicle.vehicle_number=='Cancelled' else 'Loaded' 
         uae_tz = pytz.timezone('Asia/Dubai')
-        new_date = timezone.now().astimezone(uae_tz) if vehicle and vehicle.id == 12 else None
+        new_date = timezone.now().astimezone(uae_tz) if vehicle and vehicle.vehicle_number in ['Self Pickup','SALESMAN','Rental Vehicle'] else None
 
         DeliveryOrder.objects.filter(
             vehicle=vehicle
