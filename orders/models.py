@@ -56,7 +56,10 @@ class DeliveryOrder(models.Model):
         ('Mukarram','Mukarram'),
         ('Shaban','Shaban'),
         ('Ameen','Ameen'),
-        ('Zubair', 'Zubair')
+        ('Zubair', 'Zubair'),
+        ('SALESMAN', 'SALESMAN'),
+        ('Rental', 'Rental'),
+        
     ]
     DO_STATUS_CHOICES = [
         ('Loaded', 'Loaded'),
