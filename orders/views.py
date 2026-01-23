@@ -2883,6 +2883,11 @@ SALES_USER_MAP = {
     "kadar": ["A.DIP KADAR"],
     "stephy": ["A.DIP STEFFY"],
     "muzammil": ["A.DIP MUZAMMIL"],
+    "retailajman": ["R.AJMAN"],
+    "retailabudhabi": ["R.ABUDHABI"],
+    "retailqusais": ["R.QUSAIS"],
+    "retailstores": ["R.STORES"],
+    "retaildeira2": ["R.DEIRA 2"]
 }
 
 def _is_admin(user):
@@ -3562,6 +3567,11 @@ SALES_USER_MAP = {
     "kadar": ["A.DIP KADAR"],
     "stephy": ["A.DIP STEFFY"],
     "muzammil": ["A.DIP MUZAMMIL"],
+    "retailajman": ["R.AJMAN"],
+    "retailabudhabi": ["R.ABUDHABI"],
+    "retailqusais": ["R.QUSAIS"],
+    "retailstores": ["R.STORES"],
+    "retaildeira2": ["R.DEIRA 2"]
 }
 
 def _is_admin(user):
