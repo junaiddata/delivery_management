@@ -5,15 +5,15 @@ from orders.models import DeliveryOrder
 
 
 class Command(BaseCommand):
-    help = "Fix customer_code, customer_name, and LPO for DOs dated 13-12-2025"
+    help = "Fix customer_code, customer_name, and LPO for DOs dated "
 
     def handle(self, *args, **options):
         import csv
         from datetime import datetime
         from orders.models import DeliveryOrder
 
-        FILE_PATH = "do_fix_13_12_2025.csv"
-        TARGET_DATE = datetime.strptime("13/12/2025", "%d/%m/%Y").date()
+        FILE_PATH = "do_fix_28_01_2026.csv"
+        TARGET_DATE = datetime.strptime("28/01/2026", "%d/%m/%Y").date()
 
         updated = 0
         skipped = 0
