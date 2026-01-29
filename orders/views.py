@@ -3403,7 +3403,7 @@ def sap_upload_simple(request):
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 from django.db.models import Sum, Value, DecimalField, Max, Q
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, ExtractYear
 
 # # GET /api/items/unique-qty?item=search
 # from django.http import JsonResponse
@@ -3492,11 +3492,12 @@ def api_item_unique_qty(request):
         for r in base.values("item_code").annotate(item_desc=Coalesce(Max("item_desc"), Value("")))
     }
 
-    # Stage 1: de-dupe inside each document
+    # Stage 1: de-dupe inside each document and capture year
     # include salesman so we can split HO vs Others later
     per_doc = list(
         base.values("item_code", "doc_type", "number", "salesman")
             .annotate(
+                year=ExtractYear("date"),
                 qty_per_doc=Coalesce(
                     Sum("quantity"),
                     Value(0, output_field=DecimalField(max_digits=18, decimal_places=3)),
@@ -3504,20 +3505,29 @@ def api_item_unique_qty(request):
             )
     )
 
-    # Stage 2: roll up per item_code, split into HO and Others
+    # Stage 2: roll up per item_code, split into HO and Others and also by year
     from collections import defaultdict
     totals_all    = defaultdict(float)
     totals_ho     = defaultdict(float)
     totals_others = defaultdict(float)
+    totals_by_year = defaultdict(lambda: defaultdict(float))  # totals_by_year[year][item_code]
 
     for r in per_doc:
         code = r["item_code"]
         qty  = float(r["qty_per_doc"] or 0.0)
+        year = r.get("year")
         totals_all[code] += qty
         if _is_ho(r.get("salesman", "")):
             totals_ho[code] += qty
         else:
             totals_others[code] += qty
+        if year:
+            try:
+                y = int(year)
+                totals_by_year[y][code] += qty
+            except Exception:
+                # ignore non-int year values
+                pass
 
     # Build response
     codes = sorted(totals_all.keys())
@@ -3527,6 +3537,9 @@ def api_item_unique_qty(request):
         "total_qty":  round(totals_all[code], 3),
         "ho_qty":     round(totals_ho[code], 3),
         "others_qty": round(totals_others[code], 3),
+        # Year-specific totals (add more years if needed)
+        "total_2025": round(totals_by_year.get(2025, {}).get(code, 0.0), 3),
+        "total_2026": round(totals_by_year.get(2026, {}).get(code, 0.0), 3),
     } for code in codes]
 
     return JsonResponse({"results": data}, json_dumps_params={"ensure_ascii": False})
