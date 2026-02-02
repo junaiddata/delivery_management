@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 SYNC_INTERVAL = 120  # 2 minutes in seconds
-DAYS_BACK = 1  # Number of days to sync
+DAYS_BACK = 3  # Number of days to sync
 MANAGE_PY_PATH = os.path.join(os.path.dirname(__file__), 'manage.py')
 
 

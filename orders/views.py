@@ -651,7 +651,7 @@ def salesman_orders(request):
     salesman_names = user_salesman_map.get(username, [])
     
     if not salesman_names:
-        # If user not in map, show no orders (or you can show all orders if needed)
+        # If user not in map, show no orders
         orders = DeliveryOrder.objects.none()
     else:
         # Build Q object for multiple salesman names (case-insensitive)
@@ -659,22 +659,73 @@ def salesman_orders(request):
         for salesman_name in salesman_names:
             q_objects |= Q(salesman__iexact=salesman_name)
         
-        # Get all orders for mapped salesmen
-        orders = DeliveryOrder.objects.filter(q_objects).order_by('-date')
+        # Get all orders for mapped salesmen - Sort by date (descending) then by do_number (descending)
+        orders = DeliveryOrder.objects.filter(q_objects).order_by('-date', '-do_number')
+
+    # Filter by date range if provided
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+    
+    if from_date and to_date:
+        orders = orders.filter(date__range=[from_date, to_date])
+    elif from_date:
+        orders = orders.filter(date__gte=from_date)
+    elif to_date:
+        orders = orders.filter(date__lte=to_date)
 
     # Filter by status if provided
     status_filter = request.GET.get('status')
-    if status_filter:
+    if status_filter == "delivered_group":
+        orders = orders.filter(status__in=["Delivered", "Received by A/c"])
+    elif status_filter:
         orders = orders.filter(status=status_filter)
 
-    # Pagination
-    paginator = Paginator(orders, 10)  # Show 10 orders per page
+    # Get distinct values for filter dropdowns (only for this salesman's orders) - BEFORE applying filters
+    # Use set to ensure uniqueness, then sort alphabetically
+    cities_queryset = orders.exclude(city__isnull=True).exclude(city='').values_list('city', flat=True).distinct()
+    cities = sorted(set(cities_queryset))
+
+    # Filter by city if provided
+    city_filter = request.GET.get('city')
+    if city_filter:
+        orders = orders.filter(city=city_filter)
+
+    # Apply search query (backend search)
+    search_query = request.GET.get('search_query', '').strip()
+    if search_query:
+        # Filter by DO Number, Customer Name, Mobile, or Invoice Number
+        orders = orders.filter(
+            Q(do_number__icontains=search_query) |
+            Q(customer_name__icontains=search_query) |
+            Q(mobile_number__icontains=search_query) |
+            Q(invoice_number__icontains=search_query)
+        )
+    
+    # Pagination - Show 100 orders per page
+    paginator = Paginator(orders, 100)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
+    # Count statistics for this salesman's orders
+    total_count = orders.count()
+    pending_count = orders.filter(status='Pending').count()
+    delivered_count = orders.filter(status__in=['Delivered', 'Received by A/c']).count()
+    out_for_delivery_count = orders.filter(status="Out for Delivery").count()
+    onhold_count = orders.filter(status="On Hold").count()
+
     return render(request, 'orders/salesman_orders.html', {
-        'page_obj': page_obj,
+        'orders': page_obj,
         'status_filter': status_filter,
+        'city_filter': city_filter,
+        'search_query': search_query,
+        'from_date': from_date,
+        'to_date': to_date,
+        'cities': cities,
+        'total_count': total_count,
+        'pending_count': pending_count,
+        'delivered_count': delivered_count,
+        'out_for_delivery_count': out_for_delivery_count,
+        'onhold_count': onhold_count,
     })
 
 @login_required
