@@ -3,7 +3,7 @@ Django management command to sync delivery orders from SAP API to cloud VPS
 """
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from decimal import Decimal, InvalidOperation
 from django.core.management.base import BaseCommand
 from django.conf import settings
@@ -35,7 +35,7 @@ def serialize_for_json(data):
                 serialized_record[key] = value
             elif isinstance(value, datetime):
                 serialized_record[key] = value.isoformat()
-            elif hasattr(value, 'date'):  # date object
+            elif isinstance(value, date):  # date object
                 serialized_record[key] = value.isoformat()
             elif isinstance(value, Decimal):
                 serialized_record[key] = str(value)
@@ -175,15 +175,15 @@ class Command(BaseCommand):
                 if result.get('success'):
                     stats = result.get('stats', {})
                     self.stdout.write(self.style.SUCCESS(
-                        f"✅ Sync successful! Created: {stats.get('created', 0)}, "
+                        f"[OK] Sync successful! Created: {stats.get('created', 0)}, "
                         f"Updated: {stats.get('updated', 0)}, "
                         f"Errors: {stats.get('errors', 0)}"
                     ))
                 else:
-                    self.stdout.write(self.style.ERROR(f"❌ Sync failed: {result.get('error', 'Unknown error')}"))
+                    self.stdout.write(self.style.ERROR(f"[ERROR] Sync failed: {result.get('error', 'Unknown error')}"))
                     
             except requests.exceptions.RequestException as e:
-                self.stdout.write(self.style.ERROR(f"❌ Error sending to VPS: {e}"))
+                self.stdout.write(self.style.ERROR(f"[ERROR] Error sending to VPS: {e}"))
                 logger.error(f"VPS sync error: {e}")
         else:
             self.stdout.write(self.style.WARNING('--local-only mode: Skipping VPS push'))
@@ -374,7 +374,7 @@ class Command(BaseCommand):
                         stats['items_updated'] = len(items_to_update)
             
             self.stdout.write(self.style.SUCCESS(
-                f"✅ Saved to database! Created: {stats['created']}, "
+                f"[OK] Saved to database! Created: {stats['created']}, "
                 f"Updated: {stats['updated']}, "
                 f"Items created: {stats['items_created']}, "
                 f"Items updated: {stats.get('items_updated', 0)}, "
@@ -388,5 +388,5 @@ class Command(BaseCommand):
                     self.stdout.write(self.style.WARNING(f"  - {error}"))
                     
         except Exception as e:
-            self.stdout.write(self.style.ERROR(f"❌ Error saving to database: {e}"))
+            self.stdout.write(self.style.ERROR(f"[ERROR] Error saving to database: {e}"))
             logger.error(f"Database save error: {e}", exc_info=True)

@@ -387,12 +387,22 @@ class SAPAPIClient:
         # Extract document lines
         document_lines = api_record.get('DocumentLines', [])
         
+        # Get customer name - special handling for "DEBIT CUSTOMER ( CASH )"
+        customer_name_raw = str(api_record.get('CardName', ''))
+        if customer_name_raw == "DEBIT CUSTOMER ( CASH )":
+            # Use Comments field instead
+            comments = api_record.get('Comments', '')
+            customer_name = str(comments) if comments else customer_name_raw
+            logger.debug(f"Replaced 'DEBIT CUSTOMER ( CASH )' with Comments: {customer_name}")
+        else:
+            customer_name = customer_name_raw
+        
         # Map API fields to model fields
         mapped = {
             'do_number': str(api_record.get('DocNum', '')),
             'date': self._parse_date(api_record.get('DocDate')),
             'customer_code': str(api_record.get('CardCode', '')),
-            'customer_name': str(api_record.get('CardName', '')),
+            'customer_name': customer_name,
             'city': str(api_record.get('U_TenX_City', '') or ''),
             'area': str(api_record.get('U_TenX_Area', '') or ''),
             'salesman': sales_person_name,

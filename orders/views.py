@@ -275,8 +275,8 @@ def order_list(request):
     # Check if the 'hide_delivered' parameter is present in the request
     hide_delivered = request.GET.get('hide_delivered', 'false').lower() == 'true'
 
-    # Start with all orders
-    orders = DeliveryOrder.objects.all().order_by('-date')
+    # Start with all orders - Sort by date (descending) then by do_number (descending - highest first)
+    orders = DeliveryOrder.objects.all().order_by('-date', '-do_number')
 
     # Filter by hide_delivered
     # if hide_delivered:
