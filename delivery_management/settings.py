@@ -169,31 +169,60 @@ VPS_RECEIVE_URL = os.environ.get('VPS_RECEIVE_URL', None)
 
 # Create logs directory if it doesn't exist (BEFORE logging configuration)
 LOG_DIR = BASE_DIR / "logs"
-LOG_DIR.mkdir(exist_ok=True)
+try:
+    LOG_DIR.mkdir(exist_ok=True)
+    # Ensure the directory is writable
+    sync_log_path = LOG_DIR / "sync.log"
+    if not sync_log_path.exists():
+        sync_log_path.touch()
+except (OSError, PermissionError):
+    # If we can't create the directory, we'll use console logging only
+    pass
+
+# Build handlers dynamically based on what's available
+handlers = {
+    "console": {
+        "level": "INFO",
+        "class": "logging.StreamHandler",
+        "formatter": "verbose",
+    },
+}
+
+# Try to add file handlers if directories are writable
+try:
+    errors_log_path = BASE_DIR / "errors.log"
+    handlers["file"] = {
+        "level": "ERROR",
+        "class": "logging.FileHandler",
+        "filename": str(errors_log_path),
+    }
+except Exception:
+    pass
+
+try:
+    sync_log_path = LOG_DIR / "sync.log"
+    # Test if we can write to this path
+    handlers["sync_file"] = {
+        "level": "INFO",
+        "class": "logging.handlers.RotatingFileHandler",
+        "filename": str(sync_log_path),
+        "maxBytes": 10 * 1024 * 1024,  # 10MB
+        "backupCount": 5,
+        "formatter": "verbose",
+    }
+except Exception:
+    # If sync_file handler can't be created, use console only
+    pass
+
+# Determine which handlers to use for sync loggers
+sync_handlers = ["console"]
+if "sync_file" in handlers:
+    sync_handlers.insert(0, "sync_file")
 
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "handlers": {
-        "file": {
-            "level": "ERROR",
-            "class": "logging.FileHandler",
-            "filename": BASE_DIR / "errors.log",
-        },
-        "sync_file": {
-            "level": "INFO",
-            "class": "logging.handlers.RotatingFileHandler",
-            "filename": BASE_DIR / "logs" / "sync.log",
-            "maxBytes": 10 * 1024 * 1024,  # 10MB
-            "backupCount": 5,
-            "formatter": "verbose",
-        },
-        "console": {
-            "level": "INFO",
-            "class": "logging.StreamHandler",
-            "formatter": "verbose",
-        },
-    },
+    "handlers": handlers,
     "formatters": {
         "verbose": {
             "format": "{levelname} {asctime} {module} {message}",
@@ -201,14 +230,18 @@ LOGGING = {
         },
     },
     "loggers": {
-        "django": {"handlers": ["file"], "level": "ERROR", "propagate": True},
+        "django": {
+            "handlers": ["file"] if "file" in handlers else ["console"],
+            "level": "ERROR",
+            "propagate": True
+        },
         "orders.api_client": {
-            "handlers": ["sync_file", "console"],
+            "handlers": sync_handlers,
             "level": "INFO",
             "propagate": False,
         },
         "orders.management.commands.sync_delivery_orders": {
-            "handlers": ["sync_file", "console"],
+            "handlers": sync_handlers,
             "level": "INFO",
             "propagate": False,
         },
