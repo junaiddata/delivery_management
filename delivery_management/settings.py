@@ -167,6 +167,10 @@ SYNC_DAYS_BACK = int(os.environ.get('SYNC_DAYS_BACK', 3))
 # VPS receive URL (will be constructed automatically if not set)
 VPS_RECEIVE_URL = os.environ.get('VPS_RECEIVE_URL', None)
 
+# Create logs directory if it doesn't exist (BEFORE logging configuration)
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(exist_ok=True)
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -210,7 +214,3 @@ LOGGING = {
         },
     },
 }
-
-# Create logs directory if it doesn't exist
-LOG_DIR = BASE_DIR / "logs"
-LOG_DIR.mkdir(exist_ok=True)
