@@ -2,492 +2,1031 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Home</title> <!-- Browser tab title -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home | Delivery & Finance System</title>
 
-    <!-- Favicon/logo shown in the browser tab -->
+    <!-- Favicon -->
     <link rel="icon" type="image/png" href="https://junaidworld.com/wp-content/uploads/2023/09/logo-2.png">
 
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-{% block content %}
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-    }
-
-    body {
-        font-family: 'Poppins', sans-serif;
-        min-height: 100vh;
-        background-color: #f5f7fa;
-        position: relative;
-        overflow-x: hidden;
-    }
-
-    /* Background with Gradient Overlay */
-    .background {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-image: url('https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80');
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-        z-index: -2;
-    }
-
-    .overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(135deg, rgba(16, 24, 40, 0.85) 0%, rgba(2, 6, 23, 0.95) 100%);
-        z-index: -1;
-    }
-
-    /* Header with Logo */
-    .header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 2rem 3rem;
-        position: relative;
-        z-index: 10;
-        max-width: 1400px;
-        margin: 0 auto;
-        width: 100%;
-    }
-
-    .logo-container {
-        display: flex;
-        align-items: center;
-    }
-
-    .logo {
-        height: 60px;
-        width: auto;
-        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-        transition: transform 0.3s ease;
-    }
-
-    .logo:hover {
-        transform: scale(1.05);
-    }
-
-    /* Main Content */
-    .main-container {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        min-height: calc(100vh - 180px);
-        padding: 2rem;
-        position: relative;
-        max-width: 1400px;
-        margin: 0 auto;
-        width: 100%;
-    }
-
-    .dashboard-card {
-        background: rgba(255, 255, 255, 0.92);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border-radius: 24px;
-        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
-        padding: 4rem;
-        max-width: 850px;
-        width: 100%;
-        text-align: center;
-        transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
-                    box-shadow 0.4s ease;
-        margin-bottom: 2rem;
-        border: 1px solid rgba(255, 255, 255, 0.25);
-        position: relative;
-        overflow: hidden;
-    }
-
-    .dashboard-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 8px;
-        background: linear-gradient(90deg, #021d74, #b93b01);
-    }
-
-    .dashboard-card:hover {
-        transform: translateY(-6px);
-        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3);
-    }
-
-    .welcome-title {
-        color: #1E293B;
-        font-size: 2.7rem;
-        font-weight: 700;
-        margin-bottom: 0.8rem;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-        background: linear-gradient(90deg, #021d74, #b93b01);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        letter-spacing: -0.5px;
-    }
-
-    .welcome-subtitle {
-        color: #64748B;
-        font-size: 1.3rem;
-        margin-bottom: 3rem;
-        font-weight: 400;
-        letter-spacing: 0.2px;
-    }
-
-    .user-welcome {
-        color: #334155;
-        font-size: 1.7rem;
-        font-weight: 600;
-        margin-bottom: 3rem;
-        background: rgba(255, 255, 255, 0.6);
-        padding: 1rem 2rem;
-        border-radius: 12px;
-        display: inline-block;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-    }
-
-    .user-name {
-        color: #021d74;
-        font-weight: 700;
-    }
-
-    /* Action Buttons */
-    .action-buttons {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 1.2rem;
-        margin-bottom: 2rem;
-        max-width: 700px;
-        margin-left: auto;
-        margin-right: auto;
-    }
-
-    .action-button {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 1.2rem 1.8rem;
-        background: linear-gradient(135deg, #021d74 0%, #0433c5 100%);
-        color: white;
-        text-decoration: none;
-        border-radius: 14px;
-        font-weight: 600;
-        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        box-shadow: 0 6px 15px rgba(2, 29, 116, 0.3);
-        border: none;
-        cursor: pointer;
-        min-width: 220px;
-        font-size: 1.05rem;
-        position: relative;
-        overflow: hidden;
-        letter-spacing: 0.3px;
-    }
-
-    .action-button::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg,
-                    rgba(255, 255, 255, 0) 0%,
-                    rgba(255, 255, 255, 0.2) 50%,
-                    rgba(255, 255, 255, 0) 100%);
-        transition: left 0.8s ease;
-    }
-
-    .action-button:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 10px 20px rgba(2, 29, 116, 0.4);
-        background: linear-gradient(135deg, #0325a3 0%, #0538d8 100%);
-    }
-
-    .action-button:hover::after {
-        left: 100%;
-    }
-
-    .action-button:active {
-        transform: translateY(-2px);
-    }
-
-    .logout-button {
-        background: linear-gradient(135deg, #c62828 0%, #e53935 100%);
-        box-shadow: 0 6px 15px rgba(198, 40, 40, 0.3);
-    }
-
-    .logout-button:hover {
-        background: linear-gradient(135deg, #b71c1c 0%, #d32f2f 100%);
-        box-shadow: 0 10px 20px rgba(198, 40, 40, 0.4);
-    }
-
-    .login-button {
-        background: linear-gradient(135deg, #021d74 0%, #b93b01 100%);
-        box-shadow: 0 6px 15px rgba(2, 29, 116, 0.3);
-        min-width: 240px;
-        padding: 1.5rem 2.5rem;
-        font-size: 1.1rem;
-    }
-
-    .login-button:hover {
-        background: linear-gradient(135deg, #031b69 0%, #a43501 100%);
-        box-shadow: 0 10px 20px rgba(2, 29, 116, 0.4);
-    }
-
-    /* Card Decoration */
-    .card-decoration {
-        position: absolute;
-        opacity: 0.07;
-        z-index: 0;
-    }
-
-    .card-decoration-1 {
-        top: -30px;
-        right: -30px;
-        width: 150px;
-        height: 150px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #021d74, #b93b01);
-    }
-
-    .card-decoration-2 {
-        bottom: -40px;
-        left: -40px;
-        width: 180px;
-        height: 180px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #b93b01, #021d74);
-    }
-
-    .card-content {
-        position: relative;
-        z-index: 1;
-    }
-
-    /* Footer */
-    .footer {
-        text-align: center;
-        padding: 1.5rem;
-        color: rgba(255, 255, 255, 0.8);
-        font-size: 0.95rem;
-        max-width: 1400px;
-        margin: 0 auto;
-        width: 100%;
-        font-weight: 300;
-        letter-spacing: 0.5px;
-    }
-
-    /* Responsive Design */
-    @media (max-width: 992px) {
-        .header {
-            padding: 1.5rem 2rem;
+    <style>
+        :root {
+            --primary: #1e40af;
+            --primary-dark: #1e3a8a;
+            --primary-light: #dbeafe;
+            --accent: #dc2626;
+            --accent-light: #fef2f2;
+            --text: #1f2937;
+            --text-light: #6b7280;
+            --text-muted: #9ca3af;
+            --white: #ffffff;
+            --border: #e5e7eb;
+            --success: #10b981;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            --shadow-xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            --radius: 8px;
+            --radius-lg: 16px;
+            --radius-xl: 24px;
         }
 
-        .dashboard-card {
-            padding: 3rem 2.5rem;
-            max-width: 750px;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        .welcome-title {
-            font-size: 2.4rem;
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            position: relative;
+            overflow-x: hidden;
+            color: var(--text);
+            line-height: 1.6;
         }
 
-        .action-button {
-            min-width: 200px;
-        }
-    }
-
-    @media (max-width: 768px) {
-        .header {
-            padding: 1.2rem 1.5rem;
-        }
-
-        .logo {
-            height: 45px;
-        }
-
-        .dashboard-card {
-            padding: 2.5rem 2rem;
-            max-width: 90%;
-        }
-
-        .welcome-title {
-            font-size: 2.2rem;
-        }
-
-        .welcome-subtitle {
-            font-size: 1.15rem;
-            margin-bottom: 2.5rem;
-        }
-
-        .user-welcome {
-            font-size: 1.4rem;
-            padding: 0.8rem 1.5rem;
-            margin-bottom: 2.5rem;
-        }
-
-        .action-button {
-            min-width: 190px;
-            padding: 1.1rem 1.5rem;
-        }
-    }
-
-    @media (max-width: 576px) {
-        .header {
-            padding: 1rem;
-        }
-
-        .logo {
-            height: 40px;
-        }
-
-        .dashboard-card {
-            padding: 2rem 1.5rem;
-            max-width: 95%;
-            border-radius: 20px;
-        }
-
-        .welcome-title {
-            font-size: 1.9rem;
-        }
-
-        .welcome-subtitle {
-            font-size: 1.05rem;
-            margin-bottom: 2rem;
-        }
-
-        .user-welcome {
-            font-size: 1.3rem;
-            padding: 0.7rem 1.2rem;
-            margin-bottom: 2rem;
-        }
-
-        .action-buttons {
-            flex-direction: column;
+        /* Animated Background */
+        .bg-pattern {
+            position: fixed;
+            top: 0;
+            left: 0;
             width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .bg-pattern::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(30, 64, 175, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(220, 38, 38, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(30, 64, 175, 0.1) 0%, transparent 40%);
+            animation: bgMove 20s ease-in-out infinite;
+        }
+
+        @keyframes bgMove {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            25% { transform: translate(2%, 2%) rotate(1deg); }
+            50% { transform: translate(0, 4%) rotate(0deg); }
+            75% { transform: translate(-2%, 2%) rotate(-1deg); }
+        }
+
+        /* Floating Particles */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            animation: float 15s infinite;
+        }
+
+        .particle:nth-child(1) { left: 10%; animation-delay: 0s; animation-duration: 20s; }
+        .particle:nth-child(2) { left: 20%; animation-delay: 2s; animation-duration: 25s; }
+        .particle:nth-child(3) { left: 30%; animation-delay: 4s; animation-duration: 18s; }
+        .particle:nth-child(4) { left: 40%; animation-delay: 1s; animation-duration: 22s; }
+        .particle:nth-child(5) { left: 50%; animation-delay: 3s; animation-duration: 19s; }
+        .particle:nth-child(6) { left: 60%; animation-delay: 5s; animation-duration: 21s; }
+        .particle:nth-child(7) { left: 70%; animation-delay: 2s; animation-duration: 24s; }
+        .particle:nth-child(8) { left: 80%; animation-delay: 4s; animation-duration: 17s; }
+        .particle:nth-child(9) { left: 90%; animation-delay: 1s; animation-duration: 23s; }
+
+        @keyframes float {
+            0% { transform: translateY(100vh) scale(0); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(-100vh) scale(1); opacity: 0; }
+        }
+
+        /* Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+            width: 100%;
+        }
+
+        /* Header */
+        .header {
+            padding: 1.5rem 0;
+            position: relative;
+            z-index: 100;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
             gap: 1rem;
         }
 
-        .action-button {
+        .logo {
+            height: 50px;
+            width: auto;
+            filter: brightness(1.1);
+            transition: transform 0.3s ease;
+        }
+
+        .logo:hover {
+            transform: scale(1.05);
+        }
+
+        /* Live Badge */
+        .live-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: #10b981;
+            backdrop-filter: blur(8px);
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+            }
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .header-time {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Main Content */
+        .main {
+            min-height: calc(100vh - 180px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 0;
+        }
+
+        /* Dashboard Card */
+        .dashboard-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-xl);
+            max-width: 700px;
             width: 100%;
-            min-width: unset;
-            padding: 1rem 1.2rem;
+            overflow: hidden;
+            animation: cardFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
-        .login-button {
-            min-width: unset;
-            padding: 1.2rem 1.5rem;
+        @keyframes cardFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.98);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
         }
-    }
 
-    /* Animation */
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
+        /* Card Header */
+        .card-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            padding: 2.5rem 2.5rem 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
 
-    .dashboard-card {
-        animation: fadeIn 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-    }
-</style>
+        .card-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            opacity: 0.5;
+        }
 
-<!-- Background with Overlay -->
-<div class="background"></div>
-<div class="overlay"></div>
+        .card-header-content {
+            position: relative;
+            z-index: 1;
+        }
 
-<!-- Header with Logo -->
-<div class="header">
-    <div class="logo-container">
-        <img src="https://junaidworld.com/wp-content/uploads/2023/09/logo-2.png" alt="Company Logo" class="logo">
+        .system-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.375rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: white;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 1rem;
+        }
+
+        .system-badge .live-indicator {
+            width: 6px;
+            height: 6px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .card-title {
+            color: white;
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.025em;
+        }
+
+        .card-subtitle {
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 1rem;
+            font-weight: 400;
+        }
+
+        /* Card Body */
+        .card-body {
+            padding: 2.5rem;
+        }
+
+        /* User Welcome */
+        .user-welcome {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, var(--primary-light) 0%, #f0f9ff 100%);
+            border-radius: var(--radius-lg);
+            border: 1px solid rgba(30, 64, 175, 0.1);
+        }
+
+        .welcome-label {
+            font-size: 0.875rem;
+            color: var(--text-light);
+            margin-bottom: 0.25rem;
+        }
+
+        .welcome-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .welcome-name .avatar {
+            width: 40px;
+            height: 40px;
+            background: var(--primary);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .welcome-role {
+            font-size: 0.8125rem;
+            color: var(--text-light);
+            margin-top: 0.5rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            background: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .action-btn {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.25rem 1.5rem;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            text-decoration: none;
+            color: var(--text);
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .action-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--primary);
+            transform: scaleY(0);
+            transition: transform 0.3s ease;
+        }
+
+        .action-btn:hover {
+            border-color: var(--primary);
+            background: var(--primary-light);
+            transform: translateX(4px);
+            box-shadow: var(--shadow);
+        }
+
+        .action-btn:hover::before {
+            transform: scaleY(1);
+        }
+
+        .action-btn-content {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .action-btn-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--primary-light);
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .action-btn:hover .action-btn-icon {
+            background: var(--primary);
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .action-btn-text h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 0.125rem;
+        }
+
+        .action-btn-text p {
+            font-size: 0.8125rem;
+            color: var(--text-light);
+            font-weight: 400;
+        }
+
+        .action-btn-arrow {
+            color: var(--text-muted);
+            font-size: 1.25rem;
+            transition: transform 0.3s ease;
+        }
+
+        .action-btn:hover .action-btn-arrow {
+            transform: translateX(4px);
+            color: var(--primary);
+        }
+
+        /* Logout Button */
+        .logout-btn {
+            border-color: rgba(220, 38, 38, 0.2);
+            background: var(--accent-light);
+        }
+
+        .logout-btn::before {
+            background: var(--accent);
+        }
+
+        .logout-btn .action-btn-icon {
+            background: rgba(220, 38, 38, 0.1);
+            color: var(--accent);
+        }
+
+        .logout-btn:hover {
+            border-color: var(--accent);
+            background: var(--accent-light);
+        }
+
+        .logout-btn:hover .action-btn-icon {
+            background: var(--accent);
+            color: white;
+        }
+
+        .logout-btn:hover .action-btn-arrow {
+            color: var(--accent);
+        }
+
+        /* Login Section */
+        .login-section {
+            text-align: center;
+        }
+
+        .login-message {
+            color: var(--text-light);
+            margin-bottom: 1.5rem;
+            font-size: 1rem;
+        }
+
+        .login-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            padding: 1rem 2.5rem;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: var(--radius-lg);
+            font-weight: 600;
+            font-size: 1.0625rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 14px rgba(30, 64, 175, 0.4);
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(30, 64, 175, 0.5);
+        }
+
+        .login-btn-icon {
+            font-size: 1.25rem;
+        }
+
+        /* No Access Message */
+        .no-access {
+            text-align: center;
+            padding: 1.5rem;
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            border-radius: var(--radius-lg);
+            color: #92400e;
+        }
+
+        .no-access-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .no-access h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .no-access p {
+            font-size: 0.875rem;
+        }
+
+        /* Footer */
+        .footer {
+            padding: 2rem 0;
+            text-align: center;
+        }
+
+        .footer-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .footer-stats {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .footer-stat {
+            text-align: center;
+        }
+
+        .footer-stat-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: white;
+        }
+
+        .footer-stat-label {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.6);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .footer-text {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.8125rem;
+        }
+
+        .footer-text a {
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .footer-text a:hover {
+            color: white;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .header-actions {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .logo {
+                height: 40px;
+            }
+
+            .main {
+                padding: 1rem 0;
+            }
+
+            .dashboard-card {
+                margin: 0 1rem;
+                max-width: calc(100% - 2rem);
+            }
+
+            .card-header {
+                padding: 2rem 1.5rem 1.5rem;
+            }
+
+            .card-title {
+                font-size: 1.5rem;
+            }
+
+            .card-subtitle {
+                font-size: 0.9375rem;
+            }
+
+            .card-body {
+                padding: 1.5rem;
+            }
+
+            .user-welcome {
+                padding: 1.25rem;
+            }
+
+            .welcome-name {
+                font-size: 1.25rem;
+            }
+
+            .action-btn {
+                padding: 1rem 1.25rem;
+            }
+
+            .action-btn-icon {
+                width: 40px;
+                height: 40px;
+                font-size: 1.25rem;
+            }
+
+            .action-btn-text h3 {
+                font-size: 0.9375rem;
+            }
+
+            .footer-stats {
+                gap: 1.5rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 0 1rem;
+            }
+
+            .header {
+                padding: 1rem 0;
+            }
+
+            .live-badge {
+                padding: 0.375rem 0.75rem;
+                font-size: 0.75rem;
+            }
+
+            .header-time {
+                display: none;
+            }
+
+            .dashboard-card {
+                margin: 0 0.5rem;
+                max-width: calc(100% - 1rem);
+                border-radius: var(--radius-lg);
+            }
+
+            .card-header {
+                padding: 1.5rem 1.25rem 1.25rem;
+            }
+
+            .card-title {
+                font-size: 1.25rem;
+            }
+
+            .card-subtitle {
+                font-size: 0.875rem;
+            }
+
+            .card-body {
+                padding: 1.25rem;
+            }
+
+            .user-welcome {
+                padding: 1rem;
+            }
+
+            .welcome-name {
+                font-size: 1.125rem;
+                flex-direction: column;
+            }
+
+            .action-btn {
+                padding: 1rem;
+            }
+
+            .action-btn-content {
+                gap: 0.75rem;
+            }
+
+            .action-btn-icon {
+                width: 36px;
+                height: 36px;
+                font-size: 1.125rem;
+            }
+
+            .action-btn-text h3 {
+                font-size: 0.875rem;
+            }
+
+            .action-btn-text p {
+                font-size: 0.75rem;
+            }
+
+            .login-btn {
+                width: 100%;
+                padding: 1rem 1.5rem;
+            }
+
+            .footer-stats {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 1rem;
+            }
+
+            .footer-stat {
+                flex: 0 0 auto;
+            }
+        }
+
+        /* Form Reset for Logout Button */
+        .logout-form {
+            display: contents;
+        }
+
+        .logout-form button {
+            width: 100%;
+            border: none;
+            font-family: inherit;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <!-- Background Pattern -->
+    <div class="bg-pattern"></div>
+
+    <!-- Floating Particles -->
+    <div class="particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
     </div>
-</div>
 
-<!-- Main Content -->
-<div class="main-container">
-    <div class="dashboard-card">
-        <!-- Decorative elements -->
-        <div class="card-decoration card-decoration-1"></div>
-        <div class="card-decoration card-decoration-2"></div>
-
-        <div class="card-content">
-            <h1 class="welcome-title">Delivery & Finance Dashboard</h1>
-            <p class="welcome-subtitle">Your complete business management solution</p>
-
-            {% if user.is_authenticated %}
-                <p class="user-welcome">Welcome, <span class="user-name">{{ user.username }}</span></p>
-
-                <div class="action-buttons">
-                    {% if user.role.role == 'Admin' %}
-                        <a href="{% url 'order_list' %}" class="action-button">
-                            <span>Manage Orders</span>
-                        </a>
-                    {% elif user.role.role == 'Warehouse' %}
-                        <a href="{% url 'vehicle_list' %}" class="action-button">
-                            <span>Vehicle List</span>
-                        </a>
-                    {% elif user.role.role == 'Security' %}
-                        <a href="{% url 'security_vehicle_list' %}" class="action-button">
-                            <span>Security Dashboard</span>
-                        </a>
-                    {% elif user.role.role == 'Salesman' %}
-                        <a href="{% url 'salesman_orders' %}" class="action-button">
-                            <span>My Orders</span>
-                        </a>
-                    {% elif user.role.role == 'Driver' %}
-                        <a href="{% url 'driver_vehicle_list' %}" class="action-button">
-                            <span>Driver Dashboard</span>
-                        </a>
-                    {% elif user.role.role == 'Accounts' %}
-                        <a href="{% url 'account_delivered_orders' %}" class="action-button">
-                            <span>Accounting Portal</span>
-                        </a>
-                    {% elif user.role.role == 'Manager' %}
-                        <a href="{% url 'md_dashboard' %}" class="action-button">
-                            <span>Finance Overview</span>
-                        </a>
-                    {% elif user.role.role == 'Collection' %}
-                        <a href="{% url 'customer_list' %}" class="action-button">
-                            <span>Customer Database</span>
-                        </a>
-                    {% else %}
-                        <p>Your role does not have specific access. Please contact an administrator.</p>
-                    {% endif %}
-
-                    <form method="post" action="{% url 'logout' %}">
-                        {% csrf_token %}
-                        <button type="submit" class="action-button logout-button">Logout</button>
-                    </form>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo-container">
+                    <img src="https://junaidworld.com/wp-content/uploads/2023/09/logo-2.png" alt="Company Logo" class="logo">
                 </div>
-            {% else %}
-                <p class="welcome-subtitle">Please sign in to access the system</p>
-                <div class="action-buttons">
-                    <a href="{% url 'login' %}" class="action-button login-button">
-                        <span>Sign In</span>
-                    </a>
+                <div class="header-actions">
+                    <div class="live-badge">
+                        <span class="live-dot"></span>
+                        LIVE
+                    </div>
+                    <div class="header-time">
+                        <span>🕐</span>
+                        <span id="currentTime"></span>
+                    </div>
                 </div>
-            {% endif %}
+            </div>
         </div>
-    </div>
-</div>
+    </header>
 
-<!-- Footer -->
-<div class="footer">
-    <p>© 2025 Delivery & Finance System. All rights reserved.</p>
-</div>
+    <!-- Main Content -->
+    <main class="main">
+        <div class="container">
+            <div class="dashboard-card">
+                <!-- Card Header -->
+                <div class="card-header">
+                    <div class="card-header-content">
+                        <div class="system-badge">
+                            <span class="live-indicator"></span>
+                            System Active
+                        </div>
+                        <h1 class="card-title">Delivery & Finance Dashboard</h1>
+                        <p class="card-subtitle">Your complete business management solution</p>
+                    </div>
+                </div>
 
-{% endblock %}
+                <!-- Card Body -->
+                <div class="card-body">
+                    {% if user.is_authenticated %}
+                        <!-- User Welcome -->
+                        <div class="user-welcome">
+                            <p class="welcome-label">Welcome back</p>
+                            <div class="welcome-name">
+                                <span class="avatar">{{ user.username|slice:":1"|upper }}</span>
+                                {{ user.username }}
+                            </div>
+                            {% if user.role %}
+                            <span class="welcome-role">
+                                <span>👤</span>
+                                {{ user.role.role }}
+                            </span>
+                            {% endif %}
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="action-buttons">
+                            {% if user.role.role == 'Admin' %}
+                                <a href="{% url 'order_list' %}" class="action-btn">
+                                    <div class="action-btn-content">
+                                        <div class="action-btn-icon">📦</div>
+                                        <div class="action-btn-text">
+                                            <h3>Manage Orders</h3>
+                                            <p>View and manage all delivery orders</p>
+                                        </div>
+                                    </div>
+                                    <span class="action-btn-arrow">→</span>
+                                </a>
+                            {% elif user.role.role == 'Warehouse' %}
+                                <a href="{% url 'vehicle_list' %}" class="action-btn">
+                                    <div class="action-btn-content">
+                                        <div class="action-btn-icon">🚐</div>
+                                        <div class="action-btn-text">
+                                            <h3>Vehicle List</h3>
+                                            <p>Manage warehouse vehicles and inventory</p>
+                                        </div>
+                                    </div>
+                                    <span class="action-btn-arrow">→</span>
+                                </a>
+                            {% elif user.role.role == 'Security' %}
+                                <a href="{% url 'security_vehicle_list' %}" class="action-btn">
+                                    <div class="action-btn-content">
+                                        <div class="action-btn-icon">🛡️</div>
+                                        <div class="action-btn-text">
+                                            <h3>Security Dashboard</h3>
+                                            <p>Monitor vehicle entries and exits</p>
+                                        </div>
+                                    </div>
+                                    <span class="action-btn-arrow">→</span>
+                                </a>
+                            {% elif user.role.role == 'Salesman' %}
+                                <a href="{% url 'salesman_orders' %}" class="action-btn">
+                                    <div class="action-btn-content">
+                                        <div class="action-btn-icon">📋</div>
+                                        <div class="action-btn-text">
+                                            <h3>My Orders</h3>
+                                            <p>Track your sales and deliveries</p>
+                                        </div>
+                                    </div>
+                                    <span class="action-btn-arrow">→</span>
+                                </a>
+                            {% elif user.role.role == 'Driver' %}
+                                <a href="{% url 'driver_vehicle_list' %}" class="action-btn">
+                                    <div class="action-btn-content">
+                                        <div class="action-btn-icon">🚛</div>
+                                        <div class="action-btn-text">
+                                            <h3>Driver Dashboard</h3>
+                                            <p>View assigned routes and deliveries</p>
+                                        </div>
+                                    </div>
+                                    <span class="action-btn-arrow">→</span>
+                                </a>
+                            {% elif user.role.role == 'Accounts' %}
+                                <a href="{% url 'account_delivered_orders' %}" class="action-btn">
+                                    <div class="action-btn-content">
+                                        <div class="action-btn-icon">💰</div>
+                                        <div class="action-btn-text">
+                                            <h3>Accounting Portal</h3>
+                                            <p>Manage invoices and payments</p>
+                                        </div>
+                                    </div>
+                                    <span class="action-btn-arrow">→</span>
+                                </a>
+                            {% elif user.role.role == 'Manager' %}
+                                <a href="{% url 'md_dashboard' %}" class="action-btn">
+                                    <div class="action-btn-content">
+                                        <div class="action-btn-icon">📊</div>
+                                        <div class="action-btn-text">
+                                            <h3>Finance Overview</h3>
+                                            <p>View reports and analytics</p>
+                                        </div>
+                                    </div>
+                                    <span class="action-btn-arrow">→</span>
+                                </a>
+                            {% elif user.role.role == 'Collection' %}
+                                <a href="{% url 'customer_list' %}" class="action-btn">
+                                    <div class="action-btn-content">
+                                        <div class="action-btn-icon">👥</div>
+                                        <div class="action-btn-text">
+                                            <h3>Customer Database</h3>
+                                            <p>Manage customer records and collections</p>
+                                        </div>
+                                    </div>
+                                    <span class="action-btn-arrow">→</span>
+                                </a>
+                            {% else %}
+                                <div class="no-access">
+                                    <div class="no-access-icon">⚠️</div>
+                                    <h3>Access Restricted</h3>
+                                    <p>Your role does not have specific access. Please contact an administrator.</p>
+                                </div>
+                            {% endif %}
+
+                            <!-- Logout Button -->
+                            <form method="post" action="{% url 'logout' %}" class="logout-form">
+                                {% csrf_token %}
+                                <button type="submit" class="action-btn logout-btn">
+                                    <div class="action-btn-content">
+                                        <div class="action-btn-icon">🚪</div>
+                                        <div class="action-btn-text">
+                                            <h3>Sign Out</h3>
+                                            <p>Securely log out of your account</p>
+                                        </div>
+                                    </div>
+                                    <span class="action-btn-arrow">→</span>
+                                </button>
+                            </form>
+                        </div>
+                    {% else %}
+                        <!-- Login Section -->
+                        <div class="login-section">
+                            <p class="login-message">Please sign in to access the dashboard</p>
+                            <a href="{% url 'login' %}" class="login-btn">
+                                <span class="login-btn-icon">🔐</span>
+                                Sign In to Continue
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <!-- <div class="footer-stats">
+                    <div class="footer-stat">
+                        <div class="footer-stat-value">24/7</div>
+                        <div class="footer-stat-label">Uptime</div>
+                    </div>
+                    <div class="footer-stat">
+                        <div class="footer-stat-value">100%</div>
+                        <div class="footer-stat-label">Secure</div>
+                    </div>
+                    <div class="footer-stat">
+                        <div class="footer-stat-value" id="systemStatus">●</div>
+                        <div class="footer-stat-label">System Status</div>
+                    </div>
+                </div> -->
+                <p class="footer-text">
+                    © 2025 Delivery & Finance System. All rights reserved. | 
+                    <a href="#">Privacy Policy</a> | 
+                    <a href="#">Terms of Service</a>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Update current time
+        function updateTime() {
+            const now = new Date();
+            const options = { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: true 
+            };
+            const timeString = now.toLocaleTimeString('en-US', options);
+            const timeElement = document.getElementById('currentTime');
+            if (timeElement) {
+                timeElement.textContent = timeString;
+            }
+        }
+
+        // Update time immediately and then every second
+        updateTime();
+        setInterval(updateTime, 1000);
+
+        // System status indicator
+        const statusElement = document.getElementById('systemStatus');
+        if (statusElement) {
+            statusElement.style.color = '#10b981';
+            statusElement.style.fontSize = '1.5rem';
+            statusElement.style.lineHeight = '1';
+        }
+
+        // Add loading animation on button click
+        document.querySelectorAll('.action-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                if (this.tagName === 'A' || this.tagName === 'BUTTON') {
+                    this.style.opacity = '0.7';
+                    this.style.pointerEvents = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -103,6 +103,7 @@ urlpatterns = [
 
 
     path('api/orders/json/',views.all_orders_json,name='orders_json'),
+    path('api/sync/delivery-orders/', views.sync_receive, name='sync_receive'),
          path('md/approve-bulk/<int:bulk_id>/', views.approve_bulk_credit_request, name='approve_bulk_credit_request'),
     path('refresh-customer-stats/', views.refresh_customer_stats, name='refresh_customer_stats'),
 

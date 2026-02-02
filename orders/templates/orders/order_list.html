@@ -3,112 +3,486 @@
 {% block title %}DO List{% endblock %}
 
 {% block content %}
-<!-- Bootstrap CDN -->
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+    /* Compact Professional Design */
+    .do-container {
+        padding: 0.5rem;
+        max-width: 100%;
+        min-height: calc(100vh - 100px);
+    }
+    
+    /* Header Section */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.75rem;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    
+    .page-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #1e3a5f;
+        margin: 0;
+    }
+    
+    .total-count {
+        font-size: 0.85rem;
+        color: #64748b;
+        font-weight: 500;
+    }
+    
+    /* Status Badges */
+    .status-badges {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    
+    .status-badge {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.25rem 0.6rem;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .status-badge .count {
+        background: rgba(255,255,255,0.9);
+        color: inherit;
+        padding: 0.15rem 0.4rem;
+        border-radius: 10px;
+        font-weight: 700;
+        min-width: 24px;
+        text-align: center;
+    }
+    
+    .badge-pending { background: #fee2e2; color: #dc2626; }
+    .badge-outdelivery { background: #dbeafe; color: #2563eb; }
+    .badge-onhold { background: #fef3c7; color: #d97706; }
+    .badge-delivered { background: #dcfce7; color: #16a34a; }
+    
+    /* Quick Actions */
+    .quick-actions {
+        display: flex;
+        gap: 0.35rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.5rem;
+    }
+    
+    .quick-actions .btn {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.7rem;
+        border-radius: 4px;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+    
+    /* Filters Card */
+    .filters-card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 0.75rem;
+        margin-bottom: 0.75rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    
+    .filters-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: flex-end;
+    }
+    
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+    }
+    
+    .filter-group label {
+        font-size: 0.65rem;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .filter-group input,
+    .filter-group select {
+        padding: 0.35rem 0.5rem;
+        font-size: 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 4px;
+        min-width: 100px;
+    }
+    
+    .filter-group input:focus,
+    .filter-group select:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px rgba(59,130,246,0.1);
+    }
+    
+    .search-input {
+        min-width: 200px !important;
+    }
+    
+    .filter-buttons {
+        display: flex;
+        gap: 0.35rem;
+    }
+    
+    .filter-buttons .btn {
+        padding: 0.35rem 0.75rem;
+        font-size: 0.75rem;
+    }
+    
+    /* Table Styles */
+    .table-wrapper {
+        background: #fff;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        overflow: visible;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    
+    .table-scroll {
+        overflow-x: auto;
+        overflow-y: visible;
+    }
+    
+    .do-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.72rem;
+    }
+    
+    .do-table thead {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    .do-table th {
+        background: linear-gradient(135deg, #1e3a5f 0%, #2d4a6f 100%);
+        color: #fff;
+        padding: 0.5rem 0.4rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        white-space: nowrap;
+        border-bottom: 2px solid #0f2744;
+    }
+    
+    .do-table td {
+        padding: 0.4rem 0.4rem;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+        max-width: 150px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .do-table tbody tr:hover {
+        background: #f8fafc;
+    }
+    
+    .do-table tbody tr:nth-child(even) {
+        background: #fafbfc;
+    }
+    
+    .do-table tbody tr:nth-child(even):hover {
+        background: #f1f5f9;
+    }
+    
+    /* Cell Styles */
+    .cell-date {
+        font-weight: 500;
+        color: #475569;
+        white-space: nowrap;
+        font-size: 0.7rem;
+    }
+    
+    .cell-do {
+        font-weight: 600;
+        color: #2563eb;
+        white-space: nowrap;
+    }
+    
+    .cell-do a {
+        color: inherit;
+        text-decoration: none;
+    }
+    
+    .cell-do a:hover {
+        text-decoration: underline;
+    }
+    
+    .cell-customer {
+        font-weight: 500;
+        color: #1e293b;
+        max-width: 180px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .cell-lpo {
+        color: #64748b;
+        font-size: 0.68rem;
+        max-width: 80px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .cell-mobile {
+        font-family: 'Courier New', monospace;
+        font-size: 0.68rem;
+        color: #059669;
+        white-space: nowrap;
+    }
+    
+    .cell-mobile a {
+        color: inherit;
+        text-decoration: none;
+    }
+    
+    .cell-mobile a:hover {
+        text-decoration: underline;
+    }
+    
+    .cell-salesman {
+        color: #6366f1;
+        font-weight: 500;
+        max-width: 100px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    
+    .cell-city, .cell-area {
+        color: #64748b;
+        font-size: 0.68rem;
+        max-width: 80px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    
+    .cell-vehicle {
+        font-weight: 500;
+        color: #7c3aed;
+        font-size: 0.68rem;
+        white-space: nowrap;
+    }
+    
+    .cell-driver {
+        color: #0891b2;
+        font-weight: 500;
+        font-size: 0.68rem;
+    }
+    
+    /* Status Pills */
+    .status-pill {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.62rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        white-space: nowrap;
+    }
+    
+    .status-pending { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .status-loaded { background: #fef3c7; color: #d97706; border: 1px solid #fde68a; }
+    .status-outdelivery { background: #dbeafe; color: #2563eb; border: 1px solid #bfdbfe; }
+    .status-delivered { background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
+    .status-partial { background: #e0e7ff; color: #4f46e5; border: 1px solid #c7d2fe; }
+    .status-notdelivered { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+    .status-cancelled { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .status-received { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .status-onhold { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+    .status-grv { background: #f5f3ff; color: #7c3aed; border: 1px solid #ddd6fe; }
+    
+    .cell-delivery-date {
+        font-size: 0.65rem;
+        color: #64748b;
+        white-space: nowrap;
+    }
+    
+    /* Action Button */
+    .btn-edit {
+        padding: 0.2rem 0.5rem;
+        font-size: 0.65rem;
+        background: #3b82f6;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+    
+    .btn-edit:hover {
+        background: #2563eb;
+        color: #fff;
+    }
+    
+    /* Pagination */
+    .pagination-wrapper {
+        display: flex;
+        justify-content: center;
+        padding: 0.75rem;
+        background: #fff;
+        border-top: 1px solid #e2e8f0;
+    }
+    
+    .pagination {
+        display: flex;
+        gap: 0.25rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+    
+    .pagination .page-link {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.72rem;
+        border: 1px solid #d1d5db;
+        border-radius: 4px;
+        color: #374151;
+        text-decoration: none;
+        background: #fff;
+    }
+    
+    .pagination .page-link:hover {
+        background: #f3f4f6;
+    }
+    
+    .pagination .page-item.disabled .page-link {
+        background: #f8fafc;
+        color: #9ca3af;
+    }
+    
+    /* Logout Section */
+    .logout-section {
+        text-align: center;
+        padding: 0.5rem;
+    }
+    
+    .logout-section .btn {
+        padding: 0.35rem 1rem;
+        font-size: 0.75rem;
+    }
+    
+    /* Responsive */
+    @media (max-width: 1200px) {
+        .do-table { font-size: 0.68rem; }
+        .do-table th, .do-table td { padding: 0.35rem 0.3rem; }
+    }
+    
+    /* Tooltip for truncated text */
+    .cell-customer:hover,
+    .cell-salesman:hover,
+    .cell-city:hover,
+    .cell-area:hover {
+        overflow: visible;
+        white-space: normal;
+        position: relative;
+        z-index: 5;
+        background: #fff;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        border-radius: 4px;
+        padding: 0.4rem;
+    }
+</style>
 
-<div class="container-fluid mt-5">
-    <h1 class="text-center text-primary mb-4">Delivery Orders</h1>
-    Total DO : {{ docount }}
-<div class="d-flex justify-content-end align-items-center mb-3 gap-3 flex-wrap">
-    <!-- Pending Orders Count Badge -->
-    <div class="d-flex align-items-center">
-        <div class="badge bg-danger rounded-circle d-flex justify-content-center align-items-center"
-             style="width: 40px; height: 40px; font-size: 16px;">
-            {{pending_count}}
+<div class="do-container">
+    <!-- Header -->
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Delivery Orders</h1>
+            <span class="total-count">Total: {{ docount }} orders</span>
         </div>
-        <span class="ms-2 fw-bold text-danger">Pending</span>
-    </div>
-    <div class="d-flex align-items-center">
-        <div class="badge bg-success rounded-circle d-flex justify-content-center align-items-center"
-             style="width: 40px; height: 40px; font-size: 16px;" id="outfordeliveryBadge">
-            {{ out_for_delivery_count }}
+        
+        <!-- Status Badges -->
+        <div class="status-badges">
+            <div class="status-badge badge-pending">
+                <span class="count">{{ pending_count }}</span>
+                <span>Pending</span>
+            </div>
+            <div class="status-badge badge-outdelivery">
+                <span class="count" id="outfordeliveryBadge">{{ out_for_delivery_count }}</span>
+                <span>Out for Delivery</span>
+            </div>
+            <div class="status-badge badge-onhold">
+                <span class="count">{{ onhold_count }}</span>
+                <span>On Hold</span>
+            </div>
+            <div class="status-badge badge-delivered">
+                <span class="count">{{ delivered_count }}</span>
+                <span>Delivered</span>
+            </div>
         </div>
-        <span class="ms-2 fw-bold text-success">Out for Delivery</span>
     </div>
-    <!-- Delivered Orders Count Badge -->
-    <div class="d-flex align-items-center">
-        <div class="badge bg-success rounded-circle d-flex justify-content-center align-items-center"
-             style="width: 40px; height: 40px; font-size: 16px;">
-            {{ onhold_count }}
-        </div>
-        <span class="ms-2 fw-bold text-success">on Hold</span>
+    
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+        <a href="{% url 'customer_frequency_simple' %}" class="btn btn-success">Customer Stats</a>
+        <!-- <a href="{% url 'password_gate' %}" class="btn btn-danger">Finance</a> -->
+        <a href="{% url 'cancelled_do' %}" class="btn btn-secondary">Cancelled</a>
+        <a href="{% url 'transfer_list' %}" class="btn btn-info">Transfers</a>
+        <a href="{% url 'export_orders_to_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success">Export</a>
+        <a href="{% url 'transfer_upload_file' %}" class="btn btn-warning">Upload Transfers</a>
+        <a href="{% url 'upload_file' %}" class="btn btn-primary">Upload DO</a>
+        <a href="https://junaiddataanalyst.pythonanywhere.com" target="_blank" class="btn btn-dark">Stock</a>
     </div>
-    <!-- Delivered Orders Count Badge -->
-    <div class="d-flex align-items-center">
-        <div class="badge bg-success rounded-circle d-flex justify-content-center align-items-center"
-             style="width: 40px; height: 40px; font-size: 16px;">
-            {{ delivered_count }}
-        </div>
-        <span class="ms-2 fw-bold text-success">Delivered</span>
-    </div>
-
-
-</div>
-
-    <!-- Search Bar
-    <div class="mb-4">
-        <input type="text" id="searchInput" placeholder="Search by DO Number, Customer Name, or Mobile... and Press Enter" class="form-control">
-    </div> -->
-
-<!-- Button Group (Top-Right) -->
-<div class="d-flex justify-content-end mb-3 gap-2">
-    <a href="{% url 'customer_frequency_simple' %}" class="btn btn-success">💸 Customer Stats</a>
-    <a href="{% url 'password_gate' %}" class="btn btn-danger">💸 Finance</a>
-    <a href="{% url 'cancelled_do' %}" class="btn btn-primary">Update Cancelled</a>
-    <a href="{% url 'transfer_list' %}" class="btn btn-primary">Transfers</a>
-    <a href="{% url 'export_orders_to_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success ">Export to Excel</a>
-    <a href="{% url 'transfer_upload_file' %}" class="btn btn-warning ">Upload Transfers</a>
-    <a href="{% url 'upload_file' %}" class="btn btn-info">⬆️ Upload File</a>
-    <a href="https://junaiddataanalyst.pythonanywhere.com" target="_blank" class="btn btn-secondary">Stock Details</a>
-</div>
-
-<!-- Filters Section -->
-<div class="card mb-4">
-    <div class="card-body">
-        <form method="get">
-            <div class="row g-2 align-items-end">
-
-                <!-- From Date -->
-                <div class="col-md-auto">
-                    <label for="from_date" class="form-label mb-0">From:</label>
-                    <input type="date" name="from_date" id="from_date" value="{{ request.GET.from_date }}" class="form-control" onchange="this.form.submit()">
+    
+    <!-- Filters -->
+    <div class="filters-card">
+        <form method="get" id="filterForm">
+            <div class="filters-row">
+                <div class="filter-group">
+                    <label>From</label>
+                    <input type="date" name="from_date" id="from_date" value="{{ request.GET.from_date }}">
                 </div>
-
-                <!-- To Date -->
-                <div class="col-md-auto">
-                    <label for="to_date" class="form-label mb-0">To:</label>
-                    <input type="date" name="to_date" id="to_date" value="{{ request.GET.to_date }}" class="form-control" onchange="this.form.submit()">
+                
+                <div class="filter-group">
+                    <label>To</label>
+                    <input type="date" name="to_date" id="to_date" value="{{ request.GET.to_date }}">
                 </div>
-
-                <!-- Status -->
-                <div class="col-md-auto">
-                    <label class="form-label mb-0">Status:</label>
-                    <select name="status" class="form-select" >
-                        <option value="">All Statuses</option>
+                
+                <div class="filter-group">
+                    <label>Status</label>
+                    <select name="status">
+                        <option value="">All</option>
                         <option value="Out for Delivery" {% if request.GET.status == 'Out for Delivery' %}selected{% endif %}>Out for Delivery</option>
                         <option value="Pending" {% if request.GET.status == 'Pending' %}selected{% endif %}>Pending</option>
-                        <option value="Partial Delivery" {% if request.GET.status == 'Partial Delivery' %}selected{% endif %}>Partial Delivery</option>
-                        <!--<option value="Delivered" {% if request.GET.status == 'Delivered' %}selected{% endif %}>Delivered</option>-->
+                        <option value="Partial Delivery" {% if request.GET.status == 'Partial Delivery' %}selected{% endif %}>Partial</option>
                         <option value="Loaded" {% if request.GET.status == 'Loaded' %}selected{% endif %}>Loaded</option>
                         <option value="Cancelled" {% if request.GET.status == 'Cancelled' %}selected{% endif %}>Cancelled</option>
-                        <option value="Received by A/c" {% if request.GET.status == 'Received by A/c' %}selected{% endif %}>Received by A/c</option>
+                        <option value="Received by A/c" {% if request.GET.status == 'Received by A/c' %}selected{% endif %}>Received</option>
                         <option value="Not Delivered" {% if request.GET.status == 'Not Delivered' %}selected{% endif %}>Not Delivered</option>
                         <option value="On Hold" {% if request.GET.status == 'On Hold' %}selected{% endif %}>On Hold</option>
                         <option value="GRV" {% if request.GET.status == 'GRV' %}selected{% endif %}>GRV</option>
-
-                        <!-- New Combined Option -->
-                        <option value="delivered_group" {% if request.GET.status == 'delivered_group' %}selected{% endif %}>
-                        Delivered
-                        </option>
+                        <option value="delivered_group" {% if request.GET.status == 'delivered_group' %}selected{% endif %}>Delivered</option>
                     </select>
-
                 </div>
-
-                <!-- Driver -->
-                <div class="col-md-auto">
-                    <label class="form-label mb-0">Driver:</label>
-                    <select name="driver" class="form-select" >
-                        <option value="">All Drivers</option>
+                
+                <div class="filter-group">
+                    <label>Driver</label>
+                    <select name="driver">
+                        <option value="">All</option>
                         <option value="Usman" {% if request.GET.driver == 'Usman' %}selected{% endif %}>Usman</option>
                         <option value="Sayyam" {% if request.GET.driver == 'Sayyam' %}selected{% endif %}>Sayyam</option>
                         <option value="Nizar" {% if request.GET.driver == 'Nizar' %}selected{% endif %}>Nizar</option>
@@ -116,121 +490,132 @@
                         <option value="Acharuddin" {% if request.GET.driver == 'Acharuddin' %}selected{% endif %}>Acharuddin</option>
                     </select>
                 </div>
-
-                <!-- Salesman -->
-                <div class="col-md-auto">
-                    <label class="form-label mb-0">Salesman:</label>
-                    <select name="salesman" class="form-select">
-                        <option value="">All Salesmen</option>
+                
+                <div class="filter-group">
+                    <label>Salesman</label>
+                    <select name="salesman">
+                        <option value="">All</option>
                         {% for salesman in salesmen %}
                             <option value="{{ salesman }}" {% if request.GET.salesman == salesman %}selected{% endif %}>{{ salesman }}</option>
                         {% endfor %}
                     </select>
                 </div>
-
-                <!-- Vehicle -->
-                <div class="col-md-auto">
-                    <label class="form-label mb-0">Vehicle:</label>
-                    <select name="vehicle" class="form-select">
-                        <option value="">All Vehicles</option>
+                
+                <div class="filter-group">
+                    <label>Vehicle</label>
+                    <select name="vehicle">
+                        <option value="">All</option>
                         {% for vehicle in vehicles %}
-                            <option value="{{ vehicle.id }}" {% if request.GET.vehicle == vehicle.id|stringformat:"s" %}selected{% endif %}>
-                                {{ vehicle.vehicle_number }}
-                            </option>
+                            <option value="{{ vehicle.id }}" {% if request.GET.vehicle == vehicle.id|stringformat:"s" %}selected{% endif %}>{{ vehicle.vehicle_number }}</option>
                         {% endfor %}
                     </select>
                 </div>
-
-                <!-- City -->
-                <div class="col-md-auto">
-                    <label class="form-label mb-0">City:</label>
-                    <select name="city" class="form-select">
-                        <option value="">All Cities</option>
+                
+                <div class="filter-group">
+                    <label>City</label>
+                    <select name="city">
+                        <option value="">All</option>
                         {% for city in citys %}
                             <option value="{{ city }}" {% if request.GET.city == city %}selected{% endif %}>{{ city }}</option>
                         {% endfor %}
                     </select>
                 </div>
-            </div>
-
-            <!-- Search Bar Row -->
-            <div class="row mt-3">
-                <div class="col-md-6 col-lg-4">
-                    <input type="text" name="search_query" value="{{ request.GET.search_query }}" class="form-control" placeholder="Search DO Number, Name, Mobile..." onkeydown="if(event.key === 'Enter') this.form.submit()">
+                
+                <div class="filter-group">
+                    <label>Search</label>
+                    <input type="text" name="search_query" id="searchInput" value="{{ request.GET.search_query|default:'' }}" class="search-input" placeholder="DO, Customer, Mobile..." autocomplete="off">
+                </div>
+                
+                <div class="filter-buttons">
+                    <button type="submit" class="btn btn-primary" id="filterBtn">Filter</button>
+                    <a href="{% url 'order_list' %}" class="btn btn-secondary">Reset</a>
                 </div>
             </div>
-
-            <div class="col-auto mt-2">
-            <button type="submit" class="btn btn-primary">Filter</button>
-            <a href="{% url 'order_list' %}" class="btn btn-secondary">Reset</a>
         </form>
     </div>
-</div>
-
+    
     <!-- Orders Table -->
-    <div class="table-responsive">
-        <table class="table table-striped table-hover">
-            <thead class="table-dark">
-                <tr>
-
-                    <th>Date</th>
-                    <th>DO Number</th>
-                    <th>Customer Name</th>
-                    <th>LPO</th>
-                    <th>Mobile</th>
-                    <th>Salesman</th>
-                    <th>Salesman Mobile</th>
-                    <th>City</th>
-                    <th>Area</th>
-                    <th>Vehicle</th>
-                    <th>Driver</th>
-                    <th>Status</th>
-                    <th>Delivered On</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody id="orderTableBody">
-                {% for order in orders %}
-                <tr>
-                    <td>{{ order.date }}</td>
-                    <td><a href="{% url 'do_items' order.do_number %}" class="text-decoration-none">{{ order.do_number }}</a></td>
-                    <td>{{ order.customer_name }}</td>
-                    <td>{{ order.lpo }}</td>
-                    <td>{{ order.mobile_number }}</td>
-                    <td>{{ order.salesman }}</td>
-                    <td>{{ order.salesman_mobile }}</td>
-                    <td>{{ order.city }}</td>
-                    <td>{{ order.area }}</td>
-                    <td>{{ order.vehicle }}</td>
-                    <td>{{ order.driver }}</td>
-                    <td>{{ order.status }}</td>
-                    <td>{{ order.delivery_date }}</td>
-                    <td>
-                        <a href="{% url 'update_order' order.do_number %}" class="btn btn-sm btn-primary">Edit</a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-
-    <!-- Pagination Controls -->
-    <div class="d-flex justify-content-center">
-        <nav aria-label="Page navigation">
+    <div class="table-wrapper" style="flex: 1; display: flex; flex-direction: column;">
+        <div class="table-scroll" style="flex: 1; overflow: auto;">
+            <table class="do-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>DO #</th>
+                        <th>Customer</th>
+                        <th>LPO</th>
+                        <th>Mobile</th>
+                        <th>Salesman</th>
+                        <th>City</th>
+                        <th>Area</th>
+                        <th>Vehicle</th>
+                        <th>Driver</th>
+                        <th>Status</th>
+                        <th>Delivered</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="orderTableBody">
+                    {% for order in orders %}
+                    <tr>
+                        <td class="cell-date">{{ order.date|date:"d-M-Y" }}</td>
+                        <td class="cell-do"><a href="{% url 'do_items' order.do_number %}">{{ order.do_number }}</a></td>
+                        <td class="cell-customer" title="{{ order.customer_name }}">{{ order.customer_name }}</td>
+                        <td class="cell-lpo" title="{{ order.lpo }}">{{ order.lpo|default:"-" }}</td>
+                        <td class="cell-mobile">
+                            {% if order.mobile_number %}
+                            <a href="https://wa.me/{{ order.mobile_number }}" target="_blank">{{ order.mobile_number }}</a>
+                            {% else %}-{% endif %}
+                        </td>
+                        <td class="cell-salesman" title="{{ order.salesman }}">{{ order.salesman|default:"-" }}</td>
+                        <td class="cell-city" title="{{ order.city }}">{{ order.city|default:"-" }}</td>
+                        <td class="cell-area" title="{{ order.area }}">{{ order.area|default:"-" }}</td>
+                        <td class="cell-vehicle">{{ order.vehicle.vehicle_number|default:"-" }}</td>
+                        <td class="cell-driver">{{ order.driver|default:"-" }}</td>
+                        <td>
+                            <span class="status-pill 
+                                {% if order.status == 'Pending' %}status-pending
+                                {% elif order.status == 'Loaded' %}status-loaded
+                                {% elif order.status == 'Out for Delivery' %}status-outdelivery
+                                {% elif order.status == 'Delivered' %}status-delivered
+                                {% elif order.status == 'Partial Delivery' %}status-partial
+                                {% elif order.status == 'Not Delivered' %}status-notdelivered
+                                {% elif order.status == 'Cancelled' %}status-cancelled
+                                {% elif order.status == 'Received by A/c' %}status-received
+                                {% elif order.status == 'On Hold' %}status-onhold
+                                {% elif order.status == 'GRV' %}status-grv
+                                {% endif %}">
+                                {{ order.status }}
+                            </span>
+                        </td>
+                        <td class="cell-delivery-date">{{ order.delivery_date|date:"d-M H:i"|default:"-" }}</td>
+                        <td><a href="#" class="btn-edit" data-do-number="{{ order.do_number }}" onclick="openEditModal('{{ order.do_number }}'); return false;">Edit</a></td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="13" style="text-align: center; padding: 2rem; color: #64748b;">No orders found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        <div class="pagination-wrapper">
             <ul class="pagination">
                 {% if orders.has_previous %}
                 <li class="page-item">
                     <a class="page-link" href="?page=1&{{ request.GET.urlencode|urlencode }}">First</a>
                 </li>
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ orders.previous_page_number }}&{{ request.GET.urlencode|urlencode }}">Previous</a>
+                    <a class="page-link" href="?page={{ orders.previous_page_number }}&{{ request.GET.urlencode|urlencode }}">Prev</a>
                 </li>
                 {% endif %}
-
+                
                 <li class="page-item disabled">
-                    <a class="page-link" href="#">Page {{ orders.number }} of {{ orders.paginator.num_pages }}</a>
+                    <span class="page-link">{{ orders.number }} / {{ orders.paginator.num_pages }}</span>
                 </li>
-
+                
                 {% if orders.has_next %}
                 <li class="page-item">
                     <a class="page-link" href="?page={{ orders.next_page_number }}&{{ request.GET.urlencode|urlencode }}">Next</a>
@@ -240,11 +625,11 @@
                 </li>
                 {% endif %}
             </ul>
-        </nav>
+        </div>
     </div>
-
-    <!-- Logout Button -->
-    <div class="text-center mt-4">
+    
+    <!-- Logout -->
+    <div class="logout-section">
         <a href="#" onclick="document.getElementById('logout-form').submit(); return false;" class="btn btn-danger">Logout</a>
     </div>
     <form id="logout-form" method="post" action="{% url 'logout' %}" style="display: none;">
@@ -253,37 +638,365 @@
 </div>
 
 <script>
-    function updateVisibleCounts() {
-        const rows = document.querySelectorAll('#orderTableBody tr');
-        let pendingCount = 0;
-        let deliveredCount = 0;
-        let outfordeliveryCount=0;
-
-        // Loop through all rows
-        rows.forEach(row => {
-            // Check if row is visible
-            if (window.getComputedStyle(row).display !== 'none') {
-                const status = row.cells[11]?.textContent.trim(); // Assuming status is in the 11th column (index 10)
-
-                // If status is "Pending" or "Delivered", update counts
-                if (status === 'Pending') {
-                    pendingCount++;
-                } else if (status === 'Out for Delivery') {
-                    outfordeliveryCount++;
-                }
-
+    // Ensure form submission works properly on first click
+    document.addEventListener('DOMContentLoaded', function() {
+        const filterForm = document.getElementById('filterForm');
+        const searchInput = document.getElementById('searchInput');
+        const filterBtn = document.getElementById('filterBtn');
+        
+        if (filterForm) {
+            // Handle Enter key in search input
+            if (searchInput) {
+                searchInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        filterForm.submit();
+                    }
+                });
             }
+            
+            // Ensure filter button submits form properly - remove any event listeners that might interfere
+            if (filterBtn) {
+                // Remove any existing listeners and add a clean one
+                filterBtn.onclick = function(e) {
+                    e.preventDefault();
+                    filterForm.submit();
+                    return false;
+                };
+            }
+            
+            // Auto-submit on filter changes (except search input)
+            const filterSelects = filterForm.querySelectorAll('select');
+            filterSelects.forEach(select => {
+                // Remove existing onchange and add new one
+                select.onchange = function() {
+                    filterForm.submit();
+                };
+            });
+            
+            const filterDates = filterForm.querySelectorAll('input[type="date"]');
+            filterDates.forEach(dateInput => {
+                // Remove existing onchange and add new one
+                dateInput.onchange = function() {
+                    filterForm.submit();
+                };
+            });
+        }
+    });
+
+    // Edit Modal Functionality
+    function openEditModal(doNumber) {
+        const modal = document.getElementById('editOrderModal');
+        const form = document.getElementById('editOrderForm');
+        
+        // Show loading state
+        form.innerHTML = '<div style="text-align: center; padding: 2rem;">Loading...</div>';
+        modal.style.display = 'block';
+        
+        // Construct URL
+        const updateUrl = `/update/${doNumber}/`;
+        
+        // Fetch order data
+        fetch(updateUrl, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                populateForm(data);
+            } else {
+                alert('Error loading order data');
+                closeEditModal();
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error loading order data');
+            closeEditModal();
         });
-
-        // Update badge counts
-        document.getElementById('pendingBadge').textContent = pendingCount;
-        document.getElementById('deliveredBadge').textContent = deliveredCount;
-        document.getElementById('outfordeliveryBadge').textContent = outfordeliveryCount;
     }
+    
+    function populateForm(data) {
+        const form = document.getElementById('editOrderForm');
+        const order = data.order;
+        
+        form.innerHTML = `
+            <div class="modal-header">
+                <h2>Edit Order: ${order.do_number}</h2>
+                <span class="close" onclick="closeEditModal()">&times;</span>
+            </div>
+            <form id="orderEditForm" onsubmit="saveOrder(event, '${order.do_number}')">
+                <div class="form-group">
+                    <label for="edit_invoice_number">Invoice Number:</label>
+                    <input type="text" id="edit_invoice_number" name="invoice_number" value="${order.invoice_number || ''}" maxlength="100">
+                </div>
+                <div class="form-group">
+                    <label for="edit_credit_note">Credit Note:</label>
+                    <input type="text" id="edit_credit_note" name="credit_note" value="${order.credit_note || ''}" maxlength="15">
+                </div>
+                <div class="form-group">
+                    <label for="edit_amount">Amount:</label>
+                    <input type="text" id="edit_amount" name="amount" value="${order.amount || ''}" maxlength="15">
+                </div>
+                <div class="form-group">
+                    <label for="edit_mobile_number">Mobile Number:</label>
+                    <input type="text" id="edit_mobile_number" name="mobile_number" value="${order.mobile_number || ''}" maxlength="15">
+                </div>
+                <div class="form-group">
+                    <label for="edit_vehicle">Vehicle:</label>
+                    <select id="edit_vehicle" name="vehicle">
+                        <option value="">Select a vehicle</option>
+                        ${data.vehicles.map(v => 
+                            `<option value="${v.id}" ${v.id == order.vehicle_id ? 'selected' : ''}>${v.name}</option>`
+                        ).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="edit_driver">Driver:</label>
+                    <select id="edit_driver" name="driver">
+                        ${data.drivers.map(d => 
+                            `<option value="${d}" ${d == order.driver ? 'selected' : ''}>${d}</option>`
+                        ).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="edit_status">Status:</label>
+                    <select id="edit_status" name="status">
+                        ${data.statuses.map(s => 
+                            `<option value="${s}" ${s == order.status ? 'selected' : ''}>${s}</option>`
+                        ).join('')}
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="button" onclick="closeEditModal()" class="btn-cancel">Cancel</button>
+                    <button type="submit" class="btn-save">Save</button>
+                </div>
+            </form>
+        `;
+    }
+    
+    function saveOrder(event, doNumber) {
+        event.preventDefault();
+        
+        const form = document.getElementById('orderEditForm');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+        
+        // Show loading state
+        const saveBtn = form.querySelector('.btn-save');
+        const originalText = saveBtn.textContent;
+        saveBtn.textContent = 'Saving...';
+        saveBtn.disabled = true;
+        
+        // Get CSRF token from cookie
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
+        
+        // Construct URL
+        const updateUrl = `/update/${doNumber}/`;
+        
+        fetch(updateUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                closeEditModal();
+                // Reload the page to show updated data
+                window.location.reload();
+            } else {
+                alert('Error saving order: ' + (result.message || 'Unknown error'));
+                saveBtn.textContent = originalText;
+                saveBtn.disabled = false;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error saving order');
+            saveBtn.textContent = originalText;
+            saveBtn.disabled = false;
+        });
+    }
+    
+    function closeEditModal() {
+        document.getElementById('editOrderModal').style.display = 'none';
+    }
+    
+    // Close modal when clicking outside
+    window.onclick = function(event) {
+        const modal = document.getElementById('editOrderModal');
+        if (event.target == modal) {
+            closeEditModal();
+        }
+    }
+</script>
 
-    // Run the function after page load to count the initial values
-    document.addEventListener('DOMContentLoaded', updateVisibleCounts);
+<!-- Edit Order Modal -->
+<div id="editOrderModal" class="modal">
+    <div class="modal-content">
+        <div id="editOrderForm">
+            <!-- Form will be populated here -->
+        </div>
+    </div>
+</div>
 
-    // Optionally, call the function whenever the table rows change or filter action occurs
-    </script>
+<style>
+    /* Modal Styles */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+    
+    .modal-content {
+        background-color: #fefefe;
+        margin: 5% auto;
+        padding: 0;
+        border: 1px solid #888;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 500px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.25rem;
+        border-bottom: 1px solid #e5e7eb;
+        background-color: #1a237e;
+        color: white;
+        border-radius: 8px 8px 0 0;
+    }
+    
+    .modal-header h2 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+    
+    .close {
+        color: white;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        line-height: 1;
+    }
+    
+    .close:hover,
+    .close:focus {
+        color: #f0f0f0;
+        text-decoration: none;
+    }
+    
+    #orderEditForm {
+        padding: 1.5rem;
+    }
+    
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: #374151;
+        font-size: 0.875rem;
+    }
+    
+    .form-group input[type="text"],
+    .form-group select {
+        width: 100%;
+        padding: 0.625rem;
+        border: 1px solid #d1d5db;
+        border-radius: 4px;
+        font-size: 0.875rem;
+        box-sizing: border-box;
+        transition: border-color 0.2s;
+    }
+    
+    .form-group input[type="text"]:focus,
+    .form-group select:focus {
+        outline: none;
+        border-color: #1a237e;
+        box-shadow: 0 0 0 3px rgba(26, 35, 126, 0.1);
+    }
+    
+    .form-actions {
+        display: flex;
+        gap: 0.75rem;
+        justify-content: flex-end;
+        margin-top: 1.5rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid #e5e7eb;
+    }
+    
+    .btn-save {
+        background-color: #1a237e;
+        color: white;
+        padding: 0.625rem 1.5rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    
+    .btn-save:hover {
+        background-color: #3949ab;
+    }
+    
+    .btn-save:disabled {
+        background-color: #9ca3af;
+        cursor: not-allowed;
+    }
+    
+    .btn-cancel {
+        background-color: #6b7280;
+        color: white;
+        padding: 0.625rem 1.5rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    
+    .btn-cancel:hover {
+        background-color: #4b5563;
+    }
+</style>
 {% endblock %}

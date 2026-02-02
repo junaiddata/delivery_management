@@ -12,6 +12,11 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 
 from pathlib import Path
 
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -21,7 +26,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-04f!%xyqj%6kllma(w!t46&hvch)jgyoq_uskkqllr-7u)r-+%'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'fallback-key-change-me')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -38,6 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'import_export',  # For Excel import/export in admin
     'orders',
     'widget_tweaks',
     'django.contrib.humanize',
@@ -77,11 +83,6 @@ WSGI_APPLICATION = 'delivery_management.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.0/ref/settings/#databases
 
-import os
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
 
 # DATABASES = {
 #     'default': {
@@ -135,10 +136,12 @@ USE_I18N = True
 USE_TZ = True
 
 
-WHATSAPP_ACCESS_TOKEN = 'EAAQptligo50BQhOmAlUt4Yp33aRy8i9gBfhf0PVOCOy3FFEZBGFTKaejCZAXGrm6QPdsZBjkVpye1o1SeCaM2wYlurBzhORymov9zkeZAPZBjM4ledUwf4cZCNKRLXGhFVMVXOtuRCZCWbYq2bZBuSQ8tsJYSBU1fsL6t4ZCgSP1RpEZCJUNav4sLSKao3R4ZClcRDa'
+WHATSAPP_ACCESS_TOKEN = os.environ.get('WHATSAPP_ACCESS_TOKEN', '')
 WHATSAPP_PHONE_NUMBER_ID = '623707730818076'
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.0/howto/static-files/
+
+
 
 STATIC_URL = 'static/'
 
@@ -156,6 +159,14 @@ STATIC_ROOT = '/var/www/delivery_management/static'
 STATIC_URL = '/static/'
 
 
+# SAP API Sync Configuration
+SOURCE_API_URL = os.environ.get('SOURCE_API_URL', 'http://192.168.1.103/IntegrationApi/api/DeliveryOrder')
+API_TIMEOUT = int(os.environ.get('API_TIMEOUT', 30))
+VPS_API_KEY = os.environ.get('VPS_API_KEY', 'production')
+SYNC_DAYS_BACK = int(os.environ.get('SYNC_DAYS_BACK', 3))
+# VPS receive URL (will be constructed automatically if not set)
+VPS_RECEIVE_URL = os.environ.get('VPS_RECEIVE_URL', None)
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -165,8 +176,41 @@ LOGGING = {
             "class": "logging.FileHandler",
             "filename": BASE_DIR / "errors.log",
         },
+        "sync_file": {
+            "level": "INFO",
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": BASE_DIR / "logs" / "sync.log",
+            "maxBytes": 10 * 1024 * 1024,  # 10MB
+            "backupCount": 5,
+            "formatter": "verbose",
+        },
+        "console": {
+            "level": "INFO",
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {message}",
+            "style": "{",
+        },
     },
     "loggers": {
         "django": {"handlers": ["file"], "level": "ERROR", "propagate": True},
+        "orders.api_client": {
+            "handlers": ["sync_file", "console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "orders.management.commands.sync_delivery_orders": {
+            "handlers": ["sync_file", "console"],
+            "level": "INFO",
+            "propagate": False,
+        },
     },
 }
+
+# Create logs directory if it doesn't exist
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(exist_ok=True)

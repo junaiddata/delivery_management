@@ -1,6 +1,6 @@
 {% extends 'orders/base.html' %}
 
-{% block title %}Warehouse Load{% endblock %}
+{% block title %}Vehicle List{% endblock %}
 
 {% block content %}
 <head>
@@ -8,70 +8,1050 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vehicle List</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f9;
-            color: #333;
+        * {
+            box-sizing: border-box;
             margin: 0;
-            padding: 20px;
+            padding: 0;
+        }
+
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #2563eb;
+            --primary-light: #eff6ff;
+            --text: #1f2937;
+            --text-light: #6b7280;
+            --text-muted: #9ca3af;
+            --border: #e5e7eb;
+            --border-light: #f3f4f6;
+            --white: #ffffff;
+            --success: #10b981;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            --radius: 8px;
+            --radius-lg: 12px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f3f4f6;
+            color: var(--text);
+            line-height: 1.5;
+        }
+
+        /* Container */
+        .vehicle-container {
+            min-height: 100vh;
+            padding: 1.5rem;
+        }
+
+        .vehicle-wrapper {
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+
+        /* Page Header */
+        .page-header {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem 2rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .header-content h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 0.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .header-content p {
+            color: var(--text-light);
+            font-size: 0.875rem;
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
+        /* Quick Actions */
+        .quick-actions-card {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .actions-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .actions-title {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--text);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .actions-toggle {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--primary);
+            font-size: 0.8125rem;
+            font-weight: 500;
+            cursor: pointer;
+            padding: 0.375rem 0.75rem;
+            border-radius: var(--radius);
+            transition: background 0.2s;
+        }
+
+        .actions-toggle:hover {
+            background: var(--primary-light);
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 0.625rem;
+        }
+
+        .action-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.375rem;
+            padding: 0.875rem 0.75rem;
+            border-radius: var(--radius);
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-decoration: none;
+            color: var(--text);
+            background: var(--border-light);
+            border: 1px solid transparent;
+            transition: all 0.2s ease;
+            text-align: center;
+            min-height: 70px;
+        }
+
+        .action-btn:hover {
+            background: var(--primary-light);
+            border-color: var(--primary);
+            color: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+
+        .action-btn.primary {
+            background: var(--primary);
+            color: var(--white);
+        }
+
+        .action-btn.primary:hover {
+            background: var(--primary-dark);
+            border-color: var(--primary-dark);
+            color: var(--white);
+        }
+
+        .action-icon {
+            font-size: 1.25rem;
+            line-height: 1;
+        }
+
+        .action-text {
+            line-height: 1.2;
+        }
+
+        /* Main Card */
+        .main-card {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            background: linear-gradient(to right, var(--white), var(--border-light));
+        }
+
+        .card-title {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .card-title h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .vehicle-count {
+            background: var(--primary-light);
+            color: var(--primary);
+            padding: 0.25rem 0.625rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        /* Search and Filters */
+        .search-filters {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        .search-box {
+            position: relative;
+        }
+
+        .search-box input {
+            width: 280px;
+            padding: 0.625rem 1rem 0.625rem 2.5rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 0.875rem;
+            background: var(--white);
+            transition: all 0.2s;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .search-box input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 0.875rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .filter-btn {
+            padding: 0.625rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--white);
+            color: var(--text);
+            font-size: 0.875rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            transition: all 0.2s;
+        }
+
+        .filter-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        /* Table */
+        .table-container {
+            overflow-x: auto;
+        }
+
+        .vehicle-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+
+        .vehicle-table thead {
+            background: var(--border-light);
+        }
+
+        .vehicle-table th {
+            padding: 0.875rem 1.5rem;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-light);
+            font-size: 0.6875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        .vehicle-table th:last-child {
+            text-align: center;
+        }
+
+        .vehicle-table td {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-light);
+            color: var(--text);
+            vertical-align: middle;
+        }
+
+        .vehicle-table tbody tr {
+            transition: all 0.15s ease;
+        }
+
+        .vehicle-table tbody tr:hover {
+            background: var(--primary-light);
+        }
+
+        .vehicle-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Vehicle Cell */
+        .vehicle-info {
+            display: flex;
+            align-items: center;
+            gap: 0.875rem;
+        }
+
+        .vehicle-avatar {
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, var(--primary-light), #dbeafe);
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.125rem;
+            flex-shrink: 0;
+            border: 1px solid rgba(59, 130, 246, 0.1);
+        }
+
+        .vehicle-details {
+            min-width: 0;
+        }
+
+        .vehicle-number {
+            font-weight: 600;
+            color: var(--text);
+            font-size: 0.9375rem;
+            margin-bottom: 0.125rem;
+        }
+
+        .vehicle-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .vehicle-id {
+            background: var(--border-light);
+            padding: 0.125rem 0.375rem;
+            border-radius: 4px;
+        }
+
+        /* Status Badge */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.375rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        /* Actions Cell */
+        .actions-cell {
+            text-align: center;
+        }
+
+        .action-buttons {
             display: flex;
             justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .btn {
+            display: inline-flex;
             align-items: center;
-            min-height: 100vh;
-            flex-direction: column;
-        }
-        table {
-            width: 100%;
-            max-width: 600px;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-        th {
-            background-color: #1a237e;
-            color: white;
-        }
-        tr:hover {
-            background-color: #e8eaf6;
-        }
-        a {
-            color: #1a237e;
+            justify-content: center;
+            gap: 0.375rem;
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius);
+            font-size: 0.8125rem;
+            font-weight: 500;
             text-decoration: none;
-            font-weight: bold;
+            border: 1px solid var(--border);
+            transition: all 0.2s ease;
+            cursor: pointer;
+            background: var(--white);
+            color: var(--text);
         }
-        a:hover {
-            text-decoration: underline;
+
+        .btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: var(--white);
+            border-color: var(--primary);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            border-color: var(--primary-dark);
+            color: var(--white);
+        }
+
+        .btn-icon {
+            padding: 0.5rem;
+            min-width: 36px;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-light);
+        }
+
+        .empty-icon {
+            width: 80px;
+            height: 80px;
+            background: var(--border-light);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            font-size: 2rem;
+        }
+
+        .empty-state h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 0.5rem;
+        }
+
+        .empty-state p {
+            font-size: 0.875rem;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Card Footer */
+        .card-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--border-light);
+        }
+
+        .footer-info {
+            font-size: 0.8125rem;
+            color: var(--text-light);
+        }
+
+        .pagination {
+            display: flex;
+            gap: 0.25rem;
+        }
+
+        .page-btn {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--white);
+            color: var(--text);
+            font-size: 0.8125rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .page-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .page-btn.active {
+            background: var(--primary);
+            color: var(--white);
+            border-color: var(--primary);
+        }
+
+        /* Loading State */
+        .loading-row td {
+            padding: 0;
+        }
+
+        .skeleton {
+            height: 60px;
+            background: linear-gradient(90deg, var(--border-light) 25%, var(--white) 50%, var(--border-light) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .header-stats {
+                display: none;
+            }
+
+            .quick-actions {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .vehicle-container {
+                padding: 1rem;
+            }
+
+            .page-header {
+                padding: 1.25rem;
+            }
+
+            .header-content h1 {
+                font-size: 1.25rem;
+            }
+
+            .quick-actions-card {
+                padding: 1rem;
+            }
+
+            .actions-toggle {
+                display: flex;
+                align-items: center;
+                gap: 0.25rem;
+            }
+
+            .quick-actions {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .quick-actions.collapsed {
+                display: none;
+            }
+
+            .action-btn {
+                min-height: 60px;
+                padding: 0.75rem 0.5rem;
+            }
+
+            .card-header {
+                flex-direction: column;
+                align-items: stretch;
+                padding: 1rem;
+            }
+
+            .search-filters {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .search-box {
+                width: 100%;
+            }
+
+            .search-box input {
+                width: 100%;
+            }
+
+            .filter-btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .vehicle-table th,
+            .vehicle-table td {
+                padding: 0.875rem 1rem;
+            }
+
+            .vehicle-avatar {
+                width: 36px;
+                height: 36px;
+                font-size: 1rem;
+            }
+
+            .vehicle-number {
+                font-size: 0.875rem;
+            }
+
+            .vehicle-table th:nth-child(2),
+            .vehicle-table td:nth-child(2) {
+                display: none;
+            }
+
+            .card-footer {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .vehicle-container {
+                padding: 0.75rem;
+            }
+
+            .page-header {
+                padding: 1rem;
+                border-radius: var(--radius);
+            }
+
+            .header-content h1 {
+                font-size: 1.125rem;
+            }
+
+            .quick-actions-card {
+                border-radius: var(--radius);
+            }
+
+            .quick-actions {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.5rem;
+            }
+
+            .action-btn {
+                font-size: 0.6875rem;
+                min-height: 55px;
+            }
+
+            .action-icon {
+                font-size: 1.125rem;
+            }
+
+            .main-card {
+                border-radius: var(--radius);
+            }
+
+            .card-header {
+                padding: 0.875rem;
+            }
+
+            .card-title h2 {
+                font-size: 0.9375rem;
+            }
+
+            .vehicle-table th,
+            .vehicle-table td {
+                padding: 0.75rem;
+            }
+
+            .vehicle-info {
+                gap: 0.625rem;
+            }
+
+            .vehicle-avatar {
+                width: 32px;
+                height: 32px;
+                font-size: 0.875rem;
+            }
+
+            .vehicle-number {
+                font-size: 0.8125rem;
+            }
+
+            .vehicle-meta {
+                font-size: 0.6875rem;
+            }
+
+            .btn {
+                padding: 0.375rem 0.625rem;
+                font-size: 0.75rem;
+            }
+
+            .action-buttons {
+                gap: 0.375rem;
+            }
+        }
+
+        /* Print Styles */
+        @media print {
+            .vehicle-container {
+                padding: 0;
+            }
+
+            .quick-actions-card,
+            .search-filters,
+            .card-footer,
+            .actions-cell {
+                display: none;
+            }
+
+            .main-card {
+                box-shadow: none;
+            }
+
+            .vehicle-table th,
+            .vehicle-table td {
+                border: 1px solid #000;
+            }
+        }
+
+        /* Accessibility */
+        .action-btn:focus,
+        .btn:focus,
+        .search-box input:focus,
+        .filter-btn:focus,
+        .page-btn:focus {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
+        }
+
+        /* Smooth transitions */
+        .vehicle-table tbody tr,
+        .action-btn,
+        .btn {
+            transition: all 0.2s ease;
+        }
+
+        /* Custom Scrollbar */
+        .table-container::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .table-container::-webkit-scrollbar-track {
+            background: var(--border-light);
+            border-radius: 3px;
+        }
+
+        .table-container::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        /* Row hover effect enhancement */
+        .vehicle-table tbody tr:hover .vehicle-avatar {
+            transform: scale(1.05);
+            transition: transform 0.2s ease;
+        }
+
+        .vehicle-table tbody tr:hover .btn {
+            border-color: var(--primary);
         }
     </style>
 </head>
 <body>
-    <h1>Vehicle List</h1><a href="{% url 'transfer_vehicle_list' %}" class="button" style="background-color: rgb(5, 118, 24); color: white;">TRANSFERS</a>
-    <a href="{% url 'add_vehicle' %}" class="button">Rental/Add</a>
-    <a href="{% url 'selfupdate_vehicle' %}" class="button">Self Pickup</a>
-    <a href="{% url 'selfpartial_vehicle' %}" class="button" style="background-color: rgb(0, 0, 0); color: white;">Self Partial</a>
-    <a href="{% url 'grvupdate_vehicle' %}" class="button" style="background-color: rgb(202, 44, 44); color: white;">GRV / Cancel</a>
-    <a href="{% url 'hold_vehicle' %}" class="button" style="background-color: rgb(163, 35, 44); color: white;">HOLD</a>
-    <a href="{% url 'rental_vehicle' %}" class="button" style="background-color: rgb(100, 75, 110); color: white;">RENTAL</a>
-    <a href="{% url 'salesman_vehicle' %}" class="button" style="background-color: rgb(100, 75, 110); color: white;">SALESMAN</a>
-    <a href="{% url 'enter_do_number' %}" class="button" style="background-color: rgb(100, 75, 110); color: white;">DO ENTRY</a>
-    <table>
-        <tr>
-            <th>Vehicle Number</th>
-            <th>Actions</th>
-        </tr>
-        {% for vehicle in vehicles %}
-        <tr>
-            <td>{{ vehicle.vehicle_number }}</td>
-            <td>
-                <a href="{% url 'update_vehicle' vehicle.id %}">Edit</a>
-            </td>
-        </tr>
-        {% endfor %}
-    </table>
+    <div class="vehicle-container">
+        <div class="vehicle-wrapper">
+            <!-- Page Header -->
+            <header class="page-header">
+                <div class="header-content">
+                    <h1>
+                        <span>🚐</span>
+                        Vehicle List
+                    </h1>
+                    <p>Manage and track warehouse vehicle inventory</p>
+                </div>
+                <div class="header-stats">
+                    <div class="stat-item">
+                        <div class="stat-value">{{ vehicles|length }}</div>
+                        <div class="stat-label">Total Vehicles</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">{{ vehicles|length }}</div>
+                        <div class="stat-label">Active</div>
+                    </div>
+                </div>
+            </header>
 
+            <!-- Quick Actions -->
+            <div class="quick-actions-card">
+                <div class="actions-header">
+                    <span class="actions-title">Quick Actions</span>
+                    <button class="actions-toggle" onclick="toggleActions()">
+                        <span id="toggleText">Show</span>
+                        <span id="toggleIcon">▼</span>
+                    </button>
+                </div>
+                <nav class="quick-actions" id="actionsGrid">
+                    <a href="{% url 'transfer_vehicle_list' %}" class="action-btn primary">
+                        <span class="action-icon">↔️</span>
+                        <span class="action-text">Transfers</span>
+                    </a>
+                    <a href="{% url 'add_vehicle' %}" class="action-btn">
+                        <span class="action-icon">➕</span>
+                        <span class="action-text">Rental / Add</span>
+                    </a>
+                    <a href="{% url 'selfupdate_vehicle' %}" class="action-btn">
+                        <span class="action-icon">🤚</span>
+                        <span class="action-text">Self Pickup</span>
+                    </a>
+                    <a href="{% url 'selfpartial_vehicle' %}" class="action-btn">
+                        <span class="action-icon">◐</span>
+                        <span class="action-text">Self Partial</span>
+                    </a>
+                    <a href="{% url 'grvupdate_vehicle' %}" class="action-btn">
+                        <span class="action-icon">❌</span>
+                        <span class="action-text">GRV / Cancel</span>
+                    </a>
+                    <a href="{% url 'hold_vehicle' %}" class="action-btn">
+                        <span class="action-icon">⏸️</span>
+                        <span class="action-text">Hold</span>
+                    </a>
+                    <a href="{% url 'rental_vehicle' %}" class="action-btn">
+                        <span class="action-icon">🔑</span>
+                        <span class="action-text">Rental</span>
+                    </a>
+                    <a href="{% url 'salesman_vehicle' %}" class="action-btn">
+                        <span class="action-icon">👤</span>
+                        <span class="action-text">Salesman</span>
+                    </a>
+                    <a href="{% url 'enter_do_number' %}" class="action-btn">
+                        <span class="action-icon">📝</span>
+                        <span class="action-text">DO Entry</span>
+                    </a>
+                </nav>
+            </div>
+
+            <!-- Main Card -->
+            <main class="main-card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <h2>Vehicle Inventory</h2>
+                        <span class="vehicle-count">{{ vehicles|length }} total</span>
+                    </div>
+                    <div class="search-filters">
+                        <div class="search-box">
+                            <span class="search-icon">🔍</span>
+                            <input 
+                                type="text" 
+                                placeholder="Search by vehicle number..." 
+                                id="vehicleSearch"
+                                autocomplete="off"
+                            >
+                        </div>
+                        <button class="filter-btn" onclick="refreshList()">
+                            <span>🔄</span>
+                            <span>Refresh</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    {% if vehicles %}
+                    <table class="vehicle-table">
+                        <thead>
+                            <tr>
+                                <th>Vehicle Details</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vehicleTableBody">
+                            {% for vehicle in vehicles %}
+                            <tr data-vehicle-number="{{ vehicle.vehicle_number|lower }}">
+                                <td>
+                                    <div class="vehicle-info">
+                                        <div class="vehicle-avatar">🚐</div>
+                                        <div class="vehicle-details">
+                                            <div class="vehicle-number">{{ vehicle.vehicle_number }}</div>
+                                            <div class="vehicle-meta">
+                                                <span class="vehicle-id">ID: {{ vehicle.id }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="status-badge">
+                                        <span class="status-dot"></span>
+                                        Active
+                                    </span>
+                                </td>
+                                <td class="actions-cell">
+                                    <div class="action-buttons">
+                                        <a href="{% url 'update_vehicle' vehicle.id %}" class="btn btn-primary">
+                                            ✏️ Edit
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="empty-state">
+                        <div class="empty-icon">🚫</div>
+                        <h3>No Vehicles Found</h3>
+                        <p>There are no vehicles in the inventory yet.</p>
+                        <a href="{% url 'add_vehicle' %}" class="btn btn-primary">
+                            ➕ Add Vehicle
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if vehicles %}
+                <div class="card-footer">
+                    <div class="footer-info">
+                        Showing <strong>{{ vehicles|length }}</strong> vehicles
+                    </div>
+                    <div class="pagination">
+                        <button class="page-btn" disabled>←</button>
+                        <button class="page-btn active">1</button>
+                        <button class="page-btn" disabled>→</button>
+                    </div>
+                </div>
+                {% endif %}
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // Search functionality
+        const searchInput = document.getElementById('vehicleSearch');
+        const tableBody = document.getElementById('vehicleTableBody');
+        
+        if (searchInput && tableBody) {
+            searchInput.addEventListener('input', function(e) {
+                const term = e.target.value.toLowerCase().trim();
+                const rows = tableBody.querySelectorAll('tr');
+                let visibleCount = 0;
+                
+                rows.forEach(row => {
+                    const vehicleNumber = row.getAttribute('data-vehicle-number') || '';
+                    const isVisible = vehicleNumber.includes(term);
+                    row.style.display = isVisible ? '' : 'none';
+                    if (isVisible) visibleCount++;
+                });
+
+                // Update footer info
+                const footerInfo = document.querySelector('.footer-info');
+                if (footerInfo) {
+                    footerInfo.innerHTML = `Showing <strong>${visibleCount}</strong> of <strong>{{ vehicles|length }}</strong> vehicles`;
+                }
+            });
+
+            // Clear search on Escape
+            searchInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    this.value = '';
+                    this.dispatchEvent(new Event('input'));
+                }
+            });
+        }
+
+        // Toggle actions on mobile
+        function toggleActions() {
+            const actionsGrid = document.getElementById('actionsGrid');
+            const toggleText = document.getElementById('toggleText');
+            const toggleIcon = document.getElementById('toggleIcon');
+            
+            if (actionsGrid.classList.contains('collapsed')) {
+                actionsGrid.classList.remove('collapsed');
+                toggleText.textContent = 'Hide';
+                toggleIcon.textContent = '▲';
+            } else {
+                actionsGrid.classList.add('collapsed');
+                toggleText.textContent = 'Show';
+                toggleIcon.textContent = '▼';
+            }
+        }
+
+        // Refresh list
+        function refreshList() {
+            window.location.reload();
+        }
+
+        // Initialize mobile state
+        function initMobileState() {
+            if (window.innerWidth <= 768) {
+                const actionsGrid = document.getElementById('actionsGrid');
+                if (actionsGrid) {
+                    actionsGrid.classList.add('collapsed');
+                }
+            }
+        }
+
+        // Run on load and resize
+        window.addEventListener('load', initMobileState);
+        window.addEventListener('resize', function() {
+            const actionsGrid = document.getElementById('actionsGrid');
+            const toggleText = document.getElementById('toggleText');
+            const toggleIcon = document.getElementById('toggleIcon');
+            
+            if (window.innerWidth > 768) {
+                actionsGrid.classList.remove('collapsed');
+            } else {
+                if (toggleText.textContent === 'Show') {
+                    actionsGrid.classList.add('collapsed');
+                }
+            }
+        });
+
+        // Keyboard navigation for table rows
+        document.querySelectorAll('.vehicle-table tbody tr').forEach(row => {
+            row.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    const editBtn = this.querySelector('.btn-primary');
+                    if (editBtn) editBtn.click();
+                }
+            });
+        });
+    </script>
 </body>
-{% endblock %}*
+{% endblock %}

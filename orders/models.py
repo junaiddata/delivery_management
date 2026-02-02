@@ -12,6 +12,7 @@ class Customer(models.Model):
     additional_terms = models.CharField(max_length=255,blank=True, null=True)
     frequency_last_3_months = models.IntegerField(default=0)  # New field for frequency in last 3 months
     opening_balance = models.CharField(max_length=255,default='0')  # New field for opening balance
+    mobile_number = models.CharField(max_length=15, blank=True, null=True)  # Customer phone number from Excel
 
 
     use_next_month_start = models.BooleanField(default=False)

@@ -5,356 +5,846 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Update Vehicle</title>
     <style>
-        body {
-            font-family: 'Poppins', Arial, sans-serif;
-            background-color: #f4f4f9;
-            color: #333;
+        * {
+            box-sizing: border-box;
             margin: 0;
-            padding: 20px;
+            padding: 0;
+        }
+
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #2563eb;
+            --primary-light: #eff6ff;
+            --text: #1f2937;
+            --text-light: #6b7280;
+            --border: #e5e7eb;
+            --white: #ffffff;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f3f4f6;
+            color: var(--text);
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1.5rem;
+        }
+
+        /* Header */
+        .page-header {
+            background: var(--white);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow);
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .header-title h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 0.25rem;
+        }
+
+        .vehicle-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--primary-light);
+            color: var(--primary);
+            padding: 0.375rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .header-links {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .header-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            text-decoration: none;
+            color: var(--text);
+            background: var(--white);
+            border: 1px solid var(--border);
+            transition: all 0.2s ease;
+        }
+
+        .header-link:hover {
+            background: var(--primary-light);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .header-link.primary {
+            background: var(--primary);
+            color: var(--white);
+            border-color: var(--primary);
+        }
+
+        .header-link.primary:hover {
+            background: var(--primary-dark);
+        }
+
+        /* Stats Cards */
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat-card {
+            background: var(--white);
+            border-radius: 8px;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            border-left: 4px solid;
+        }
+
+        .stat-card.pending {
+            border-left-color: var(--success);
+        }
+
+        .stat-card.partial {
+            border-left-color: var(--warning);
+        }
+
+        .stat-card.not-delivered {
+            border-left-color: var(--danger);
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--white);
+            flex-shrink: 0;
+        }
+
+        .stat-card.pending .stat-icon {
+            background: var(--success);
+        }
+
+        .stat-card.partial .stat-icon {
+            background: var(--warning);
+        }
+
+        .stat-card.not-delivered .stat-icon {
+            background: var(--danger);
+        }
+
+        .stat-info h3 {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
+        .stat-info p {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        /* Form Card */
+        .form-card {
+            background: var(--white);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .form-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background: #f9fafb;
+        }
+
+        .form-header h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .form-body {
+            padding: 1.5rem;
+        }
+
+        /* Form Controls */
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.375rem;
+        }
+
+        .form-group label {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .form-group select,
+        .form-group input {
+            width: 100%;
+            padding: 0.625rem 0.875rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.875rem;
+            color: var(--text);
+            background: var(--white);
+            transition: all 0.2s ease;
+        }
+
+        .form-group select:focus,
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        /* Helper Text */
+        .helper-text {
+            font-size: 0.75rem;
+            color: var(--text-light);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+        }
+
+        /* Basket Container */
+        .basket-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .basket {
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            min-height: 350px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .basket.assigned {
+            border-color: var(--success);
+            background: linear-gradient(to bottom, rgba(16, 185, 129, 0.05), transparent);
+        }
+
+        .basket.available {
+            border-color: var(--primary);
+            background: linear-gradient(to bottom, rgba(59, 130, 246, 0.05), transparent);
+        }
+
+        .basket-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .basket-title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .basket-title .icon {
+            font-size: 1.25rem;
+        }
+
+        .basket-count {
+            background: var(--border);
+            color: var(--text);
+            padding: 0.25rem 0.625rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .basket.assigned .basket-count {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .basket.available .basket-count {
+            background: rgba(59, 130, 246, 0.2);
+            color: var(--primary);
+        }
+
+        .basket-body {
+            padding: 1rem;
+            flex: 1;
+            overflow-y: auto;
+            max-height: 400px;
+        }
+
+        .order-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 0.75rem;
+        }
+
+        /* Order Items - FIXED */
+        .order-item {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.875rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            min-width: 0; /* Important for text overflow */
+            overflow: hidden; /* Prevent overflow */
+        }
+
+        .order-item:hover {
+            border-color: var(--primary);
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-2px);
+        }
+
+        .order-item.assigned {
+            border-color: var(--success);
+            background: rgba(16, 185, 129, 0.05);
+        }
+
+        .order-item.assigned::after {
+            content: "✓";
+            position: absolute;
+            top: 0.375rem;
+            right: 0.375rem;
+            width: 18px;
+            height: 18px;
+            background: var(--success);
+            color: white;
+            border-radius: 50%;
+            font-size: 0.625rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .order-item .do-number {
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 0.375rem;
+            display: block;
+            word-break: break-all; /* Break long DO numbers */
+        }
+
+        /* FIXED: Customer name wrapping */
+        .order-item .customer-name {
+            font-size: 0.6875rem;
+            color: var(--text-light);
+            display: block;
+            word-wrap: break-word; /* Allow word wrapping */
+            overflow-wrap: break-word; /* Modern alternative */
+            hyphens: auto; /* Add hyphens if needed */
+            line-height: 1.4;
+            max-height: 2.8em; /* Limit to 2 lines */
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2; /* Show max 2 lines */
+            -webkit-box-orient: vertical;
+        }
+
+        /* Alternative: Tooltip for full name on hover */
+        .order-item {
+            position: relative;
+        }
+
+        .order-item[title] {
+            cursor: pointer;
+        }
+
+        /* Empty State */
+        .empty-state {
             display: flex;
             flex-direction: column;
             align-items: center;
-            min-height: 100vh;
-        }
-        h1 {
-            color: #1a237e;
-            text-align: center;
-            font-size: 24px;
-            margin-bottom: 20px;
-        }
-        form {
-            background-color: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 800px;
-        }
-        label {
-            font-weight: bold;
-            display: block;
-            margin: 10px 0 5px;
-        }
-        select {
-            width: 100%;
-            padding: 12px;
-            font-size: 16px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
-        .basket-container {
-            display: flex;
-            gap: 20px;
-            justify-content: space-between;
-            margin-top: 20px;
-        }
-        .basket {
-            background: linear-gradient(135deg, #c8e6c9, #a5d6a7);
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-            width: 48%;
-            min-height: 300px;
-            position: relative;
-        }
-        .basket h3 {
-            text-align: center;
-            font-size: 18px;
-            color: #1b5e20;
-            margin-bottom: 15px;
-        }
-        .basket::before {
-            content: '🚚';
-            font-size: 48px;
-            position: absolute;
-            top: -20px;
-            left: 50%;
-            transform: translateX(-50%);
-            opacity: 0.8;
-        }
-        .available-orders {
-            background: linear-gradient(135deg, #f8bbd0, #ffcdd2);
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-            width: 48%;
-            min-height: 300px;
-        }
-        .available-orders h3 {
-            text-align: center;
-            font-size: 18px;
-            color: #b71c1c;
-            margin-bottom: 15px;
-        }
-        .order-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
             justify-content: center;
-        }
-        .order-item {
-            background-color: white;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            padding: 12px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 120px;
+            height: 200px;
+            color: var(--text-light);
             text-align: center;
-            font-size: 14px;
-            cursor: pointer;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            grid-column: 1 / -1; /* Span all columns */
         }
-        .order-item:hover {
-            transform: scale(1.05);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+
+        .empty-state .icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.75rem;
+            opacity: 0.5;
         }
-        .order-item strong {
-            font-size: 16px;
-            color: #1a237e;
-            margin-bottom: 5px;
-            display: block;
+
+        .empty-state p {
+            font-size: 0.875rem;
         }
-        .order-item span {
-            font-size: 12px;
-            color: #555;
-        }
-        button {
+
+        /* Submit Button */
+        .submit-btn {
             width: 100%;
-            padding: 12px;
-            background-color: #1a237e;
-            color: white;
+            padding: 0.875rem 1.5rem;
+            background: var(--primary);
+            color: var(--white);
             border: none;
-            border-radius: 5px;
-            font-size: 18px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
             cursor: pointer;
-            transition: background-color 0.3s;
-            margin-top: 20px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
         }
-        button:hover {
-            background-color: #3949ab;
+
+        .submit-btn:hover {
+            background: var(--primary-dark);
         }
-        a {
-            display: block;
-            text-align: center;
-            margin-top: 15px;
-            font-size: 16px;
-            color: #1a237e;
-            font-weight: bold;
+
+        .submit-btn:active {
+            transform: scale(0.98);
         }
-        a:hover {
-            text-decoration: underline;
+
+        /* Back Link */
+        .back-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.375rem;
+            margin-top: 1.5rem;
+            padding: 0.75rem;
+            color: var(--text-light);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.2s ease;
         }
+
+        .back-link:hover {
+            color: var(--primary);
+        }
+
+        /* Responsive */
         @media (max-width: 768px) {
-            .basket-container {
-                flex-direction: column;
-                gap: 20px;
+            .container {
+                padding: 1rem;
             }
-            .basket, .available-orders {
+
+            .header-top {
+                flex-direction: column;
+            }
+
+            .header-links {
                 width: 100%;
             }
+
+            .header-link {
+                flex: 1;
+                justify-content: center;
+            }
+
+            .stats-container {
+                grid-template-columns: 1fr;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .basket-container {
+                grid-template-columns: 1fr;
+            }
+
+            .basket {
+                min-height: 250px;
+            }
+
+            .order-grid {
+                grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+            }
         }
 
-        .search-bar {
-            margin-bottom: 20px;
-            width: 100%;
-            max-width: 300px;
-        }
-        .search-bar input {
-            width: 100%;
-            padding: 10px;
-            font-size: 16px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
- .badge-container {
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            gap: 40px;
-            flex-wrap: nowrap;
+        @media (max-width: 480px) {
+            .page-header {
+                padding: 1rem;
+            }
+
+            .header-title h1 {
+                font-size: 1.25rem;
+            }
+
+            .header-links {
+                flex-direction: column;
+            }
+
+            .header-link {
+                width: 100%;
+            }
+
+            .stat-card {
+                padding: 0.875rem;
+            }
+
+            .stat-icon {
+                width: 40px;
+                height: 40px;
+                font-size: 1.25rem;
+            }
+
+            .form-body {
+                padding: 1rem;
+            }
+
+            .order-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .order-item {
+                padding: 0.75rem 0.5rem;
+            }
+
+            .order-item .do-number {
+                font-size: 0.8125rem;
+            }
+
+            .order-item .customer-name {
+                font-size: 0.625rem;
+            }
         }
 
-        .badge-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            white-space: nowrap;
+        /* Scrollbar */
+        .basket-body::-webkit-scrollbar {
+            width: 6px;
         }
 
-        .circle-badge {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            font-size: 16px;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
+        .basket-body::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
         }
 
-        .green {
-            background-color: #28a745;
+        .basket-body::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
         }
 
-        .orange {
-            background-color: #ffc107;
-            color: black;
+        .basket-body::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
         }
 
-        .red {
-            background-color: #dc3545;
+        /* Animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        .label-text {
-            font-weight: bold;
+        .order-item {
+            animation: fadeIn 0.3s ease forwards;
         }
 
-        .label-text.orange {
-            color: #fff;
-        }
-
-        .label-text.red {
-            color: #fff;
+        /* Drag Hint */
+        .drag-hint {
+            font-size: 0.75rem;
+            color: var(--text-light);
+            text-align: center;
+            padding: 0.5rem;
+            background: #f9fafb;
+            border-radius: 6px;
+            margin-bottom: 0.75rem;
         }
     </style>
 </head>
 <body>
-    <h1>Update Vehicle: {{ vehicle.vehicle_number }}</h1>
-    {%if vehicle.vehicle_number == 'Cancelled' %}
-    <a href="{% url 'bulk_update_do_status' %}">Bulk Update</a>
-    {% endif %}
+    <div class="container">
+        <!-- Page Header -->
+        <header class="page-header">
+            <div class="header-top">
+                <div class="header-title">
+                    <h1>Update Vehicle</h1>
+                    <span class="vehicle-badge">🚐 {{ vehicle.vehicle_number }}</span>
+                </div>
+                <div class="header-links">
+                    {% if vehicle.vehicle_number == 'Cancelled' %}
+                    <a href="{% url 'bulk_update_do_status' %}" class="header-link primary">Bulk Update</a>
+                    {% endif %}
+                    <a href="{% url 'pending_do_list' %}" class="header-link">📋 DO Details</a>
+                    <a href="{% url 'vehicle_list' %}" class="header-link">← Back to List</a>
+                </div>
+            </div>
 
-    <a href="{% url 'pending_do_list' %}">Click here for DO Details</a>
-    <p>*Click on save changes after loading.</p>
+            <!-- Stats -->
+            <div class="stats-container">
+                <div class="stat-card pending">
+                    <div class="stat-icon">{{ pending_count }}</div>
+                    <div class="stat-info">
+                        <h3>Pending</h3>
+                        <p>Awaiting delivery</p>
+                    </div>
+                </div>
+                <div class="stat-card partial">
+                    <div class="stat-icon">{{ partial_count }}</div>
+                    <div class="stat-info">
+                        <h3>Partial</h3>
+                        <p>Partially delivered</p>
+                    </div>
+                </div>
+                <div class="stat-card not-delivered">
+                    <div class="stat-icon">{{ not_delivered_count }}</div>
+                    <div class="stat-info">
+                        <h3>Not Delivered</h3>
+                        <p>Failed attempts</p>
+                    </div>
+                </div>
+            </div>
+        </header>
 
-    <div class="badge-container">
-        <div class="badge-group">
-            <div class="circle-badge green">{{ pending_count }}</div>
-            <span class="label-text">Pending</span>
+        <!-- Form Card -->
+        <div class="form-card">
+            <div class="form-header">
+                <h2>Assign Delivery Orders</h2>
+            </div>
+
+            <form method="post" id="updateForm" class="form-body">
+                {% csrf_token %}
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="driver">Select Driver</label>
+                        <select name="driver" id="driver">
+                            <option value="">-- Select a driver --</option>
+                            {% for value, name in drivers %}
+                            <option value="{{ value }}" {% if assigned_orders and assigned_orders.first.driver == value %}selected{% endif %}>
+                                {{ name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="searchInput">Search Orders</label>
+                        <input type="text" id="searchInput" placeholder="Search by DO number or customer...">
+                    </div>
+                </div>
+
+                <p class="helper-text">
+                    💡 Click on orders to move them between sections. Save changes after loading.
+                </p>
+
+                <!-- Basket Container -->
+                <div class="basket-container">
+                    <!-- Assigned Orders -->
+                    <div class="basket assigned">
+                        <div class="basket-header">
+                            <div class="basket-title">
+                                <span class="icon">✅</span>
+                                Assigned Orders
+                            </div>
+                            <span class="basket-count" id="assignedCount">{{ assigned_orders|length }}</span>
+                        </div>
+                        <div class="basket-body">
+                            <div class="drag-hint">Click to unassign orders</div>
+                            <div class="order-grid" id="assignedOrdersGrid">
+                                {% for order in assigned_orders %}
+                                <div class="order-item assigned" data-do-number="{{ order.do_number }}" title="{{ order.customer_name }}">
+                                    <span class="do-number">{{ order.do_number }}</span>
+                                    <span class="customer-name">{{ order.customer_name }}</span>
+                                </div>
+                                {% empty %}
+                                <div class="empty-state" id="assignedEmpty">
+                                    <span class="icon">📦</span>
+                                    <p>No orders assigned</p>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Available Orders -->
+                    <div class="basket available">
+                        <div class="basket-header">
+                            <div class="basket-title">
+                                <span class="icon">📋</span>
+                                Available Orders
+                            </div>
+                            <span class="basket-count" id="availableCount">{{ available_orders|length }}</span>
+                        </div>
+                        <div class="basket-body">
+                            <div class="drag-hint">Click to assign orders</div>
+                            <div class="order-grid" id="availableOrdersGrid">
+                                {% for order in available_orders %}
+                                <div class="order-item available" data-do-number="{{ order.do_number }}" title="{{ order.customer_name }}">
+                                    <span class="do-number">{{ order.do_number }}</span>
+                                    <span class="customer-name">{{ order.customer_name }}</span>
+                                </div>
+                                {% empty %}
+                                <div class="empty-state" id="availableEmpty">
+                                    <span class="icon">✨</span>
+                                    <p>No orders available</p>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="submit-btn">
+                    💾 Save Changes
+                </button>
+            </form>
         </div>
 
-        <div class="badge-group">
-            <div class="circle-badge orange">{{ partial_count }}</div>
-            <span class="label-text orange">Partial</span>
-        </div>
-
-        <div class="badge-group">
-            <div class="circle-badge red">{{ not_delivered_count }}</div>
-            <span class="label-text red">Not Delivered</span>
-        </div>
+        <a href="{% url 'vehicle_list' %}" class="back-link">
+            ← Return to Vehicle List
+        </a>
     </div>
 
-
-    <form method="post" id="updateForm">
-        {% csrf_token %}
-
-        <label for="driver">Select Driver:</label>
-        <select name="driver" id="driver">
-            <option value="">Select a driver</option>
-            {% for value, name in drivers %}
-            <option value="{{ value }}" {% if assigned_orders and assigned_orders.first.driver == value %}selected{% endif %}>
-                {{ name }}
-            </option>
-            {% endfor %}
-        </select>
-
-        <!-- Search Bar -->
-        <div class="search-bar">
-            <input type="text" id="searchInput" placeholder="Search for DO number..." />
-        </div>
-
-
-
-        <div class="basket-container">
-            <!-- Assigned Orders (Basket) -->
-            <div class="basket">
-                <h3>Assigned Delivery Orders</h3>
-                <div class="order-grid" id="assignedOrdersGrid">
-                    {% for order in assigned_orders %}
-                    <div class="order-item assigned" data-do-number="{{ order.do_number }}">
-                        <strong>{{ order.do_number }}</strong>
-                        <span>{{ order.customer_name }}</span>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <!-- Available Orders -->
-            <div class="available-orders">
-                <h3>Available Delivery Orders</h3>
-                <div class="order-grid" id="availableOrdersGrid">
-                    {% for order in available_orders %}
-                    <div class="order-item available" data-do-number="{{ order.do_number }}">
-                        <strong>{{ order.do_number }}</strong>
-                        <span>{{ order.customer_name }}</span>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-
-        <button type="submit">Save Changes</button>
-    </form>
-    <a href="{% url 'vehicle_list' %}">Back to Vehicle List</a>
     <script>
-        // Function to move an order between sections
-        function moveOrder(orderElement, targetContainerId) {
-            const targetContainer = document.getElementById(targetContainerId);
-            targetContainer.appendChild(orderElement);
+        // Update counts
+        function updateCounts() {
+            const assignedCount = document.querySelectorAll('#assignedOrdersGrid .order-item:not(.empty-state)').length;
+            const availableCount = document.querySelectorAll('#availableOrdersGrid .order-item:not(.empty-state)').length;
+            
+            document.getElementById('assignedCount').textContent = assignedCount;
+            document.getElementById('availableCount').textContent = availableCount;
 
-            // Toggle classes to reflect the new state
-            if (targetContainerId === "assignedOrdersGrid") {
-                orderElement.classList.remove("available");
-                orderElement.classList.add("assigned");
-            } else if (targetContainerId === "availableOrdersGrid") {
-                orderElement.classList.remove("assigned");
-                orderElement.classList.add("available");
+            // Handle empty states
+            const assignedGrid = document.getElementById('assignedOrdersGrid');
+            const availableGrid = document.getElementById('availableOrdersGrid');
+            
+            // Check and add empty state for assigned
+            let assignedEmpty = assignedGrid.querySelector('.empty-state');
+            if (assignedCount === 0 && !assignedEmpty) {
+                const emptyDiv = document.createElement('div');
+                emptyDiv.className = 'empty-state';
+                emptyDiv.id = 'assignedEmpty';
+                emptyDiv.innerHTML = '<span class="icon">📦</span><p>No orders assigned</p>';
+                assignedGrid.appendChild(emptyDiv);
+            } else if (assignedCount > 0 && assignedEmpty) {
+                assignedEmpty.remove();
+            }
+
+            // Check and add empty state for available
+            let availableEmpty = availableGrid.querySelector('.empty-state');
+            if (availableCount === 0 && !availableEmpty) {
+                const emptyDiv = document.createElement('div');
+                emptyDiv.className = 'empty-state';
+                emptyDiv.id = 'availableEmpty';
+                emptyDiv.innerHTML = '<span class="icon">✨</span><p>No orders available</p>';
+                availableGrid.appendChild(emptyDiv);
+            } else if (availableCount > 0 && availableEmpty) {
+                availableEmpty.remove();
             }
         }
 
-        // Add click event listeners to all order items
-        document.querySelectorAll('.order-item').forEach(order => {
-            order.addEventListener('click', function () {
-                const doNumber = this.getAttribute('data-do-number');
-                const isAssigned = this.classList.contains('assigned');
+        // Move order between sections
+        function moveOrder(orderElement, targetContainerId) {
+            const targetContainer = document.getElementById(targetContainerId);
+            
+            // Remove empty state if exists
+            const emptyState = targetContainer.querySelector('.empty-state');
+            if (emptyState) {
+                emptyState.remove();
+            }
 
-                // Move the order to the opposite section
-                if (isAssigned) {
-                    moveOrder(this, "availableOrdersGrid");
-                } else {
-                    moveOrder(this, "assignedOrdersGrid");
-                }
+            targetContainer.appendChild(orderElement);
+
+            // Toggle classes
+            if (targetContainerId === "assignedOrdersGrid") {
+                orderElement.classList.remove("available");
+                orderElement.classList.add("assigned");
+            } else {
+                orderElement.classList.remove("assigned");
+                orderElement.classList.add("available");
+            }
+
+            updateCounts();
+        }
+
+        // Add click listeners
+        document.querySelectorAll('.order-item').forEach(order => {
+            order.addEventListener('click', function() {
+                if (this.classList.contains('empty-state')) return;
+                
+                const isAssigned = this.classList.contains('assigned');
+                moveOrder(this, isAssigned ? "availableOrdersGrid" : "assignedOrdersGrid");
             });
         });
 
-        // Handle form submission to send updated data to the server
-        document.getElementById('updateForm').addEventListener('submit', function (event) {
-            // Collect assigned DO numbers
-            const assignedDOs = Array.from(document.querySelectorAll('#assignedOrdersGrid .order-item'))
+        // Form submission
+        document.getElementById('updateForm').addEventListener('submit', function(event) {
+            const assignedDOs = Array.from(document.querySelectorAll('#assignedOrdersGrid .order-item:not(.empty-state)'))
                 .map(order => order.getAttribute('data-do-number'));
 
-            // Create a hidden input for assigned DO numbers
             const assignedInput = document.createElement('input');
             assignedInput.type = 'hidden';
-            assignedInput.name = 'do_numbers'; // Use 'do_numbers' to match the backend
-            assignedInput.value = assignedDOs.join(','); // Send as a comma-separated string
+            assignedInput.name = 'do_numbers';
+            assignedInput.value = assignedDOs.join(',');
             this.appendChild(assignedInput);
-
-            // No need to send available DO numbers to the server
         });
 
         // Search functionality
-        document.getElementById('searchInput').addEventListener('input', function () {
+        document.getElementById('searchInput').addEventListener('input', function() {
             const searchTerm = this.value.trim().toLowerCase();
 
-            // Filter orders in both grids
-            document.querySelectorAll('.order-grid .order-item').forEach(order => {
-                const doNumber = order.querySelector('strong').textContent.toLowerCase();
-                const customerName = order.querySelector('span').textContent.toLowerCase();
+            document.querySelectorAll('.order-grid .order-item:not(.empty-state)').forEach(order => {
+                const doNumber = order.querySelector('.do-number').textContent.toLowerCase();
+                const customerName = order.querySelector('.customer-name').textContent.toLowerCase();
 
-                // Show or hide the order based on the search term
                 if (doNumber.includes(searchTerm) || customerName.includes(searchTerm)) {
                     order.style.display = '';
                 } else {
@@ -362,4 +852,9 @@
                 }
             });
         });
+
+        // Initial count update
+        updateCounts();
     </script>
+</body>
+</html>

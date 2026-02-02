@@ -22,6 +22,7 @@ from django.contrib.auth import login,authenticate
 from django.db.models import Q
 from datetime import datetime
 from datetime import timedelta
+from decimal import Decimal, InvalidOperation
 
 
 
@@ -48,7 +49,23 @@ def bulk_update_do_status(request):
                     do_number = str(row[0]).strip() if row[0] else None
                     if do_number:
                         do_numbers.append(do_number)
-                updated = DeliveryOrder.objects.filter(do_number__in=do_numbers).update(status=status)
+                
+                # Protect delivered and received orders from being reset
+                protected_statuses = ['Delivered', 'Received by A/c']
+                
+                # Count protected orders that will be skipped
+                protected_count = DeliveryOrder.objects.filter(
+                    do_number__in=do_numbers,
+                    status__in=protected_statuses
+                ).count()
+                
+                # Update only non-protected orders
+                updated = DeliveryOrder.objects.filter(
+                    do_number__in=do_numbers
+                ).exclude(
+                    status__in=protected_statuses
+                ).update(status=status)
+                
                 messages_list.append(f"✅ Updated {updated} delivery orders to status '{status}'.")
             except Exception as e:
                 messages_list.append(f"❌ Error processing file: {e}")
@@ -300,7 +317,7 @@ def order_list(request):
         orders = orders.filter(city=city)
 
     # Apply search query
-    search_query = request.GET.get('search_query')
+    search_query = request.GET.get('search_query', '').strip()
     if search_query:
         # Filter by DO Number, Customer Name, or Mobile
         orders = orders.filter(
@@ -317,8 +334,8 @@ def order_list(request):
     vehicle_filter = request.GET.get('vehicle')
     if vehicle_filter:
         orders = orders.filter(vehicle_id=vehicle_filter)
-    # Pagination
-    paginator = Paginator(orders, 300)  # Show 150 orders per page
+    # Pagination - Show 300 orders per page
+    paginator = Paginator(orders, 300)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
@@ -352,20 +369,44 @@ def order_list(request):
 def update_order(request, do_number):
     # Use get_object_or_404 to fetch the order by do_number
     order = get_object_or_404(DeliveryOrder, do_number=do_number)
+    
     if request.method == 'POST':
-        vehicle_id = request.POST.get('vehicle')
-        new_status = request.POST.get('status')
-        mobile_number = request.POST.get('mobile_number')
-        driver=request.POST.get('driver')
-        invoice_number= request.POST.get('invoice_number')
-        amount= request.POST.get('amount')
-        order.vehicle_id = vehicle_id
+        # Check if this is an AJAX request
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.content_type == 'application/json':
+            import json
+            data = json.loads(request.body)
+            vehicle_id = data.get('vehicle')
+            new_status = data.get('status')
+            mobile_number = data.get('mobile_number')
+            driver = data.get('driver')
+            invoice_number = data.get('invoice_number')
+            amount = data.get('amount')
+            credit_note = data.get('credit_note')
+        else:
+            vehicle_id = request.POST.get('vehicle')
+            new_status = request.POST.get('status')
+            mobile_number = request.POST.get('mobile_number')
+            driver = request.POST.get('driver')
+            invoice_number = request.POST.get('invoice_number')
+            amount = request.POST.get('amount')
+            credit_note = request.POST.get('credit_note')
+        
+        order.vehicle_id = vehicle_id if vehicle_id else None
         order.mobile_number = mobile_number
         order.status = new_status
-        order.driver= driver
+        order.driver = driver
         order.invoice_number = invoice_number or None
-        order.amount= amount
-
+        
+        # Handle decimal fields
+        try:
+            order.amount = Decimal(str(amount)) if amount and str(amount).strip() else None
+        except (ValueError, InvalidOperation):
+            order.amount = None
+            
+        try:
+            order.credit_note = Decimal(str(credit_note)) if credit_note and str(credit_note).strip() else Decimal('0.00')
+        except (ValueError, InvalidOperation):
+            order.credit_note = Decimal('0.00')
 
         if new_status == 'Delivered' or new_status == 'Partial Delivery':
             order.delivery_date = timezone.now().date()
@@ -375,11 +416,32 @@ def update_order(request, do_number):
             order.delivery_date = None
         order.save()
 
-        # Check if the status is changing to "Delivered"
-        # if new_status == 'Delivered':
-        #     send_whatsapp_message(order.mobile_number, order.do_number)
-
+        # Check if this is an AJAX request
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.content_type == 'application/json':
+            return JsonResponse({'success': True, 'message': 'Order updated successfully'})
+        
         return redirect('order_list')
+    
+    # GET request - return JSON for AJAX or render template for regular request
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        vehicles = Vehicle.objects.all()
+        return JsonResponse({
+            'success': True,
+            'order': {
+                'do_number': order.do_number,
+                'invoice_number': order.invoice_number or '',
+                'credit_note': str(order.credit_note) if order.credit_note else '',
+                'amount': str(order.amount) if order.amount else '',
+                'mobile_number': order.mobile_number or '',
+                'vehicle_id': order.vehicle_id if order.vehicle else None,
+                'driver': order.driver or '',
+                'status': order.status,
+            },
+            'vehicles': [{'id': v.id, 'name': v.vehicle_number} for v in Vehicle.objects.all()],
+            'drivers': [choice[0] for choice in order.DRIVER_CHOICES],
+            'statuses': [choice[0] for choice in order.DO_STATUS_CHOICES],
+        })
+    
     vehicles = Vehicle.objects.all()
     return render(request, 'orders/update_order.html', {'order': order, 'vehicles': vehicles})
 @login_required
@@ -563,12 +625,42 @@ def delete_all_orders(request):
 @login_required
 @role_required('Salesman')
 def salesman_orders(request):
+    # User to Salesman mapping
+    user_salesman_map = {
+        'siyab': ['SIYAB'],
+        'muzain': ['MUZAIN'],
+        'rafiq': ['RAFIQ SHABBIR'],
+        'parthiban': ['PARTHIBAN'],
+        'rafiqabu': ['RAFIQ ABUBAQAR'],
+        'rashid': ['RASHID'],
+        'nasheer': ['MR. NASHEER'],
+        'deira2': ['STORE DEIRA'],
+        'alabama': ['MERAJ'],
+        'anish': ['ANISH'],
+        'musharaf': ['MUSHARAF'],
+        'ibrahim': ['IBRAHIM'],
+        'adil': ['ADIL'],
+        'kadar': ['KADAR'],
+        'stephy': ['STEPHY'],
+    }
+    
     # Get the logged-in user's username
     username = request.user.username
-    firstname = request.user.first_name
-
-    # Get all orders for this salesman using case-insensitive filtering
-    orders = DeliveryOrder.objects.filter(salesman__iexact=firstname).order_by('-date')
+    
+    # Get salesman names for this user
+    salesman_names = user_salesman_map.get(username, [])
+    
+    if not salesman_names:
+        # If user not in map, show no orders (or you can show all orders if needed)
+        orders = DeliveryOrder.objects.none()
+    else:
+        # Build Q object for multiple salesman names (case-insensitive)
+        q_objects = Q()
+        for salesman_name in salesman_names:
+            q_objects |= Q(salesman__iexact=salesman_name)
+        
+        # Get all orders for mapped salesmen
+        orders = DeliveryOrder.objects.filter(q_objects).order_by('-date')
 
     # Filter by status if provided
     status_filter = request.GET.get('status')
@@ -576,7 +668,7 @@ def salesman_orders(request):
         orders = orders.filter(status=status_filter)
 
     # Pagination
-    paginator = Paginator(orders, 10)  # Show 15 orders per page
+    paginator = Paginator(orders, 10)  # Show 10 orders per page
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
@@ -1135,8 +1227,8 @@ from django.shortcuts import render
 from .models import CustomerReply, MessageStatus
 
 def messages_dashboard(request):
-    customer_replies = CustomerReply.objects.all().order_by('-id')  # Latest first
-    message_statuses = MessageStatus.objects.all().order_by('-id')
+    customer_replies = CustomerReply.objects.all().order_by('-id')[:1000]  # Latest first
+    message_statuses = MessageStatus.objects.all().order_by('-id')[:1000]
 
     dubai_tz = pytz.timezone('Asia/Dubai')
 
@@ -3849,3 +3941,267 @@ def customer_frequency_simple(request):
         "q": name_q,
         "group": group,
     })
+
+
+# ==================== SAP API SYNC ENDPOINT ====================
+
+from decimal import Decimal, InvalidOperation
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+
+
+@csrf_exempt
+@require_POST
+def sync_receive(request):
+    """
+    Receive delivery order data from PC sync script and process it.
+    
+    Expected payload:
+    {
+        "api_key": "secret-key",
+        "records": [
+            {
+                "do_number": "125012296",
+                "date": "2025-08-02",
+                "customer_code": "HO02811",
+                "customer_name": "...",
+                "city": "Abu Dhabi",
+                "area": ".",
+                "salesman": "...",
+                "amount": "1055.25",
+                "lpo": "9182",
+                "invoice_number": null,
+                "document_lines": [...]
+            }
+        ],
+        "sync_metadata": {...}
+    }
+    """
+    try:
+        # Parse JSON payload
+        data = json.loads(request.body)
+    except json.JSONDecodeError as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Invalid JSON: {str(e)}'
+        }, status=400)
+    
+    # Verify API key
+    api_key = data.get('api_key')
+    expected_key = getattr(settings, 'VPS_API_KEY', '')
+    
+    if not expected_key or api_key != expected_key:
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid API key'
+        }, status=401)
+    
+    records = data.get('records', [])
+    if not records:
+        return JsonResponse({
+            'success': False,
+            'error': 'No records provided'
+        }, status=400)
+    
+    stats = {
+        'created': 0,
+        'updated': 0,
+        'errors': 0,
+        'items_created': 0,
+        'items_updated': 0,
+        'items_deleted': 0
+    }
+    
+    errors = []
+    
+    # Process in atomic transaction
+    try:
+        with transaction.atomic():
+            # Get existing records by do_number
+            do_numbers = [str(r.get('do_number', '')) for r in records if r.get('do_number')]
+            existing_orders = DeliveryOrder.objects.filter(do_number__in=do_numbers)
+            existing_map = {order.do_number: order for order in existing_orders}
+            
+            to_create = []
+            to_update = []
+            items_to_process = []  # (do_number, document_lines)
+            
+            for record in records:
+                do_number = str(record.get('do_number', ''))
+                if not do_number:
+                    errors.append('Record missing do_number')
+                    stats['errors'] += 1
+                    continue
+                
+                # Extract document_lines for later processing
+                document_lines = record.pop('document_lines', [])
+                items_to_process.append((do_number, document_lines))
+                
+                # Parse date
+                date_str = record.get('date')
+                if date_str:
+                    try:
+                        if isinstance(date_str, str):
+                            record['date'] = datetime.strptime(date_str, '%Y-%m-%d').date()
+                        else:
+                            record['date'] = date_str
+                    except (ValueError, TypeError):
+                        errors.append(f'Invalid date for DO {do_number}: {date_str}')
+                        record['date'] = None
+                
+                # Parse amount
+                amount_str = record.get('amount')
+                if amount_str:
+                    try:
+                        record['amount'] = Decimal(str(amount_str))
+                    except (InvalidOperation, ValueError, TypeError):
+                        record['amount'] = None
+                
+                # Handle empty strings for optional fields
+                for field in ['city', 'area', 'salesman', 'lpo', 'mobile_number']:
+                    if record.get(field) == '':
+                        record[field] = None
+                
+                if do_number in existing_map:
+                    # Update existing record - only API-sourced fields
+                    obj = existing_map[do_number]
+                    update_fields = ['date', 'customer_code', 'customer_name', 'city', 'area', 'salesman', 'amount', 'lpo', 'mobile_number']
+                    
+                    for field in update_fields:
+                        if field in record:
+                            setattr(obj, field, record[field])
+                    
+                    to_update.append(obj)
+                    stats['updated'] += 1
+                else:
+                    # Create new record with defaults for app-managed fields
+                    new_order = DeliveryOrder(
+                        do_number=do_number,
+                        date=record.get('date'),
+                        customer_code=record.get('customer_code', ''),
+                        customer_name=record.get('customer_name', ''),
+                        city=record.get('city'),
+                        area=record.get('area'),
+                        salesman=record.get('salesman'),
+                        amount=record.get('amount'),
+                        lpo=record.get('lpo'),
+                        mobile_number=record.get('mobile_number'),  # From BusinessPartner.Cellular
+                        invoice_number=record.get('invoice_number'),  # Usually None
+                        # App-managed fields use defaults:
+                        status='Pending',  # Default status
+                        driver=None,  # Default driver
+                        vehicle=None,  # Default vehicle
+                        delivery_date=None,  # Default delivery_date
+                        received_date=None,  # Default received_date
+                        salesman_mobile=None,  # Default salesman_mobile
+                    )
+                    to_create.append(new_order)
+                    stats['created'] += 1
+            
+            # Bulk create new records
+            if to_create:
+                DeliveryOrder.objects.bulk_create(to_create, batch_size=500)
+            
+            # Bulk update existing records
+            if to_update:
+                update_fields = ['date', 'customer_code', 'customer_name', 'city', 'area', 'salesman', 'amount', 'lpo', 'mobile_number']
+                DeliveryOrder.objects.bulk_update(to_update, fields=update_fields, batch_size=500)
+            
+            # Process DeliveryItemWise records - only update if changed
+            if items_to_process:
+                synced_do_numbers = [do_num for do_num, _ in items_to_process]
+                
+                # Get existing items for all synced DOs
+                existing_items = DeliveryItemWise.objects.filter(do_number__in=synced_do_numbers)
+                # Create a map: (do_number, item_code) -> DeliveryItemWise object
+                existing_items_map = {}
+                for item in existing_items:
+                    key = (item.do_number, item.item_code)
+                    existing_items_map[key] = item
+                
+                items_to_create = []
+                items_to_update = []
+                items_to_delete_keys = set(existing_items_map.keys())  # Start with all existing items
+                
+                for do_number, document_lines in items_to_process:
+                    if not document_lines:
+                        continue
+                    
+                    for line in document_lines:
+                        item_code = str(line.get('ItemCode', ''))
+                        if not item_code:
+                            continue
+                        
+                        item_description = str(line.get('ItemDescription', ''))
+                        
+                        # Parse quantity
+                        quantity = line.get('Quantity', 0)
+                        try:
+                            quantity = int(float(quantity)) if quantity else 0
+                        except (ValueError, TypeError):
+                            quantity = 0
+                        
+                        # Parse price
+                        price = line.get('Price', 0)
+                        try:
+                            price = Decimal(str(price)) if price else Decimal('0.00')
+                        except (InvalidOperation, ValueError, TypeError):
+                            price = Decimal('0.00')
+                        
+                        key = (do_number, item_code)
+                        
+                        if key in existing_items_map:
+                            # Item exists - check if it needs updating
+                            existing_item = existing_items_map[key]
+                            if (existing_item.item_description != item_description or
+                                existing_item.quantity != quantity or
+                                existing_item.price != price):
+                                # Update existing item
+                                existing_item.item_description = item_description
+                                existing_item.quantity = quantity
+                                existing_item.price = price
+                                items_to_update.append(existing_item)
+                            # Remove from delete list since it still exists
+                            items_to_delete_keys.discard(key)
+                        else:
+                            # New item - create it
+                            items_to_create.append(
+                                DeliveryItemWise(
+                                    do_number=do_number,
+                                    item_code=item_code,
+                                    item_description=item_description,
+                                    quantity=quantity,
+                                    price=price
+                                )
+                            )
+                
+                # Delete items that are no longer in the API response
+                if items_to_delete_keys:
+                    items_to_delete = [existing_items_map[key] for key in items_to_delete_keys]
+                    deleted_count = len(items_to_delete)
+                    DeliveryItemWise.objects.filter(id__in=[item.id for item in items_to_delete]).delete()
+                    stats['items_deleted'] = deleted_count
+                
+                # Create new items
+                if items_to_create:
+                    DeliveryItemWise.objects.bulk_create(items_to_create, batch_size=1000)
+                    stats['items_created'] = len(items_to_create)
+                
+                # Update changed items
+                if items_to_update:
+                    DeliveryItemWise.objects.bulk_update(items_to_update, ['item_description', 'quantity', 'price'], batch_size=1000)
+                    stats['items_updated'] = len(items_to_update)
+        
+        return JsonResponse({
+            'success': True,
+            'stats': stats,
+            'errors': errors[:10] if errors else []  # Limit errors in response
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in sync_receive: {e}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': f'Processing error: {str(e)}',
+            'stats': stats
+        }, status=500)

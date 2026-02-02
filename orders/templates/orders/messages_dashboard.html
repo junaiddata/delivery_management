@@ -9,114 +9,646 @@
     <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
     <style>
         :root {
-            --primary-color: #3498db;
-            --secondary-color: #f8f9fa;
-            --hover-color: #e9ecef;
+            --primary: #3b82f6;
+            --primary-dark: #2563eb;
+            --primary-light: #eff6ff;
+            --text: #1f2937;
+            --text-light: #6b7280;
+            --text-muted: #9ca3af;
+            --border: #e5e7eb;
+            --border-light: #f3f4f6;
+            --white: #ffffff;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --radius: 8px;
+            --radius-lg: 12px;
         }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f5f7fa;
-            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f3f4f6;
+            padding: 1.5rem;
+            color: var(--text);
+            line-height: 1.5;
         }
+
+        .container-fluid {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        /* Dashboard Header */
         .dashboard-header {
-            background-color: white;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem 2rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
         }
+
+        .dashboard-header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .dashboard-header h1 i {
+            color: var(--primary);
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        .limit-badge {
+            background: var(--primary-light);
+            color: var(--primary);
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius);
+            font-size: 0.8125rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-refresh {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--white);
+            color: var(--text);
+            font-size: 0.875rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            transition: all 0.2s;
+        }
+
+        .btn-refresh:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        /* Card Styles */
         .card {
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            margin-bottom: 20px;
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 1.5rem;
             border: none;
+            overflow: hidden;
         }
+
         .card-header {
-            background-color: white;
-            border-bottom: 1px solid rgba(0,0,0,0.05);
+            background: var(--white);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .card-title {
+            display: flex;
+            align-items: center;
+            gap: 0.625rem;
             font-weight: 600;
-            padding: 15px 20px;
-            border-radius: 10px 10px 0 0 !important;
+            font-size: 1rem;
+            color: var(--text);
+            margin: 0;
         }
-        .table-responsive {
-            border-radius: 0 0 10px 10px;
+
+        .card-title i {
+            color: var(--primary);
         }
-        .status-delivered {
-            color: #28a745;
+
+        .card-count {
+            background: var(--primary-light);
+            color: var(--primary);
+            padding: 0.25rem 0.625rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
         }
-        .status-failed {
-            color: #dc3545;
-        }
-        .status-pending {
-            color: #ffc107;
-        }
+
+        /* Search Box */
         .search-box {
             position: relative;
         }
+
         .search-box i {
             position: absolute;
-            top: 10px;
-            left: 10px;
-            color: #6c757d;
+            top: 50%;
+            left: 0.875rem;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 0.875rem;
         }
+
         .search-box input {
-            padding-left: 35px;
+            padding: 0.5rem 1rem 0.5rem 2.5rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 0.875rem;
+            width: 220px;
+            transition: all 0.2s;
         }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .search-box input::placeholder {
+            color: var(--text-muted);
+        }
+
+        /* Filter Badges */
+        .filter-container {
+            padding: 0.75rem 1.5rem;
+            background: var(--border-light);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-label {
+            font-size: 0.75rem;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-right: 0.5rem;
+        }
+
         .badge-filter {
             cursor: pointer;
-            margin-right: 5px;
-            margin-bottom: 5px;
+            padding: 0.375rem 0.875rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
         }
-        .timestamp {
+
+        .badge-filter:hover {
+            transform: translateY(-1px);
+        }
+
+        .badge-filter.active {
+            box-shadow: var(--shadow);
+        }
+
+        .badge-filter .count {
+            background: rgba(255,255,255,0.3);
+            padding: 0.125rem 0.375rem;
+            border-radius: 9999px;
+            font-size: 0.625rem;
+        }
+
+        /* Table Styles */
+        .table-responsive {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .table {
+            margin-bottom: 0;
+            font-size: 0.875rem;
+        }
+
+        .table thead {
+            background: var(--border-light);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .table thead th {
+            padding: 0.875rem 1rem;
+            font-weight: 600;
+            color: var(--text-light);
+            font-size: 0.6875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid var(--border);
             white-space: nowrap;
         }
+
+        .table tbody td {
+            padding: 0.875rem 1rem;
+            border-bottom: 1px solid var(--border-light);
+            vertical-align: middle;
+            color: var(--text);
+        }
+
+        .table tbody tr:hover {
+            background: var(--primary-light);
+        }
+
+        .table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Message Preview */
         .message-preview {
-            max-width: 300px;
+            max-width: 250px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            cursor: pointer;
+            position: relative;
         }
+
         .message-preview:hover {
             white-space: normal;
             overflow: visible;
             position: absolute;
-            background: white;
-            padding: 5px 10px;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            background: var(--white);
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
             z-index: 100;
-            max-width: 400px;
+            max-width: 350px;
+            word-break: break-word;
+            border: 1px solid var(--border);
+        }
+
+        /* Sender/Recipient Cell */
+        .contact-cell {
+            display: flex;
+            align-items: center;
+            gap: 0.625rem;
+        }
+
+        .contact-avatar {
+            width: 32px;
+            height: 32px;
+            background: var(--primary-light);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            color: var(--primary);
+            flex-shrink: 0;
+        }
+
+        .contact-number {
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        /* Status Styles */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.375rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-delivered {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+        }
+
+        .status-failed {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+        }
+
+        .status-pending, .status-sent, .status-read {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warning);
+        }
+
+        .status-read {
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--primary);
+        }
+
+        /* Timestamp */
+        .timestamp {
+            white-space: nowrap;
+            color: var(--text-light);
+            font-size: 0.8125rem;
+        }
+
+        /* Message ID */
+        .message-id {
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Card Footer */
+        .card-footer {
+            background: var(--border-light);
+            border-top: 1px solid var(--border);
+            padding: 0.875rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .footer-info {
+            font-size: 0.8125rem;
+            color: var(--text-light);
+        }
+
+        .footer-info strong {
+            color: var(--text);
+        }
+
+        /* Pagination */
+        .pagination {
+            margin: 0;
+            gap: 0.25rem;
+        }
+
+        .pagination .page-link {
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.375rem 0.75rem;
+            font-size: 0.8125rem;
+            border-radius: var(--radius);
+            transition: all 0.2s;
+        }
+
+        .pagination .page-link:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .pagination .page-item.active .page-link {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: var(--white);
+        }
+
+        .pagination .page-item.disabled .page-link {
+            color: var(--text-muted);
+            background: var(--border-light);
+        }
+
+        /* Custom Scrollbar */
+        .table-responsive::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .table-responsive::-webkit-scrollbar-track {
+            background: var(--border-light);
+        }
+
+        .table-responsive::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        .table-responsive::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: var(--text-light);
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            color: var(--border);
+            margin-bottom: 1rem;
+        }
+
+        .empty-state h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 0.25rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .row > .col-md-6 {
+                flex: 0 0 100%;
+                max-width: 100%;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+
+            .dashboard-header {
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 1.25rem;
+            }
+
+            .dashboard-header h1 {
+                font-size: 1.25rem;
+            }
+
+            .header-stats {
+                width: 100%;
+                justify-content: space-around;
+            }
+
+            .header-actions {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .card-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .search-box {
+                width: 100%;
+            }
+
+            .search-box input {
+                width: 100%;
+            }
+
+            .table-responsive {
+                max-height: 400px;
+            }
+
+            .message-preview {
+                max-width: 150px;
+            }
+
+            .card-footer {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .dashboard-header h1 {
+                font-size: 1.125rem;
+            }
+
+            .stat-value {
+                font-size: 1.25rem;
+            }
+
+            .card-header {
+                padding: 1rem;
+            }
+
+            .filter-container {
+                padding: 0.625rem 1rem;
+            }
+
+            .badge-filter {
+                padding: 0.25rem 0.625rem;
+                font-size: 0.6875rem;
+            }
+
+            .table thead th,
+            .table tbody td {
+                padding: 0.625rem 0.75rem;
+            }
+
+            .contact-avatar {
+                display: none;
+            }
+
+            .message-id {
+                max-width: 80px;
+            }
+        }
+
+        /* DataTables Override */
+        .dataTables_wrapper .dataTables_paginate {
+            display: none;
+        }
+
+        .dataTables_wrapper .dataTables_info {
+            display: none;
+        }
+
+        .dataTables_wrapper .dataTables_filter {
+            display: none;
+        }
+
+        /* Loading Animation */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .loading {
+            animation: pulse 1.5s infinite;
         }
     </style>
 </head>
 <body>
     <div class="container-fluid">
+        <!-- Dashboard Header -->
         <div class="dashboard-header">
-            <div class="row align-items-center">
-                <div class="col-md-6">
-                    <h1><i class="bi bi-chat-left-text"></i> Messages Dashboard</h1>
+            <div>
+                <h1><i class="bi bi-chat-left-text"></i> Messages Dashboard</h1>
+            </div>
+            <div class="header-stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="totalReplies">{{ customer_replies|slice:":1000"|length }}</div>
+                    <div class="stat-label">Replies</div>
                 </div>
-                <div class="col-md-6 text-end">
-                    <div class="dropdown">
-                        <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="timeRangeDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-calendar"></i> Last 7 days
-                        </button>
-                        <ul class="dropdown-menu" aria-labelledby="timeRangeDropdown">
-                            <li><a class="dropdown-item" href="#" data-range="1">Today</a></li>
-                            <li><a class="dropdown-item" href="#" data-range="7">Last 7 days</a></li>
-                            <li><a class="dropdown-item" href="#" data-range="30">Last 30 days</a></li>
-                            <li><a class="dropdown-item" href="#" data-range="0">All time</a></li>
-                        </ul>
-                    </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="totalStatuses">{{ message_statuses|slice:":1000"|length }}</div>
+                    <div class="stat-label">Statuses</div>
                 </div>
+            </div>
+            <div class="header-actions">
+                <div class="limit-badge">
+                    <i class="bi bi-info-circle"></i>
+                    Showing last 1000 records
+                </div>
+                <button class="btn-refresh" onclick="location.reload()">
+                    <i class="bi bi-arrow-clockwise"></i>
+                    Refresh
+                </button>
             </div>
         </div>
 
         <div class="row">
+            <!-- Customer Replies Card -->
             <div class="col-md-6">
                 <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <span><i class="bi bi-inbox"></i> Customer Replies</span>
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i class="bi bi-inbox-fill"></i>
+                            Customer Replies
+                            <span class="card-count" id="repliesCount">{{ customer_replies|slice:":1000"|length }}</span>
+                        </div>
                         <div class="search-box">
                             <i class="bi bi-search"></i>
                             <input type="text" id="repliesSearch" class="form-control form-control-sm" placeholder="Search replies...">
@@ -132,56 +664,87 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for reply in customer_replies %}
+                                {% for reply in customer_replies|slice:":1000" %}
                                 <tr>
-                                    <td>{{ reply.sender }}</td>
-                                    <td class="message-preview">{{ reply.text_body }}</td>
+                                    <td>
+                                        <div class="contact-cell">
+                                            <div class="contact-avatar">
+                                                <i class="bi bi-person"></i>
+                                            </div>
+                                            <span class="contact-number">{{ reply.sender }}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="message-preview" title="{{ reply.text_body }}">
+                                            {{ reply.text_body }}
+                                        </div>
+                                    </td>
                                     <td class="timestamp">{{ reply.timestamp }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3">
+                                        <div class="empty-state">
+                                            <i class="bi bi-inbox"></i>
+                                            <h3>No replies yet</h3>
+                                            <p>Customer replies will appear here</p>
+                                        </div>
+                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
-                    <div class="card-footer bg-white">
-                        <div class="row align-items-center">
-                            <div class="col-md-6">
-                                <span class="text-muted">Showing <span id="repliesShowing">1-10</span> of <span id="repliesTotal">{{ customer_replies|length }}</span> replies</span>
-                            </div>
-                            <div class="col-md-6">
-                                <nav aria-label="Replies pagination" class="float-end">
-                                    <ul class="pagination pagination-sm mb-0">
-                                        <li class="page-item disabled" id="repliesPrev">
-                                            <a class="page-link" href="#" tabindex="-1">Previous</a>
-                                        </li>
-                                        <li class="page-item" id="repliesNext">
-                                            <a class="page-link" href="#">Next</a>
-                                        </li>
-                                    </ul>
-                                </nav>
-                            </div>
+                    <div class="card-footer">
+                        <div class="footer-info">
+                            Showing <strong><span id="repliesShowing">1-10</span></strong> of <strong><span id="repliesTotal">{{ customer_replies|slice:":1000"|length }}</span></strong> replies
                         </div>
+                        <nav aria-label="Replies pagination">
+                            <ul class="pagination pagination-sm">
+                                <li class="page-item disabled" id="repliesPrev">
+                                    <a class="page-link" href="#"><i class="bi bi-chevron-left"></i></a>
+                                </li>
+                                <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                                <li class="page-item" id="repliesNext">
+                                    <a class="page-link" href="#"><i class="bi bi-chevron-right"></i></a>
+                                </li>
+                            </ul>
+                        </nav>
                     </div>
                 </div>
             </div>
 
+            <!-- Message Status Card -->
             <div class="col-md-6">
                 <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <span><i class="bi bi-send"></i> Message Status</span>
-                        <div>
-                            <div class="search-box">
-                                <i class="bi bi-search"></i>
-                                <input type="text" id="statusSearch" class="form-control form-control-sm" placeholder="Search statuses...">
-                            </div>
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i class="bi bi-send-fill"></i>
+                            Message Status
+                            <span class="card-count" id="statusCount">{{ message_statuses|slice:":1000"|length }}</span>
+                        </div>
+                        <div class="search-box">
+                            <i class="bi bi-search"></i>
+                            <input type="text" id="statusSearch" class="form-control form-control-sm" placeholder="Search statuses...">
                         </div>
                     </div>
-                    <div class="card-body py-2">
-                        <div id="statusFilters">
-                            <span class="badge rounded-pill bg-primary badge-filter" data-status="all">All</span>
-                            <span class="badge rounded-pill bg-success badge-filter" data-status="delivered">Delivered</span>
-                            <span class="badge rounded-pill bg-warning text-dark badge-filter" data-status="pending">Pending</span>
-                            <span class="badge rounded-pill bg-danger badge-filter" data-status="failed">Failed</span>
-                        </div>
+                    <div class="filter-container">
+                        <span class="filter-label">Filter:</span>
+                        <span class="badge-filter bg-primary text-white active" data-status="all">
+                            <i class="bi bi-grid"></i> All
+                        </span>
+                        <span class="badge-filter bg-success text-white" data-status="delivered">
+                            <i class="bi bi-check-circle"></i> Delivered
+                        </span>
+                        <span class="badge-filter bg-info text-white" data-status="read">
+                            <i class="bi bi-eye"></i> Read
+                        </span>
+                        <span class="badge-filter bg-warning text-dark" data-status="sent">
+                            <i class="bi bi-send"></i> Sent
+                        </span>
+                        <span class="badge-filter bg-danger text-white" data-status="failed">
+                            <i class="bi bi-x-circle"></i> Failed
+                        </span>
                     </div>
                     <div class="table-responsive">
                         <table id="statusTable" class="table table-hover mb-0">
@@ -194,52 +757,72 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for status in message_statuses %}
-                                <tr>
-                                    <td>{{ status.recipient_id }}</td>
-                                    <td>{{ status.message_id }}</td>
+                                {% for status in message_statuses|slice:":1000" %}
+                                <tr data-status="{{ status.status|lower }}">
                                     <td>
-                                        <span class="status-{{ status.status|lower }}">
-                                            {% if status.status == 'delivered' %}
+                                        <div class="contact-cell">
+                                            <div class="contact-avatar">
+                                                <i class="bi bi-person"></i>
+                                            </div>
+                                            <span class="contact-number">{{ status.recipient_id }}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="message-id" title="{{ status.message_id }}">{{ status.message_id }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="status-badge status-{{ status.status|lower }}">
+                                            {% if status.status|lower == 'delivered' %}
                                                 <i class="bi bi-check-circle-fill"></i>
-                                            {% elif status.status == 'failed' %}
+                                            {% elif status.status|lower == 'read' %}
+                                                <i class="bi bi-eye-fill"></i>
+                                            {% elif status.status|lower == 'sent' %}
+                                                <i class="bi bi-check"></i>
+                                            {% elif status.status|lower == 'failed' %}
                                                 <i class="bi bi-x-circle-fill"></i>
                                             {% else %}
                                                 <i class="bi bi-clock-history"></i>
                                             {% endif %}
-                                            {{ status.status }}
+                                            {{ status.status|capfirst }}
                                         </span>
                                     </td>
                                     <td class="timestamp">
                                         {% if status.parsed_time %}
-                                            {{ status.parsed_time|date:"Y-m-d H:i:s" }}
+                                            {{ status.parsed_time|date:"M d, Y H:i" }}
                                         {% else %}
-                                            Invalid timestamp
+                                            --
                                         {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4">
+                                        <div class="empty-state">
+                                            <i class="bi bi-send"></i>
+                                            <h3>No statuses yet</h3>
+                                            <p>Message statuses will appear here</p>
+                                        </div>
                                     </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
-                    <div class="card-footer bg-white">
-                        <div class="row align-items-center">
-                            <div class="col-md-6">
-                                <span class="text-muted">Showing <span id="statusShowing">1-10</span> of <span id="statusTotal">{{ message_statuses|length }}</span> statuses</span>
-                            </div>
-                            <div class="col-md-6">
-                                <nav aria-label="Status pagination" class="float-end">
-                                    <ul class="pagination pagination-sm mb-0">
-                                        <li class="page-item disabled" id="statusPrev">
-                                            <a class="page-link" href="#" tabindex="-1">Previous</a>
-                                        </li>
-                                        <li class="page-item" id="statusNext">
-                                            <a class="page-link" href="#">Next</a>
-                                        </li>
-                                    </ul>
-                                </nav>
-                            </div>
+                    <div class="card-footer">
+                        <div class="footer-info">
+                            Showing <strong><span id="statusShowing">1-50</span></strong> of <strong><span id="statusTotal">{{ message_statuses|slice:":1000"|length }}</span></strong> statuses
                         </div>
+                        <nav aria-label="Status pagination">
+                            <ul class="pagination pagination-sm">
+                                <li class="page-item disabled" id="statusPrev">
+                                    <a class="page-link" href="#"><i class="bi bi-chevron-left"></i></a>
+                                </li>
+                                <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                                <li class="page-item" id="statusNext">
+                                    <a class="page-link" href="#"><i class="bi bi-chevron-right"></i></a>
+                                </li>
+                            </ul>
+                        </nav>
                     </div>
                 </div>
             </div>
@@ -252,10 +835,10 @@
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
     <script>
         $(document).ready(function() {
-            // Initialize DataTables
+            // Initialize DataTables with last 1000 records
             const repliesTable = $('#repliesTable').DataTable({
                 paging: true,
-                pageLength: 10,
+                pageLength: 20,
                 lengthChange: false,
                 searching: true,
                 info: false,
@@ -263,13 +846,14 @@
                 dom: 'rtip',
                 language: {
                     search: "",
-                    searchPlaceholder: "Search replies..."
+                    searchPlaceholder: "Search replies...",
+                    emptyTable: "No replies found"
                 }
             });
 
             const statusTable = $('#statusTable').DataTable({
                 paging: true,
-                pageLength: 60,
+                pageLength: 80,
                 lengthChange: false,
                 searching: true,
                 info: false,
@@ -277,19 +861,28 @@
                 dom: 'rtip',
                 language: {
                     search: "",
-                    searchPlaceholder: "Search statuses..."
+                    searchPlaceholder: "Search statuses...",
+                    emptyTable: "No statuses found"
                 }
             });
 
             // Custom search inputs
-            $('#repliesSearch').keyup(function(){
+            $('#repliesSearch').keyup(function() {
                 repliesTable.search($(this).val()).draw();
                 updatePaginationInfo(repliesTable, 'replies');
             });
 
-            $('#statusSearch').keyup(function(){
+            $('#statusSearch').keyup(function() {
                 statusTable.search($(this).val()).draw();
                 updatePaginationInfo(statusTable, 'status');
+            });
+
+            // Clear search on Escape
+            $('#repliesSearch, #statusSearch').keydown(function(e) {
+                if (e.key === 'Escape') {
+                    $(this).val('');
+                    $(this).trigger('keyup');
+                }
             });
 
             // Status filter badges
@@ -301,74 +894,80 @@
                 if (status === 'all') {
                     statusTable.columns(2).search('').draw();
                 } else {
-                    statusTable.columns(2).search('^' + status + '$', true, false).draw();
+                    statusTable.columns(2).search(status, false, false).draw();
                 }
                 
                 updatePaginationInfo(statusTable, 'status');
             });
 
-            // Time range filter
-            $('.dropdown-item[data-range]').click(function(e) {
-                e.preventDefault();
-                const range = $(this).data('range');
-                $('#timeRangeDropdown').html('<i class="bi bi-calendar"></i> ' + $(this).text());
-                
-                // Here you would typically make an AJAX call to filter data by date range
-                // For now, we'll just simulate it by showing all data
-                repliesTable.draw();
-                statusTable.draw();
-                
-                updatePaginationInfo(repliesTable, 'replies');
-                updatePaginationInfo(statusTable, 'status');
-            });
-
             // Pagination controls
-            $('#repliesNext').click(function() {
-                repliesTable.page('next').draw(false);
-                updatePaginationInfo(repliesTable, 'replies');
+            $('#repliesNext').click(function(e) {
+                e.preventDefault();
+                if (!$(this).hasClass('disabled')) {
+                    repliesTable.page('next').draw(false);
+                    updatePaginationInfo(repliesTable, 'replies');
+                }
             });
 
-            $('#repliesPrev').click(function() {
-                repliesTable.page('previous').draw(false);
-                updatePaginationInfo(repliesTable, 'replies');
+            $('#repliesPrev').click(function(e) {
+                e.preventDefault();
+                if (!$(this).hasClass('disabled')) {
+                    repliesTable.page('previous').draw(false);
+                    updatePaginationInfo(repliesTable, 'replies');
+                }
             });
 
-            $('#statusNext').click(function() {
-                statusTable.page('next').draw(false);
-                updatePaginationInfo(statusTable, 'status');
+            $('#statusNext').click(function(e) {
+                e.preventDefault();
+                if (!$(this).hasClass('disabled')) {
+                    statusTable.page('next').draw(false);
+                    updatePaginationInfo(statusTable, 'status');
+                }
             });
 
-            $('#statusPrev').click(function() {
-                statusTable.page('previous').draw(false);
-                updatePaginationInfo(statusTable, 'status');
+            $('#statusPrev').click(function(e) {
+                e.preventDefault();
+                if (!$(this).hasClass('disabled')) {
+                    statusTable.page('previous').draw(false);
+                    updatePaginationInfo(statusTable, 'status');
+                }
             });
 
             // Update pagination info
             function updatePaginationInfo(table, type) {
                 const info = table.page.info();
-                const start = info.start + 1;
+                const start = info.recordsDisplay > 0 ? info.start + 1 : 0;
                 const end = info.end;
                 const total = info.recordsDisplay;
                 
                 $(`#${type}Showing`).text(`${start}-${end}`);
                 $(`#${type}Total`).text(total);
+                $(`#${type}Count`).text(total);
                 
                 // Enable/disable prev/next buttons
-                $(`#${type}Prev`).toggleClass('disabled', !table.page.hasPrevious());
-                $(`#${type}Next`).toggleClass('disabled', !table.page.hasNext());
+                if (info.page === 0) {
+                    $(`#${type}Prev`).addClass('disabled');
+                } else {
+                    $(`#${type}Prev`).removeClass('disabled');
+                }
+                
+                if (info.page >= info.pages - 1) {
+                    $(`#${type}Next`).addClass('disabled');
+                } else {
+                    $(`#${type}Next`).removeClass('disabled');
+                }
             }
 
             // Initialize pagination info
             updatePaginationInfo(repliesTable, 'replies');
             updatePaginationInfo(statusTable, 'status');
 
-            // Format timestamps with moment.js (optional)
-            // You would need to include moment.js for this to work
-            $('.timestamp').each(function() {
-                const text = $(this).text().trim();
-                if (text.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
-                    // Format the date nicely if it's in the expected format
-                    $(this).text(text.replace(' ', ' at '));
+            // Keyboard navigation
+            $(document).keydown(function(e) {
+                // Focus search on Ctrl+F
+                if (e.ctrlKey && e.key === 'f') {
+                    e.preventDefault();
+                    $('#repliesSearch').focus();
                 }
             });
         });
