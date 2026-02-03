@@ -1283,12 +1283,12 @@ from .models import CustomerReply, MessageStatus
 
 def messages_dashboard(request):
     # Sort CustomerReply by received_at (DateTimeField) - latest first
-    customer_replies = CustomerReply.objects.all().order_by('-received_at')[:1000]
+    customer_replies = list(CustomerReply.objects.all().order_by('-received_at')[:1000])
     
     # Sort MessageStatus by timestamp (convert string to integer for proper sorting) - latest first
-    message_statuses = MessageStatus.objects.annotate(
+    message_statuses = list(MessageStatus.objects.annotate(
         timestamp_int=Cast('timestamp', IntegerField())
-    ).order_by('-timestamp_int')[:1000]
+    ).order_by('-timestamp_int')[:1000])
 
     dubai_tz = pytz.timezone('Asia/Dubai')
 
