@@ -679,7 +679,7 @@
                                             {{ reply.text_body }}
                                         </div>
                                     </td>
-                                    <td class="timestamp">{{ reply.timestamp }}</td>
+                                    <td class="timestamp">{{ reply.received_at|date:"M d, Y H:i" }}</td>
                                 </tr>
                                 {% empty %}
                                 <tr>

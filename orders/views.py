@@ -20,9 +20,12 @@ from functools import wraps
 from django.db import IntegrityError
 from django.contrib.auth import login,authenticate
 from django.db.models import Q
+from django.db.models.functions import Cast
+from django.db.models import IntegerField
 from datetime import datetime
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
+import logging
 
 
 
@@ -815,20 +818,21 @@ def do_items(request, do_number):
 import requests
 from django.conf import settings
 def send_out_for_delivery_messages(vehicle):
-    print(f"Sending Out for Delivery Messages for Vehicle: {vehicle}")
+    logger = logging.getLogger(__name__)
+    logger.info(f"Sending Out for Delivery Messages for Vehicle: {vehicle}")
 
     api_url = f"https://graph.facebook.com/v22.0/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
     access_token = settings.WHATSAPP_ACCESS_TOKEN
 
     orders = DeliveryOrder.objects.filter(vehicle=vehicle, status='Out for Delivery')
-    print(f"Orders Found: {orders.count()}")  # New Print
+    logger.info(f"Orders Found: {orders.count()}")
 
     if not orders.exists():
-        print("No orders with 'Out for Delivery' status for this vehicle.")
+        logger.info("No orders with 'Out for Delivery' status for this vehicle.")
         return
 
     for order in orders:
-        print(f"Preparing message for Order: {order.do_number}")
+        logger.info(f"Preparing message for Order: {order.do_number}")
 
         whatsapp_number = f"{order.mobile_number}"
         if not whatsapp_number.startswith('+'):
@@ -867,14 +871,14 @@ def send_out_for_delivery_messages(vehicle):
 
         # Send the POST request to the API
         response = requests.post(api_url, headers=headers, json=payload)
-        print(response.status_code)
-        print(response.json())  # This will give you the complete response including any status
+        logger.info(f"Response status code: {response.status_code}")
+        logger.info(f"Response JSON: {response.json()}")
 
         # Check and log the response
         if response.status_code == 200:
-            print(f"Message sent to {whatsapp_number} successfully!")
+            logger.info(f"Message sent to {whatsapp_number} successfully! Order: {order.do_number}")
         else:
-            print(f"Failed to send message to {whatsapp_number}: {response.text}")
+            logger.error(f"Failed to send message to {whatsapp_number}: {response.text}. Order: {order.do_number}")
 
 
 # def send_out_for_delivery_messages(vehicle):
@@ -1278,8 +1282,13 @@ from django.shortcuts import render
 from .models import CustomerReply, MessageStatus
 
 def messages_dashboard(request):
-    customer_replies = CustomerReply.objects.all().order_by('-id')[:1000]  # Latest first
-    message_statuses = MessageStatus.objects.all().order_by('-id')[:1000]
+    # Sort CustomerReply by received_at (DateTimeField) - latest first
+    customer_replies = CustomerReply.objects.all().order_by('-received_at')[:1000]
+    
+    # Sort MessageStatus by timestamp (convert string to integer for proper sorting) - latest first
+    message_statuses = MessageStatus.objects.annotate(
+        timestamp_int=Cast('timestamp', IntegerField())
+    ).order_by('-timestamp_int')[:1000]
 
     dubai_tz = pytz.timezone('Asia/Dubai')
 
