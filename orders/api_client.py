@@ -459,3 +459,45 @@ class SAPAPIClient:
         except (InvalidOperation, ValueError, TypeError):
             logger.warning(f"Could not parse decimal: {value}")
             return None
+    
+    def fetch_cancelled_orders(self, cancel_status):
+        """
+        Fetch cancelled delivery orders by CancelStatus
+        
+        Args:
+            cancel_status: CancelStatus value ("csCancellation" or "csYes")
+            
+        Returns:
+            List of cancelled delivery order records (all pages)
+        """
+        payload = {"CancelStatus": cancel_status}
+        logger.info(f"Fetching cancelled delivery orders with CancelStatus: {cancel_status}")
+        return self._fetch_all_pages(payload)
+    
+    def fetch_all_cancelled_orders(self):
+        """
+        Fetch all cancelled delivery orders (both csCancellation and csYes)
+        
+        Returns:
+            List of all cancelled delivery order records (deduplicated by DocNum)
+        """
+        all_cancelled = []
+        seen_docnums = set()
+        
+        # Fetch orders with csCancellation status
+        logger.info("Fetching cancelled orders with CancelStatus: csCancellation")
+        cancellation_records = self.fetch_cancelled_orders("csCancellation")
+        
+        # Fetch orders with csYes status
+        logger.info("Fetching cancelled orders with CancelStatus: csYes")
+        csyes_records = self.fetch_cancelled_orders("csYes")
+        
+        # Combine and deduplicate by DocNum
+        for record in cancellation_records + csyes_records:
+            docnum = str(record.get('DocNum', ''))
+            if docnum and docnum not in seen_docnums:
+                seen_docnums.add(docnum)
+                all_cancelled.append(record)
+        
+        logger.info(f"Found {len(all_cancelled)} unique cancelled delivery orders")
+        return all_cancelled

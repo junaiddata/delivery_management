@@ -1,0 +1,59 @@
+================================================================================
+SYNC SCHEDULER STARTUP INSTRUCTIONS
+================================================================================
+
+To run the sync scheduler automatically on Windows startup:
+
+METHOD 1: Add to Windows Startup Folder (Recommended)
+------------------------------------------------------
+1. Press Windows + R
+2. Type: shell:startup
+3. Press Enter
+4. Create a shortcut to this batch file:
+   D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\run_sync_scheduler.bat
+
+METHOD 2: Add to Task Scheduler (For background service)
+---------------------------------------------------------
+1. Open Task Scheduler (taskschd.msc)
+2. Create Basic Task
+3. Name: "Delivery Order Sync Scheduler"
+4. Trigger: "When the computer starts"
+5. Action: "Start a program"
+6. Program/script: 
+   D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\run_sync_scheduler.bat
+7. Check "Run whether user is logged on or not"
+8. Check "Run with highest privileges"
+
+METHOD 3: Add to Registry (Advanced)
+-------------------------------------
+1. Press Windows + R
+2. Type: regedit
+3. Navigate to: HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run
+4. Create new String Value
+5. Name: "DeliveryOrderSync"
+6. Value: "D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\run_sync_scheduler.bat"
+
+================================================================================
+EXACT PATHS:
+================================================================================
+
+Batch File:
+D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\run_sync_scheduler.bat
+
+Python Script:
+D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\run_sync_scheduler.py
+
+Log File Location:
+D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\logs\scheduler.log
+
+================================================================================
+NOTES:
+================================================================================
+
+- The batch file uses pythonw.exe which runs without a console window
+- The scheduler runs every 2 minutes automatically
+- Check logs at: logs\scheduler.log
+- To stop the scheduler, use Task Manager and end pythonw.exe process
+- The scheduler will automatically restart on system reboot if added to startup
+
+================================================================================

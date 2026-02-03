@@ -1,0 +1,88 @@
+================================================================================
+SIMPLE INSTRUCTIONS - DELIVERY ORDERS SYNC SETUP
+================================================================================
+
+WHAT YOU NEED TO DO:
+-------------------
+
+Add ONE line to your existing batch file that runs stock and sales orders sync.
+
+================================================================================
+YOUR EXISTING BATCH FILE STRUCTURE:
+================================================================================
+
+You have a batch file that runs:
+1. Stock sync: start "" pythonw.exe sync_stock_pc.py
+2. Sales orders sync: start "" pythonw.exe "D:\dataanalyst\salesorder-web\salesorder\sync_salesorders_pc.py"
+
+================================================================================
+ADD THIS ONE LINE TO YOUR BATCH FILE:
+================================================================================
+
+Add this line after your sales orders sync line:
+
+start "" /D "D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management" "D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\venv\Scripts\pythonw.exe" "D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\run_sync_scheduler.py"
+
+================================================================================
+FINAL BATCH FILE SHOULD LOOK LIKE:
+================================================================================
+
+@echo off
+REM Stock & Sales Orders & Delivery Orders Sync Launcher
+
+echo Starting background sync services...
+echo.
+
+REM --- Stock sync ---
+echo Starting Stock Sync Service...
+start "" pythonw.exe sync_stock_pc.py
+
+REM --- Sales orders sync ---
+echo Starting Sales Orders Sync Service...
+start "" pythonw.exe "D:\dataanalyst\salesorder-web\salesorder\sync_salesorders_pc.py"
+
+REM --- Delivery Orders sync ---
+echo Starting Delivery Orders Sync Service...
+start "" /D "D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management" "D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\venv\Scripts\pythonw.exe" "D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\run_sync_scheduler.py"
+
+echo.
+echo All services started successfully.
+pause
+
+================================================================================
+WHY THIS LINE IS DIFFERENT:
+================================================================================
+
+1. Uses /D to set working directory first
+2. Uses venv\Scripts\pythonw.exe (needed for Django)
+3. Uses absolute paths (so it works from anywhere)
+
+================================================================================
+HOW TO TEST:
+================================================================================
+
+1. Run your batch file
+2. Check processes: tasklist | findstr pythonw
+   (Should see 3 pythonw.exe processes)
+3. Check logs after 2 minutes:
+   type "D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\logs\scheduler.log"
+
+================================================================================
+IF IT STILL DOESN'T WORK:
+================================================================================
+
+Try this alternative line (without /D):
+
+start "" "D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\venv\Scripts\pythonw.exe" "D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\run_sync_scheduler.py"
+
+================================================================================
+FILES YOU NEED:
+================================================================================
+
+- Your existing batch file (that runs stock and sales orders)
+- run_sync_scheduler.py (already exists in delivery_management folder)
+- venv\Scripts\pythonw.exe (already exists)
+
+That's it! Just add ONE line to your existing batch file.
+
+================================================================================

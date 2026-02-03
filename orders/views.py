@@ -4065,6 +4065,17 @@ def sync_receive(request):
     
     errors = []
     
+    # Check if any record has status field (before processing modifies records)
+    has_status_updates = any(isinstance(r, dict) and 'status' in r and r.get('status') for r in records)
+    # Detect "status-only" payloads (used by cancelled-status sync): only do_number + status (+ optional document_lines)
+    status_only_mode = all(
+        isinstance(r, dict)
+        and set(r.keys()).issubset({'do_number', 'status', 'document_lines'})
+        and r.get('do_number')
+        and r.get('status')
+        for r in records
+    )
+    
     # Process in atomic transaction
     try:
         with transaction.atomic():
@@ -4082,6 +4093,20 @@ def sync_receive(request):
                 if not do_number:
                     errors.append('Record missing do_number')
                     stats['errors'] += 1
+                    continue
+
+                # If this is a status-only update payload, do NOT attempt to create records or process items.
+                # Only update existing records' status; skip missing DOs.
+                if status_only_mode:
+                    if do_number in existing_map:
+                        obj = existing_map[do_number]
+                        obj.status = record.get('status')
+                        to_update.append(obj)
+                        stats['updated'] += 1
+                    else:
+                        # Skip unknown DOs (do not create)
+                        continue
+                    # Skip rest of the normal sync processing for this record
                     continue
                 
                 # Extract document_lines for later processing
@@ -4118,6 +4143,11 @@ def sync_receive(request):
                     obj = existing_map[do_number]
                     update_fields = ['date', 'customer_code', 'customer_name', 'city', 'area', 'salesman', 'amount', 'lpo', 'mobile_number']
                     
+                    # If status is explicitly provided in the record, include it in updates
+                    # This allows status updates (e.g., for cancelled orders) to be synced
+                    if 'status' in record and record.get('status'):
+                        update_fields.append('status')
+                    
                     for field in update_fields:
                         if field in record:
                             setattr(obj, field, record[field])
@@ -4125,7 +4155,12 @@ def sync_receive(request):
                     to_update.append(obj)
                     stats['updated'] += 1
                 else:
+                    # If a status update record is sent for a DO that doesn't exist, skip it (do not create).
+                    if 'status' in record and record.get('status') and not record.get('date'):
+                        continue
                     # Create new record with defaults for app-managed fields
+                    # Use provided status if available, otherwise default to 'Pending'
+                    status_value = record.get('status', 'Pending')
                     new_order = DeliveryOrder(
                         do_number=do_number,
                         date=record.get('date'),
@@ -4138,8 +4173,8 @@ def sync_receive(request):
                         lpo=record.get('lpo'),
                         mobile_number=record.get('mobile_number'),  # From BusinessPartner.Cellular
                         invoice_number=record.get('invoice_number'),  # Usually None
-                        # App-managed fields use defaults:
-                        status='Pending',  # Default status
+                        # App-managed fields use defaults or provided values:
+                        status=status_value,  # Use provided status or default to 'Pending'
                         driver=None,  # Default driver
                         vehicle=None,  # Default vehicle
                         delivery_date=None,  # Default delivery_date
@@ -4155,11 +4190,22 @@ def sync_receive(request):
             
             # Bulk update existing records
             if to_update:
-                update_fields = ['date', 'customer_code', 'customer_name', 'city', 'area', 'salesman', 'amount', 'lpo', 'mobile_number']
-                DeliveryOrder.objects.bulk_update(to_update, fields=update_fields, batch_size=500)
+                # Base update fields (always updated if present)
+                base_update_fields = ['date', 'customer_code', 'customer_name', 'city', 'area', 'salesman', 'amount', 'lpo', 'mobile_number']
+                
+                # If this is a status-only payload, update only status.
+                if status_only_mode:
+                    fields_to_update = ['status']
+                else:
+                    # Include status in update fields if any record had status updates
+                    fields_to_update = base_update_fields.copy()
+                    if has_status_updates:
+                        fields_to_update.append('status')
+                
+                DeliveryOrder.objects.bulk_update(to_update, fields=fields_to_update, batch_size=500)
             
             # Process DeliveryItemWise records - only update if changed
-            if items_to_process:
+            if items_to_process and not status_only_mode:
                 synced_do_numbers = [do_num for do_num, _ in items_to_process]
                 
                 # Get existing items for all synced DOs

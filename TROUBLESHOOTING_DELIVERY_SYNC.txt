@@ -1,0 +1,59 @@
+================================================================================
+TROUBLESHOOTING DELIVERY ORDERS SYNC
+================================================================================
+
+ISSUE: Delivery Orders sync not starting while others work
+
+SOLUTION APPLIED:
+- Using venv's pythonw.exe (required for Django dependencies)
+- Set working directory with /D parameter
+- Using absolute paths for both pythonw.exe and script
+
+================================================================================
+WHY VENV'S PYTHONW.EXE?
+================================================================================
+
+Unlike the other sync scripts, delivery orders sync uses Django, which requires:
+- Django packages installed in venv
+- Django settings module
+- Database connections
+
+That's why we need: venv\Scripts\pythonw.exe
+Instead of: pythonw.exe (system Python)
+
+================================================================================
+IF STILL NOT WORKING - CHECK THESE:
+================================================================================
+
+1. Check if pythonw.exe exists:
+   dir "D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\venv\Scripts\pythonw.exe"
+
+2. Check if script exists:
+   dir "D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\run_sync_scheduler.py"
+
+3. Check if process is running:
+   tasklist | findstr pythonw
+
+4. Check logs for errors:
+   type "D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\logs\scheduler.log"
+
+5. Try running manually to see error:
+   cd "D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management"
+   venv\Scripts\pythonw.exe run_sync_scheduler.py
+
+================================================================================
+ALTERNATIVE: Use wrapper batch file
+================================================================================
+
+If the combined batch file doesn't work, create a separate wrapper:
+
+File: start_delivery_sync.bat
+---------------------------------
+@echo off
+cd /d "D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management"
+start "" venv\Scripts\pythonw.exe run_sync_scheduler.py
+
+Then in run_all_sync_services.bat, call:
+call "D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\start_delivery_sync.bat"
+
+================================================================================

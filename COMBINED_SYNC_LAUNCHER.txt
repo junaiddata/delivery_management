@@ -1,0 +1,90 @@
+================================================================================
+COMBINED SYNC SERVICES LAUNCHER
+================================================================================
+
+FILE: run_all_sync_services.bat
+
+This batch file runs ALL THREE sync services:
+1. Stock Sync Service (sync_stock_pc.py)
+2. Sales Orders Sync Service (sync_salesorders_pc.py)
+3. Delivery Orders Sync Service (run_sync_scheduler.py)
+
+================================================================================
+EXACT PATH FOR STARTUP:
+================================================================================
+
+D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\run_all_sync_services.bat
+
+================================================================================
+HOW TO ADD TO STARTUP:
+================================================================================
+
+METHOD 1: Startup Folder (Easiest)
+-----------------------------------
+1. Press Windows + R
+2. Type: shell:startup
+3. Press Enter
+4. Create a shortcut to:
+   D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\run_all_sync_services.bat
+
+METHOD 2: Task Scheduler (Recommended)
+---------------------------------------
+1. Open Task Scheduler (taskschd.msc)
+2. Create Basic Task
+3. Name: "All Sync Services"
+4. Trigger: "When the computer starts"
+5. Action: "Start a program"
+6. Program/script:
+   D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\run_all_sync_services.bat
+7. Check "Run whether user is logged on or not"
+8. Check "Run with highest privileges"
+
+================================================================================
+WHAT IT DOES:
+================================================================================
+
+1. Starts Stock Sync Service:
+   - Runs: sync_stock_pc.py (from current directory)
+   - Uses: pythonw.exe (background, no console)
+
+2. Starts Sales Orders Sync Service:
+   - Runs: D:\dataanalyst\salesorder-web\salesorder\sync_salesorders_pc.py
+   - Uses: pythonw.exe (background, no console)
+
+3. Starts Delivery Orders Sync Service:
+   - Runs: run_sync_scheduler.py (from delivery_management directory)
+   - Uses: venv\Scripts\pythonw.exe (background, no console)
+   - Syncs every 2 minutes automatically
+
+================================================================================
+HOW TO CHECK IF THEY'RE RUNNING:
+================================================================================
+
+1. Check for pythonw processes:
+   tasklist | findstr pythonw
+
+   You should see 3 pythonw.exe processes running
+
+2. Check Delivery Orders sync logs:
+   powershell -Command "Get-Content 'D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\logs\scheduler.log' -Tail 10"
+
+================================================================================
+HOW TO STOP ALL SERVICES:
+================================================================================
+
+Open Task Manager (Ctrl+Shift+Esc) and end all pythonw.exe processes
+
+Or use command:
+taskkill /F /IM pythonw.exe
+
+================================================================================
+NOTES:
+================================================================================
+
+- All services run in background (no console windows)
+- All use pythonw.exe for background execution
+- The batch file will show a brief console window when starting, then close
+- All services continue running in background after batch file closes
+- Perfect for Windows Startup!
+
+================================================================================

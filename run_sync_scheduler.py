@@ -20,14 +20,23 @@ log_dir = os.path.join(os.path.dirname(__file__), 'logs')
 os.makedirs(log_dir, exist_ok=True)
 
 log_file = os.path.join(log_dir, 'scheduler.log')
+
+# Remove all existing handlers to avoid duplicates
+logging.getLogger().handlers = []
+
+# Configure logging with file handler (pythonw doesn't have stdout)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(log_file, encoding='utf-8'),
-        logging.StreamHandler(sys.stdout)
-    ]
+        logging.FileHandler(log_file, encoding='utf-8', mode='a'),  # Append mode
+    ],
+    force=True  # Force reconfiguration
 )
+
+# Only add StreamHandler if running with python (not pythonw)
+if sys.executable.endswith('python.exe'):
+    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
 logger = logging.getLogger(__name__)
 
@@ -82,17 +91,27 @@ def run_sync():
 
 def main():
     """Main scheduler loop"""
-    logger.info("=" * 60)
-    logger.info("Sync Scheduler Started")
-    logger.info(f"Sync interval: {SYNC_INTERVAL} seconds ({SYNC_INTERVAL // 60} minutes)")
-    logger.info(f"Days back: {DAYS_BACK}")
-    logger.info(f"Manage.py path: {MANAGE_PY_PATH}")
-    logger.info("Press Ctrl+C to stop")
-    logger.info("=" * 60)
-    
-    # Verify manage.py exists
-    if not os.path.exists(MANAGE_PY_PATH):
-        logger.error(f"Error: manage.py not found at {MANAGE_PY_PATH}")
+    try:
+        logger.info("=" * 60)
+        logger.info("Sync Scheduler Started")
+        logger.info(f"Python executable: {sys.executable}")
+        logger.info(f"Working directory: {os.getcwd()}")
+        logger.info(f"Script directory: {os.path.dirname(__file__)}")
+        logger.info(f"Sync interval: {SYNC_INTERVAL} seconds ({SYNC_INTERVAL // 60} minutes)")
+        logger.info(f"Days back: {DAYS_BACK}")
+        logger.info(f"Manage.py path: {MANAGE_PY_PATH}")
+        logger.info("=" * 60)
+        
+        # Verify manage.py exists
+        if not os.path.exists(MANAGE_PY_PATH):
+            logger.error(f"Error: manage.py not found at {MANAGE_PY_PATH}")
+            logger.error(f"Current directory: {os.getcwd()}")
+            logger.error(f"Script directory: {os.path.dirname(__file__)}")
+            sys.exit(1)
+        
+        logger.info(f"Verified: manage.py exists at {MANAGE_PY_PATH}")
+    except Exception as e:
+        logger.error(f"Error during initialization: {str(e)}", exc_info=True)
         sys.exit(1)
     
     consecutive_failures = 0
@@ -119,6 +138,9 @@ def main():
         sys.exit(0)
     except Exception as e:
         logger.error(f"Unexpected error in scheduler: {str(e)}", exc_info=True)
+        # Log full traceback for debugging
+        import traceback
+        logger.error(f"Full traceback:\n{traceback.format_exc()}")
         sys.exit(1)
 
 

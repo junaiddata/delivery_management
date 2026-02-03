@@ -1,0 +1,73 @@
+================================================================================
+WHICH BATCH FILE TO USE - SIMPLIFIED GUIDE
+================================================================================
+
+✅ USE THIS FILE FOR STARTUP:
+   run_sync_scheduler.bat
+
+This is the ONLY file you need. It uses python.exe with output redirected,
+which is more reliable than pythonw.
+
+================================================================================
+EXACT PATH FOR WINDOWS STARTUP:
+================================================================================
+
+D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\run_sync_scheduler.bat
+
+================================================================================
+HOW TO ADD TO STARTUP:
+================================================================================
+
+METHOD 1: Startup Folder (Easiest)
+-----------------------------------
+1. Press Windows + R
+2. Type: shell:startup
+3. Press Enter
+4. Create a shortcut to:
+   D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\run_sync_scheduler.bat
+
+METHOD 2: Task Scheduler (Recommended for background service)
+-------------------------------------------------------------
+1. Open Task Scheduler (taskschd.msc)
+2. Create Basic Task
+3. Name: "Delivery Order Sync Scheduler"
+4. Trigger: "When the computer starts"
+5. Action: "Start a program"
+6. Program/script:
+   D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\run_sync_scheduler.bat
+7. Check "Run whether user is logged on or not"
+8. Check "Run with highest privileges"
+
+================================================================================
+HOW TO CHECK IF IT'S WORKING:
+================================================================================
+
+1. Check if Python process is running:
+   tasklist | findstr python.exe
+
+2. Check recent logs:
+   powershell -Command "Get-Content 'D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\logs\scheduler.log' -Tail 10"
+
+3. Check startup log:
+   type logs\scheduler_startup.log
+
+================================================================================
+LOG FILES:
+================================================================================
+
+Main scheduler log:
+D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\logs\scheduler.log
+
+Startup log:
+D:\dataanalyst\IMPORTANT\DO DATABASE BACKUP\do_complete_from_pa\delivery_management\logs\scheduler_startup.log
+
+================================================================================
+IMPORTANT NOTES:
+================================================================================
+
+- The scheduler runs every 2 minutes automatically
+- Logs are updated every 2 minutes when sync runs
+- If you see logs updating, it's working!
+- The batch file runs python.exe in the background (no visible window)
+
+================================================================================
