@@ -138,6 +138,10 @@ USE_TZ = True
 
 WHATSAPP_ACCESS_TOKEN = os.environ.get('WHATSAPP_ACCESS_TOKEN', '')
 WHATSAPP_PHONE_NUMBER_ID = '623707730818076'
+
+# Daily Reports Configuration
+DAILY_REPORTS_FOLDER = os.path.join(BASE_DIR, 'delivery_management', 'reports')
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.0/howto/static-files/
 
@@ -214,6 +218,21 @@ except Exception:
     # If sync_file handler can't be created, use console only
     pass
 
+try:
+    whatsapp_log_path = LOG_DIR / "whatsapp.log"
+    # Test if we can write to this path
+    handlers["whatsapp_file"] = {
+        "level": "INFO",
+        "class": "logging.handlers.RotatingFileHandler",
+        "filename": str(whatsapp_log_path),
+        "maxBytes": 10 * 1024 * 1024,  # 10MB
+        "backupCount": 5,
+        "formatter": "verbose",
+    }
+except Exception:
+    # If whatsapp_file handler can't be created, use console only
+    pass
+
 # Determine which handlers to use for sync loggers
 sync_handlers = ["console"]
 if "sync_file" in handlers:
@@ -242,6 +261,11 @@ LOGGING = {
         },
         "orders.management.commands.sync_delivery_orders": {
             "handlers": sync_handlers,
+            "level": "INFO",
+            "propagate": False,
+        },
+        "orders.views": {
+            "handlers": ["whatsapp_file", "console"] if "whatsapp_file" in handlers else ["console"],
             "level": "INFO",
             "propagate": False,
         },
