@@ -133,6 +133,15 @@ class Command(BaseCommand):
         # Step 4: SERIALIZE for JSON (dates -> strings)
         serialized = serialize_for_json(mapped)
         
+        # Validate serialized data before sending
+        if serialized:
+            # Check for required fields in first record
+            first_record = serialized[0]
+            required_fields = ['do_number', 'date', 'customer_code', 'customer_name']
+            missing_fields = [field for field in required_fields if field not in first_record or first_record.get(field) is None]
+            if missing_fields:
+                self.stdout.write(self.style.WARNING(f"Warning: Some records may be missing required fields: {missing_fields}"))
+        
         # Step 5: SAVE DATA
         if options['save_local']:
             # Save directly to local database
@@ -161,8 +170,16 @@ class Command(BaseCommand):
                 }
             }
             
+            # Validate we have records to send
+            if not serialized:
+                self.stdout.write(self.style.WARNING('No records to send to VPS'))
+                return
+            
             try:
                 self.stdout.write(f'Sending {len(serialized)} records to VPS: {vps_url}')
+                # Log first record structure for debugging
+                if serialized:
+                    logger.debug(f"Sample record keys: {list(serialized[0].keys())}")
                 response = requests.post(
                     vps_url,
                     json=payload,
@@ -180,7 +197,28 @@ class Command(BaseCommand):
                         f"Errors: {stats.get('errors', 0)}"
                     ))
                 else:
-                    self.stdout.write(self.style.ERROR(f"[ERROR] Sync failed: {result.get('error', 'Unknown error')}"))
+                    error_msg = result.get('error', 'Unknown error')
+                    self.stdout.write(self.style.ERROR(f"[ERROR] Sync failed: {error_msg}"))
+                    logger.error(f"VPS sync failed: {error_msg}")
+                    
+            except requests.exceptions.HTTPError as e:
+                # Capture response body for HTTP errors (400, 401, 500, etc.)
+                error_details = f"{e}"
+                try:
+                    if e.response is not None:
+                        error_body = e.response.text
+                        error_details = f"{e} - Response: {error_body}"
+                        # Try to parse JSON error response
+                        try:
+                            error_json = e.response.json()
+                            if 'error' in error_json:
+                                error_details = f"{e} - Error: {error_json.get('error')}"
+                        except:
+                            pass
+                except:
+                    pass
+                self.stdout.write(self.style.ERROR(f"[ERROR] HTTP Error sending to VPS: {error_details}"))
+                logger.error(f"VPS sync HTTP error: {error_details}")
                     
             except requests.exceptions.RequestException as e:
                 self.stdout.write(self.style.ERROR(f"[ERROR] Error sending to VPS: {e}"))

@@ -4037,32 +4037,7 @@ def sync_receive(request):
         "sync_metadata": {...}
     }
     """
-    try:
-        # Parse JSON payload
-        data = json.loads(request.body)
-    except json.JSONDecodeError as e:
-        return JsonResponse({
-            'success': False,
-            'error': f'Invalid JSON: {str(e)}'
-        }, status=400)
-    
-    # Verify API key
-    api_key = data.get('api_key')
-    expected_key = getattr(settings, 'VPS_API_KEY', '')
-    
-    if not expected_key or api_key != expected_key:
-        return JsonResponse({
-            'success': False,
-            'error': 'Invalid API key'
-        }, status=401)
-    
-    records = data.get('records', [])
-    if not records:
-        return JsonResponse({
-            'success': False,
-            'error': 'No records provided'
-        }, status=400)
-    
+    # Initialize stats early for error handling
     stats = {
         'created': 0,
         'updated': 0,
@@ -4071,6 +4046,51 @@ def sync_receive(request):
         'items_updated': 0,
         'items_deleted': 0
     }
+    
+    try:
+        # Check if request body exists
+        if not hasattr(request, 'body') or not request.body:
+            return JsonResponse({
+                'success': False,
+                'error': 'Empty request body'
+            }, status=400)
+        
+        # Parse JSON payload
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error: {e}, Body length: {len(request.body) if request.body else 0}")
+            return JsonResponse({
+                'success': False,
+                'error': f'Invalid JSON: {str(e)}'
+            }, status=400)
+    except Exception as e:
+        logger.error(f"Error parsing request: {e}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': f'Request parsing error: {str(e)}'
+        }, status=400)
+    
+    # Verify API key
+    api_key = data.get('api_key')
+    expected_key = getattr(settings, 'VPS_API_KEY', '')
+    
+    if not expected_key or api_key != expected_key:
+        logger.warning(f"Invalid API key attempt. Expected: {expected_key[:10] if expected_key else 'None'}..., Got: {api_key[:10] if api_key else 'None'}...")
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid API key'
+        }, status=401)
+    
+    records = data.get('records', [])
+    if not records:
+        logger.warning("No records provided in sync request")
+        return JsonResponse({
+            'success': False,
+            'error': 'No records provided'
+        }, status=400)
+    
+    logger.info(f"Received sync request with {len(records)} records")
     
     errors = []
     

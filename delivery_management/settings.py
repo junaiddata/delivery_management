@@ -139,6 +139,10 @@ USE_TZ = True
 WHATSAPP_ACCESS_TOKEN = os.environ.get('WHATSAPP_ACCESS_TOKEN', '')
 WHATSAPP_PHONE_NUMBER_ID = '623707730818076'
 
+# Increase request size limits for large sync operations
+DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50MB (default is 2.5MB)
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000  # Increase field limit for large records
+
 # Daily Reports Configuration
 DAILY_REPORTS_FOLDER = os.path.join(BASE_DIR, 'delivery_management', 'reports')
 
