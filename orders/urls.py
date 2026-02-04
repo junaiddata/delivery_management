@@ -10,6 +10,7 @@ urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard'),
     path('vehicles/', views.vehicle_list, name='vehicle_list'),
     path('orders/', views.order_list, name='order_list'),
+    path('orders/non-one/', views.non_one_order_list, name='non_one_order_list'),
     path('orders/search/', views.order_search, name='order_search'),  # New URL for AJAX search
     path('upload/', views.upload_file, name='upload_file'),
     path('vehicles/<int:vehicle_id>/update/', views.update_vehicle, name='update_vehicle'),

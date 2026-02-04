@@ -368,6 +368,99 @@ def order_list(request):
     })
 
 @login_required
+@role_required('Admin', 'Junaid Admin')
+def non_one_order_list(request):
+    """
+    View to display Delivery Orders that do NOT start with "1"
+    """
+    # Check if the 'hide_delivered' parameter is present in the request
+    hide_delivered = request.GET.get('hide_delivered', 'false').lower() == 'true'
+
+    # Start with orders that do NOT start with "1" - Sort by date (descending) then by do_number (descending - highest first)
+    orders = DeliveryOrder.objects.exclude(do_number__startswith='1').order_by('-date', '-do_number')
+
+    # Filter by date if provided
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+
+    if from_date and to_date:
+        orders = orders.filter(date__range=[from_date, to_date])
+    elif from_date:
+        orders = orders.filter(date__gte=from_date)
+    elif to_date:
+        orders = orders.filter(date__lte=to_date)
+    date_filter = request.GET.get('date')
+    if date_filter:
+        orders = orders.filter(date=date_filter)
+
+    # Filter by status if provided
+    status_filter = request.GET.get('status')
+    if status_filter == "delivered_group":
+        orders = orders.filter(status__in=["Delivered", "Received by A/c"])
+    elif status_filter:
+        orders = orders.filter(status=status_filter)
+
+    driver_filter = request.GET.get('driver')
+    if driver_filter:
+        orders = orders.filter(driver=driver_filter)
+
+    salesman = request.GET.get('salesman')
+    if salesman:
+        orders = orders.filter(salesman=salesman)
+
+    city = request.GET.get('city')
+    if city:
+        orders = orders.filter(city=city)
+
+    # Apply search query
+    search_query = request.GET.get('search_query', '').strip()
+    if search_query:
+        # Filter by DO Number, Customer Name, or Mobile
+        orders = orders.filter(
+            models.Q(do_number__icontains=search_query) |
+            models.Q(customer_name__icontains=search_query) |
+            models.Q(mobile_number__icontains=search_query)  |
+            models.Q(invoice_number__icontains=search_query)
+        )
+
+    # Get distinct values for filters (only from non-one DOs)
+    salesmen = DeliveryOrder.objects.exclude(do_number__startswith='1').values_list('salesman', flat=True).distinct()
+    citys = DeliveryOrder.objects.exclude(do_number__startswith='1').values_list('city', flat=True).distinct()
+
+    vehicle_filter = request.GET.get('vehicle')
+    if vehicle_filter:
+        orders = orders.filter(vehicle_id=vehicle_filter)
+    # Pagination - Show 300 orders per page
+    paginator = Paginator(orders, 300)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # Counts for non-one DOs only
+    docount = DeliveryOrder.objects.exclude(do_number__startswith='1').count()
+    pending_count = orders.filter(status='Pending').count()
+    delivered_count = orders.filter(status__in=['Delivered','Received by A/c']).count()
+    out_for_delivery_count = orders.filter(status="Out for Delivery").count()
+    onhold_count = orders.filter(status="On Hold").count()
+
+    vehicles = Vehicle.objects.all()
+    return render(request, 'orders/non_one_order_list.html', {
+        'orders': page_obj,
+        'vehicles': vehicles,
+        'hide_delivered': hide_delivered,
+        'docount': docount,
+        'pending_count': pending_count,
+        'delivered_count': delivered_count,
+        'out_for_delivery_count': out_for_delivery_count,
+        'onhold_count': onhold_count,
+        'salesmen': salesmen,
+        'citys': citys,
+        'selected_salesman': salesman,
+        'selected_city': city,
+        'selected_vehicle': vehicle_filter,
+        'search_query': search_query,
+    })
+
+@login_required
 @role_required('Admin')
 def update_order(request, do_number):
     # Use get_object_or_404 to fetch the order by do_number

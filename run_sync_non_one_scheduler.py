@@ -1,5 +1,5 @@
 """
-Scheduler script to run sync_delivery_orders command every 2 minutes
+Scheduler script to run sync_non_one_delivery_orders command every 60 minutes
 Can be run as a background service or daemon
 """
 import os
@@ -19,7 +19,7 @@ if sys.platform == 'win32':
 log_dir = os.path.join(os.path.dirname(__file__), 'logs')
 os.makedirs(log_dir, exist_ok=True)
 
-log_file = os.path.join(log_dir, 'scheduler.log')
+log_file = os.path.join(log_dir, 'non_one_scheduler.log')
 
 # Remove all existing handlers to avoid duplicates
 logging.getLogger().handlers = []
@@ -41,7 +41,7 @@ if sys.executable.endswith('python.exe'):
 logger = logging.getLogger(__name__)
 
 # Configuration
-SYNC_INTERVAL = 120  # 2 minutes in seconds
+SYNC_INTERVAL = 3600  # 60 minutes in seconds
 DAYS_BACK = 3  # Number of days to sync
 MANAGE_PY_PATH = os.path.join(os.path.dirname(__file__), 'manage.py')
 
@@ -50,11 +50,11 @@ def run_sync():
     """Run the sync command"""
     try:
         logger.info("=" * 60)
-        logger.info(f"Starting sync at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"Starting non-one DO sync at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         
         # Run the sync command
         result = subprocess.run(
-            [sys.executable, MANAGE_PY_PATH, 'sync_delivery_orders', '--days-back', str(DAYS_BACK)],
+            [sys.executable, MANAGE_PY_PATH, 'sync_non_one_delivery_orders', '--days-back', str(DAYS_BACK)],
             capture_output=True,
             text=True,
             encoding='utf-8',
@@ -63,14 +63,14 @@ def run_sync():
         )
         
         if result.returncode == 0:
-            logger.info("Sync completed successfully")
+            logger.info("Non-one DO sync completed successfully")
             if result.stdout:
                 # Log important output lines
                 for line in result.stdout.split('\n'):
                     if '[OK]' in line or 'Successfully' in line or 'Updated' in line or 'Created' in line or 'Sync successful' in line:
                         logger.info(f"  {line.strip()}")
         else:
-            logger.error(f"Sync failed with return code {result.returncode}")
+            logger.error(f"Non-one DO sync failed with return code {result.returncode}")
             if result.stderr:
                 logger.error(f"Error: {result.stderr}")
             if result.stdout:
@@ -84,16 +84,16 @@ def run_sync():
                         else:
                             logger.info(f"  {line.strip()}")
         
-        logger.info(f"Sync finished at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"Non-one DO sync finished at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         logger.info("=" * 60)
         
         return result.returncode == 0
         
     except subprocess.TimeoutExpired:
-        logger.error("Sync command timed out after 5 minutes")
+        logger.error("Non-one DO sync command timed out after 5 minutes")
         return False
     except Exception as e:
-        logger.error(f"Error running sync: {str(e)}", exc_info=True)
+        logger.error(f"Error running non-one DO sync: {str(e)}", exc_info=True)
         return False
 
 
@@ -101,7 +101,7 @@ def main():
     """Main scheduler loop"""
     try:
         logger.info("=" * 60)
-        logger.info("Sync Scheduler Started")
+        logger.info("Non-One DO Sync Scheduler Started")
         logger.info(f"Python executable: {sys.executable}")
         logger.info(f"Working directory: {os.getcwd()}")
         logger.info(f"Script directory: {os.path.dirname(__file__)}")
@@ -138,7 +138,7 @@ def main():
                     sys.exit(1)
             
             # Wait for next sync
-            logger.info(f"Waiting {SYNC_INTERVAL} seconds until next sync...")
+            logger.info(f"Waiting {SYNC_INTERVAL} seconds ({SYNC_INTERVAL // 60} minutes) until next sync...")
             time.sleep(SYNC_INTERVAL)
             
     except KeyboardInterrupt:

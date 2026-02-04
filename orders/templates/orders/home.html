@@ -848,6 +848,16 @@
                                     </div>
                                     <span class="action-btn-arrow">→</span>
                                 </a>
+                                <a href="{% url 'non_one_order_list' %}" class="action-btn">
+                                    <div class="action-btn-content">
+                                        <div class="action-btn-icon">🏪</div>
+                                        <div class="action-btn-text">
+                                            <h3>Store DOs</h3>
+                                            <p>View Store DOs</p>
+                                        </div>
+                                    </div>
+                                    <span class="action-btn-arrow">→</span>
+                                </a>
                             {% elif user.role.role == 'Warehouse' %}
                                 <a href="{% url 'vehicle_list' %}" class="action-btn">
                                     <div class="action-btn-content">

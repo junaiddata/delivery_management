@@ -1,6 +1,6 @@
 {% extends 'orders/base.html' %}
 
-{% block title %}DO List (Non-One){% endblock %}
+{% block title %}Store DOs{% endblock %}
 
 {% block content %}
 <style>
@@ -411,11 +411,11 @@
     <!-- Header -->
     <div class="page-header">
         <div>
-            <h1 class="page-title">Delivery Orders</h1>
-            <span class="total-count">Total: {{ docount }} orders</span>
+            <h1 class="page-title">Store DOs</h1>
+            <span class="total-count">Total: {{ docount }} Store orders </span>
         </div>
         
-        <!-- Status Badges -->
+        <!-- Status Badges
         <div class="status-badges">
             <div class="status-badge badge-pending">
                 <span class="count">{{ pending_count }}</span>
@@ -434,19 +434,16 @@
                 <span>Delivered</span>
             </div>
         </div>
-    </div>
+    </div> -->
     
-    <!-- Quick Actions -->
+    <!-- Quick Actions
     <div class="quick-actions">
+        <a href="{% url 'order_list' %}" class="btn btn-primary">Regular DOs</a>
         <a href="{% url 'customer_frequency_simple' %}" class="btn btn-success">Customer Stats</a>
-        <!-- <a href="{% url 'password_gate' %}" class="btn btn-danger">Finance</a> -->
         <a href="{% url 'cancelled_do' %}" class="btn btn-secondary">Cancelled</a>
         <a href="{% url 'transfer_list' %}" class="btn btn-info">Transfers</a>
         <a href="{% url 'export_orders_to_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success">Export</a>
-        <a href="{% url 'transfer_upload_file' %}" class="btn btn-warning">Upload Transfers</a>
-        <a href="{% url 'upload_file' %}" class="btn btn-primary">Upload DO</a>
-        <a href="https://junaiddataanalyst.pythonanywhere.com" target="_blank" class="btn btn-dark">Stock</a>
-    </div>
+    </div> -->
     
     <!-- Filters -->
     <div class="filters-card">
@@ -463,50 +460,11 @@
                 </div>
                 
                 <div class="filter-group">
-                    <label>Status</label>
-                    <select name="status">
-                        <option value="">All</option>
-                        <option value="Out for Delivery" {% if request.GET.status == 'Out for Delivery' %}selected{% endif %}>Out for Delivery</option>
-                        <option value="Pending" {% if request.GET.status == 'Pending' %}selected{% endif %}>Pending</option>
-                        <option value="Partial Delivery" {% if request.GET.status == 'Partial Delivery' %}selected{% endif %}>Partial</option>
-                        <option value="Loaded" {% if request.GET.status == 'Loaded' %}selected{% endif %}>Loaded</option>
-                        <option value="Cancelled" {% if request.GET.status == 'Cancelled' %}selected{% endif %}>Cancelled</option>
-                        <option value="Received by A/c" {% if request.GET.status == 'Received by A/c' %}selected{% endif %}>Received</option>
-                        <option value="Not Delivered" {% if request.GET.status == 'Not Delivered' %}selected{% endif %}>Not Delivered</option>
-                        <option value="On Hold" {% if request.GET.status == 'On Hold' %}selected{% endif %}>On Hold</option>
-                        <option value="GRV" {% if request.GET.status == 'GRV' %}selected{% endif %}>GRV</option>
-                        <option value="delivered_group" {% if request.GET.status == 'delivered_group' %}selected{% endif %}>Delivered</option>
-                    </select>
-                </div>
-                
-                <div class="filter-group">
-                    <label>Driver</label>
-                    <select name="driver">
-                        <option value="">All</option>
-                        <option value="Usman" {% if request.GET.driver == 'Usman' %}selected{% endif %}>Usman</option>
-                        <option value="Sayyam" {% if request.GET.driver == 'Sayyam' %}selected{% endif %}>Sayyam</option>
-                        <option value="Nizar" {% if request.GET.driver == 'Nizar' %}selected{% endif %}>Nizar</option>
-                        <option value="Fakheer" {% if request.GET.driver == 'Fakheer' %}selected{% endif %}>Fakheer</option>
-                        <option value="Acharuddin" {% if request.GET.driver == 'Acharuddin' %}selected{% endif %}>Acharuddin</option>
-                    </select>
-                </div>
-                
-                <div class="filter-group">
                     <label>Salesman</label>
                     <select name="salesman">
                         <option value="">All</option>
                         {% for salesman in salesmen %}
                             <option value="{{ salesman }}" {% if request.GET.salesman == salesman %}selected{% endif %}>{{ salesman }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="filter-group">
-                    <label>Vehicle</label>
-                    <select name="vehicle">
-                        <option value="">All</option>
-                        {% for vehicle in vehicles %}
-                            <option value="{{ vehicle.id }}" {% if request.GET.vehicle == vehicle.id|stringformat:"s" %}selected{% endif %}>{{ vehicle.vehicle_number }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -528,7 +486,7 @@
                 
                 <div class="filter-buttons">
                     <button type="submit" class="btn btn-primary" id="filterBtn">Filter</button>
-                    <a href="{% url 'order_list' %}" class="btn btn-secondary">Reset</a>
+                    <a href="{% url 'non_one_order_list' %}" class="btn btn-secondary">Reset</a>
                 </div>
             </div>
         </form>
@@ -548,10 +506,6 @@
                         <th>Salesman</th>
                         <th>City</th>
                         <th>Area</th>
-                        <th>Vehicle</th>
-                        <th>Driver</th>
-                        <th>Status</th>
-                        <th>Delivered</th>
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -570,30 +524,11 @@
                         <td class="cell-salesman" title="{{ order.salesman }}">{{ order.salesman|default:"-" }}</td>
                         <td class="cell-city" title="{{ order.city }}">{{ order.city|default:"-" }}</td>
                         <td class="cell-area" title="{{ order.area }}">{{ order.area|default:"-" }}</td>
-                        <td class="cell-vehicle">{{ order.vehicle.vehicle_number|default:"-" }}</td>
-                        <td class="cell-driver">{{ order.driver|default:"-" }}</td>
-                        <td>
-                            <span class="status-pill 
-                                {% if order.status == 'Pending' %}status-pending
-                                {% elif order.status == 'Loaded' %}status-loaded
-                                {% elif order.status == 'Out for Delivery' %}status-outdelivery
-                                {% elif order.status == 'Delivered' %}status-delivered
-                                {% elif order.status == 'Partial Delivery' %}status-partial
-                                {% elif order.status == 'Not Delivered' %}status-notdelivered
-                                {% elif order.status == 'Cancelled' %}status-cancelled
-                                {% elif order.status == 'Received by A/c' %}status-received
-                                {% elif order.status == 'On Hold' %}status-onhold
-                                {% elif order.status == 'GRV' %}status-grv
-                                {% endif %}">
-                                {{ order.status }}
-                            </span>
-                        </td>
-                        <td class="cell-delivery-date">{{ order.delivery_date|date:"d-M H:i"|default:"-" }}</td>
                         <td><a href="#" class="btn-edit" data-do-number="{{ order.do_number }}" onclick="openEditModal('{{ order.do_number }}'); return false;">Edit</a></td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="13" style="text-align: center; padding: 2rem; color: #64748b;">No orders found</td>
+                        <td colspan="9" style="text-align: center; padding: 2rem; color: #64748b;">No orders found</td>
                     </tr>
                     {% endfor %}
                 </tbody>

@@ -313,26 +313,39 @@ class SAPAPIClient:
         logger.info(f"Fetched {len(all_records)} unique delivery orders from last {days_back} days")
         return all_records
     
-    def _filter_records(self, records):
+    def _filter_records(self, records, exclude_one_prefix=False):
         """
         Apply business filters to records
         
         Args:
             records: List of API records
+            exclude_one_prefix: If True, filter to exclude DOs starting with "1"
+                              If False (default), filter to only include DOs starting with "1"
             
         Returns:
             Filtered list of records
         """
-        # Filter: Only sync DOs where do_number (DocNum) starts with "1"
         filtered = []
         for record in records:
             docnum = str(record.get('DocNum', ''))
-            if docnum and docnum.startswith('1'):
-                filtered.append(record)
+            if not docnum:
+                continue
+                
+            if exclude_one_prefix:
+                # Filter: Only sync DOs NOT starting with "1"
+                if not docnum.startswith('1'):
+                    filtered.append(record)
+                else:
+                    logger.debug(f"Skipping DO {docnum} - starts with '1' (excluded)")
             else:
-                logger.debug(f"Skipping DO {docnum} - does not start with '1'")
+                # Filter: Only sync DOs where do_number (DocNum) starts with "1"
+                if docnum.startswith('1'):
+                    filtered.append(record)
+                else:
+                    logger.debug(f"Skipping DO {docnum} - does not start with '1'")
         
-        logger.info(f"Filtered {len(records)} records to {len(filtered)} (only DO numbers starting with '1')")
+        filter_desc = "DOs NOT starting with '1'" if exclude_one_prefix else "DOs starting with '1'"
+        logger.info(f"Filtered {len(records)} records to {len(filtered)} ({filter_desc})")
         return filtered
     
     def _map_api_to_model(self, api_record):
