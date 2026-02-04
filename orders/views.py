@@ -278,8 +278,8 @@ def order_list(request):
     # Check if the 'hide_delivered' parameter is present in the request
     hide_delivered = request.GET.get('hide_delivered', 'false').lower() == 'true'
 
-    # Start with all orders - Sort by date (descending) then by do_number (descending - highest first)
-    orders = DeliveryOrder.objects.all().order_by('-date', '-do_number')
+    # Only DOs starting with "1" - Sort by date (descending) then by do_number (descending - highest first)
+    orders = DeliveryOrder.objects.filter(do_number__startswith='1').order_by('-date', '-do_number')
 
     # Filter by hide_delivered
     # if hide_delivered:
@@ -331,8 +331,9 @@ def order_list(request):
         )
 
 
-    salesmen = DeliveryOrder.objects.values_list('salesman', flat=True).distinct()
-    citys = DeliveryOrder.objects.values_list('city', flat=True).distinct()
+    # Filter dropdown values should match the same dataset (only DOs starting with "1")
+    salesmen = DeliveryOrder.objects.filter(do_number__startswith='1').values_list('salesman', flat=True).distinct()
+    citys = DeliveryOrder.objects.filter(do_number__startswith='1').values_list('city', flat=True).distinct()
 
     vehicle_filter = request.GET.get('vehicle')
     if vehicle_filter:
@@ -342,7 +343,7 @@ def order_list(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    docount=DeliveryOrder.objects.all().count()
+    docount = DeliveryOrder.objects.filter(do_number__startswith='1').count()
     pending_count = orders.filter(status='Pending').count()
     delivered_count = orders.filter(status__in=['Delivered','Received by A/c']).count()
     out_for_delivery_count=orders.filter(status="Out for Delivery").count()
