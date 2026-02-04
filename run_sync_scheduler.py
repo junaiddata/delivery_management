@@ -47,13 +47,14 @@ MANAGE_PY_PATH = os.path.join(os.path.dirname(__file__), 'manage.py')
 
 
 def run_sync():
-    """Run the sync command"""
+    """Run the sync commands (DO sync first, then invoice sync)"""
     try:
         logger.info("=" * 60)
         logger.info(f"Starting sync at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         
-        # Run the sync command
-        result = subprocess.run(
+        # Step 1: Run DO sync command
+        logger.info("Running DO sync...")
+        do_sync_result = subprocess.run(
             [sys.executable, MANAGE_PY_PATH, 'sync_delivery_orders', '--days-back', str(DAYS_BACK)],
             capture_output=True,
             text=True,
@@ -62,21 +63,58 @@ def run_sync():
             timeout=300  # 5 minute timeout
         )
         
-        if result.returncode == 0:
-            logger.info("Sync completed successfully")
-            if result.stdout:
+        do_success = False
+        if do_sync_result.returncode == 0:
+            logger.info("DO sync completed successfully")
+            if do_sync_result.stdout:
                 # Log important output lines
-                for line in result.stdout.split('\n'):
+                for line in do_sync_result.stdout.split('\n'):
                     if '[OK]' in line or 'Successfully' in line or 'Updated' in line or 'Created' in line or 'Sync successful' in line:
                         logger.info(f"  {line.strip()}")
+            do_success = True
         else:
-            logger.error(f"Sync failed with return code {result.returncode}")
-            if result.stderr:
-                logger.error(f"Error: {result.stderr}")
-            if result.stdout:
+            logger.error(f"DO sync failed with return code {do_sync_result.returncode}")
+            if do_sync_result.stderr:
+                logger.error(f"Error: {do_sync_result.stderr}")
+            if do_sync_result.stdout:
                 # Log all output for debugging, especially error details
-                logger.error("Sync output:")
-                for line in result.stdout.split('\n'):
+                logger.error("DO sync output:")
+                for line in do_sync_result.stdout.split('\n'):
+                    if line.strip():
+                        # Highlight error lines
+                        if '[ERROR]' in line or 'Error' in line or 'error' in line or 'HTTP Error' in line:
+                            logger.error(f"  {line.strip()}")
+                        else:
+                            logger.info(f"  {line.strip()}")
+        
+        # Step 2: Run invoice sync command (after DO sync)
+        logger.info("Running invoice sync...")
+        invoice_sync_result = subprocess.run(
+            [sys.executable, MANAGE_PY_PATH, 'sync_do_invoices', '--days-back', str(DAYS_BACK)],
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='replace',  # Replace encoding errors instead of failing
+            timeout=300  # 5 minute timeout
+        )
+        
+        invoice_success = False
+        if invoice_sync_result.returncode == 0:
+            logger.info("Invoice sync completed successfully")
+            if invoice_sync_result.stdout:
+                # Log important output lines
+                for line in invoice_sync_result.stdout.split('\n'):
+                    if '[OK]' in line or 'Successfully' in line or 'Updated' in line or 'Sync successful' in line:
+                        logger.info(f"  {line.strip()}")
+            invoice_success = True
+        else:
+            logger.error(f"Invoice sync failed with return code {invoice_sync_result.returncode}")
+            if invoice_sync_result.stderr:
+                logger.error(f"Error: {invoice_sync_result.stderr}")
+            if invoice_sync_result.stdout:
+                # Log all output for debugging, especially error details
+                logger.error("Invoice sync output:")
+                for line in invoice_sync_result.stdout.split('\n'):
                     if line.strip():
                         # Highlight error lines
                         if '[ERROR]' in line or 'Error' in line or 'error' in line or 'HTTP Error' in line:
@@ -85,9 +123,11 @@ def run_sync():
                             logger.info(f"  {line.strip()}")
         
         logger.info(f"Sync finished at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"DO sync: {'Success' if do_success else 'Failed'}, Invoice sync: {'Success' if invoice_success else 'Failed'}")
         logger.info("=" * 60)
         
-        return result.returncode == 0
+        # Return True only if both syncs succeeded
+        return do_success and invoice_success
         
     except subprocess.TimeoutExpired:
         logger.error("Sync command timed out after 5 minutes")
@@ -101,13 +141,14 @@ def main():
     """Main scheduler loop"""
     try:
         logger.info("=" * 60)
-        logger.info("Sync Scheduler Started")
+        logger.info("Sync Scheduler Started (DO Sync + Invoice Sync)")
         logger.info(f"Python executable: {sys.executable}")
         logger.info(f"Working directory: {os.getcwd()}")
         logger.info(f"Script directory: {os.path.dirname(__file__)}")
         logger.info(f"Sync interval: {SYNC_INTERVAL} seconds ({SYNC_INTERVAL // 60} minutes)")
         logger.info(f"Days back: {DAYS_BACK}")
         logger.info(f"Manage.py path: {MANAGE_PY_PATH}")
+        logger.info("Sync sequence: 1) DO Sync, 2) Invoice Sync")
         logger.info("=" * 60)
         
         # Verify manage.py exists

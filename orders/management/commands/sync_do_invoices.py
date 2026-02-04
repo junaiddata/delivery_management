@@ -341,6 +341,11 @@ class Command(BaseCommand):
         
         try:
             self.stdout.write(f'Sending {len(updated_orders)} invoice updates to VPS: {vps_url}')
+            # Debug: Log sample of what we're sending
+            if updated_orders:
+                sample = updated_orders[0]
+                logger.debug(f"Sample invoice update: DO={sample.get('do_number')}, Invoice={sample.get('invoice_number')}, Amount={sample.get('amount')}")
+            
             response = requests.post(
                 vps_url,
                 json=payload,
@@ -356,10 +361,13 @@ class Command(BaseCommand):
                     f"[OK] VPS sync successful! Updated: {vps_stats.get('updated', 0)}, "
                     f"Errors: {vps_stats.get('errors', 0)}"
                 ))
+                # Debug: Log response details
+                logger.info(f"VPS response: {result}")
             else:
                 error_msg = result.get('error', 'Unknown error')
                 self.stdout.write(self.style.ERROR(f"[ERROR] VPS sync failed: {error_msg}"))
                 logger.error(f"VPS sync failed: {error_msg}")
+                logger.error(f"VPS response: {result}")
                 
         except requests.exceptions.HTTPError as e:
             error_details = f"{e}"

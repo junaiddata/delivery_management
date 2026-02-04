@@ -4188,8 +4188,15 @@ def sync_receive(request):
     
     errors = []
     
+    # Extract sync metadata early for invoice sync detection
+    sync_metadata = data.get('sync_metadata', {})
+    sync_type = sync_metadata.get('sync_type', 'normal')
+    update_only_mode = sync_metadata.get('update_only', False)
+    
     # Check if any record has status field (before processing modifies records)
     has_status_updates = any(isinstance(r, dict) and 'status' in r and r.get('status') for r in records)
+    # Check if any record has invoice_number field (before processing modifies records)
+    has_invoice_in_payload = any(isinstance(r, dict) and 'invoice_number' in r and r.get('invoice_number') is not None and str(r.get('invoice_number')).strip() != '' for r in records)
     # Detect "status-only" payloads (used by cancelled-status sync): only do_number + status (+ optional document_lines)
     status_only_mode = all(
         isinstance(r, dict)
@@ -4273,7 +4280,17 @@ def sync_receive(request):
                     
                     # If invoice_number is provided, include it in updates (for invoice sync)
                     if 'invoice_number' in record:
-                        update_fields.append('invoice_number')
+                        invoice_val = record.get('invoice_number')
+                        # Always set invoice_number if it's in the record (even if None/empty)
+                        if invoice_val is not None and str(invoice_val).strip() != '':
+                            setattr(obj, 'invoice_number', str(invoice_val).strip())
+                            logger.debug(f"Setting invoice_number for DO {do_number}: {invoice_val}")
+                        else:
+                            # Set to None if explicitly provided as None/empty
+                            setattr(obj, 'invoice_number', None)
+                            logger.debug(f"Setting invoice_number to None for DO {do_number}")
+                        # Mark that this object needs invoice_number update
+                        obj._needs_invoice_update = True
                     
                     for field in update_fields:
                         if field in record:
@@ -4338,17 +4355,24 @@ def sync_receive(request):
                         fields_to_update.append('status')
                     
                     # Check if any record has invoice_number (for invoice sync)
-                    # Check both in records and in to_update objects to be safe
-                    has_invoice_updates = any(
-                        isinstance(r, dict) and 'invoice_number' in r and r.get('invoice_number') is not None and r.get('invoice_number') != ''
-                        for r in records
-                    ) or any(
-                        hasattr(obj, 'invoice_number') and obj.invoice_number is not None and obj.invoice_number != ''
-                        for obj in to_update
-                    )
-                    if has_invoice_updates:
+                    # Use the flag we set earlier (has_invoice_in_payload), or check objects directly
+                    if has_invoice_in_payload:
+                        # If invoice_number was in the payload, always include it in bulk_update
                         fields_to_update.append('invoice_number')
-                        logger.info(f"Invoice updates detected: {len([r for r in records if isinstance(r, dict) and r.get('invoice_number')])} records with invoice_number")
+                        invoice_count = len([obj for obj in to_update if hasattr(obj, '_needs_invoice_update') and obj._needs_invoice_update])
+                        logger.info(f"Invoice updates detected: {invoice_count} orders with invoice_number. Fields to update: {fields_to_update}")
+                    else:
+                        # Fallback: check objects directly
+                        has_invoice_on_objects = any(
+                            hasattr(obj, '_needs_invoice_update') and obj._needs_invoice_update
+                            for obj in to_update
+                        ) or any(
+                            hasattr(obj, 'invoice_number') and obj.invoice_number is not None and str(obj.invoice_number).strip() != ''
+                            for obj in to_update
+                        )
+                        if has_invoice_on_objects:
+                            fields_to_update.append('invoice_number')
+                            logger.info(f"Invoice_number found on objects. Adding invoice_number to update fields.")
                 
                 DeliveryOrder.objects.bulk_update(to_update, fields=fields_to_update, batch_size=500)
             
