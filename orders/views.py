@@ -4338,12 +4338,17 @@ def sync_receive(request):
                         fields_to_update.append('status')
                     
                     # Check if any record has invoice_number (for invoice sync)
+                    # Check both in records and in to_update objects to be safe
                     has_invoice_updates = any(
-                        isinstance(r, dict) and 'invoice_number' in r and r.get('invoice_number') is not None
+                        isinstance(r, dict) and 'invoice_number' in r and r.get('invoice_number') is not None and r.get('invoice_number') != ''
                         for r in records
+                    ) or any(
+                        hasattr(obj, 'invoice_number') and obj.invoice_number is not None and obj.invoice_number != ''
+                        for obj in to_update
                     )
                     if has_invoice_updates:
                         fields_to_update.append('invoice_number')
+                        logger.info(f"Invoice updates detected: {len([r for r in records if isinstance(r, dict) and r.get('invoice_number')])} records with invoice_number")
                 
                 DeliveryOrder.objects.bulk_update(to_update, fields=fields_to_update, batch_size=500)
             
