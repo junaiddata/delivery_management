@@ -4271,6 +4271,10 @@ def sync_receive(request):
                     if 'status' in record and record.get('status'):
                         update_fields.append('status')
                     
+                    # If invoice_number is provided, include it in updates (for invoice sync)
+                    if 'invoice_number' in record:
+                        update_fields.append('invoice_number')
+                    
                     for field in update_fields:
                         if field in record:
                             setattr(obj, field, record[field])
@@ -4278,6 +4282,14 @@ def sync_receive(request):
                     to_update.append(obj)
                     stats['updated'] += 1
                 else:
+                    # Check if this is an update-only sync (e.g., invoice updates)
+                    # If sync_metadata indicates update_only, skip creation
+                    sync_metadata = data.get('sync_metadata', {})
+                    if sync_metadata.get('update_only', False):
+                        # Skip creation for update-only syncs (like invoice updates)
+                        errors.append(f'DO {do_number} not found (update-only mode, skipping creation)')
+                        stats['errors'] += 1
+                        continue
                     # If a status update record is sent for a DO that doesn't exist, skip it (do not create).
                     if 'status' in record and record.get('status') and not record.get('date'):
                         continue

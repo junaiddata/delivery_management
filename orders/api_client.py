@@ -514,3 +514,67 @@ class SAPAPIClient:
         
         logger.info(f"Found {len(all_cancelled)} unique cancelled delivery orders")
         return all_cancelled
+    
+    def fetch_do_invoices(self, from_date, to_date):
+        """
+        Fetch DO invoice data from DOInvoice API
+        
+        Args:
+            from_date: datetime.date or string in YYYY-MM-DD format
+            to_date: datetime.date or string in YYYY-MM-DD format
+            
+        Returns:
+            List of invoice records from API 'Data' field, or empty list on error
+        """
+        do_invoice_url = getattr(settings, 'DO_INVOICE_API_URL', 'http://192.168.1.103/IntegrationApi/api/DOInvoice')
+        
+        # Convert dates to strings if needed
+        if isinstance(from_date, str):
+            from_date_str = from_date
+        else:
+            from_date_str = from_date.strftime('%Y-%m-%d')
+        
+        if isinstance(to_date, str):
+            to_date_str = to_date
+        else:
+            to_date_str = to_date.strftime('%Y-%m-%d')
+        
+        payload = {
+            "FromDate": from_date_str,
+            "ToDate": to_date_str
+        }
+        
+        try:
+            logger.info(f"Fetching DO invoices from {from_date_str} to {to_date_str}")
+            response = requests.post(
+                do_invoice_url,
+                json=payload,
+                timeout=self.timeout
+            )
+            response.raise_for_status()
+            
+            data = response.json()
+            
+            # API returns {"Count": N, "Data": [...]}
+            if isinstance(data, dict) and 'Data' in data:
+                records = data.get('Data', [])
+                count = data.get('Count', len(records))
+                logger.info(f"Fetched {len(records)} invoice records (Count: {count})")
+                return records
+            elif isinstance(data, list):
+                # Fallback: if API returns list directly
+                logger.info(f"Fetched {len(data)} invoice records")
+                return data
+            else:
+                logger.warning(f"Unexpected API response format: {type(data)}")
+                return []
+                
+        except requests.exceptions.Timeout:
+            logger.error(f"DOInvoice API request timeout after {self.timeout}s")
+            return []
+        except requests.exceptions.RequestException as e:
+            logger.error(f"DOInvoice API request failed: {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error in DOInvoice API request: {e}")
+            return []

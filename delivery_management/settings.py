@@ -169,6 +169,7 @@ STATIC_URL = '/static/'
 
 # SAP API Sync Configuration
 SOURCE_API_URL = os.environ.get('SOURCE_API_URL', 'http://192.168.1.103/IntegrationApi/api/DeliveryOrder')
+DO_INVOICE_API_URL = os.environ.get('DO_INVOICE_API_URL', 'http://192.168.1.103/IntegrationApi/api/DOInvoice')
 API_TIMEOUT = int(os.environ.get('API_TIMEOUT', 30))
 VPS_API_KEY = os.environ.get('VPS_API_KEY', 'production')
 SYNC_DAYS_BACK = int(os.environ.get('SYNC_DAYS_BACK', 3))
