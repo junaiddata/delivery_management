@@ -216,7 +216,7 @@ class Command(BaseCommand):
         elif options['save_local']:
             self.stdout.write('Mode: Save to local database only')
         else:
-            self.stdout.write('Mode: Save locally and push to VPS')
+            self.stdout.write('Mode: Push to VPS (VPS will save)')
         
         try:
             with transaction.atomic():
@@ -233,7 +233,7 @@ class Command(BaseCommand):
                         # Normalize invoice (handle null/NIL)
                         base_invoice = normalize_invoice(invoice_data['invoice'])
                         
-                        # Make invoice unique
+                        # Make invoice unique (check against local DB for uniqueness)
                         old_invoice = order.invoice_number
                         final_invoice = make_invoice_unique(base_invoice, order)
                         
@@ -248,24 +248,27 @@ class Command(BaseCommand):
                                 stats['credit_payments_deleted'] += deleted_count
                                 logger.debug(f"DO {do_number}: Deleted {deleted_count} CreditPayment record(s) due to invoice change")
                         
-                        # Update invoice number and amount
-                        order.invoice_number = final_invoice
-                        if invoice_data['amount'] is not None:
-                            order.amount = invoice_data['amount']
+                        # Prepare update data
+                        invoice_update = {
+                            'do_number': order.do_number,
+                            'invoice_number': final_invoice,
+                            'amount': str(invoice_data['amount']) if invoice_data['amount'] is not None else (str(order.amount) if order.amount else None),
+                            'date': order.date.isoformat() if order.date else None,
+                            'customer_code': order.customer_code,
+                            'customer_name': order.customer_name,
+                        }
                         
-                        if not options['local_only']:
+                        if options['save_local']:
+                            # Save directly to local database
+                            order.invoice_number = final_invoice
+                            if invoice_data['amount'] is not None:
+                                order.amount = invoice_data['amount']
                             order.save()
                             stats['updated'] += 1
-                            
-                            # Store for VPS push (format similar to delivery orders sync)
-                            updated_orders.append({
-                                'do_number': order.do_number,
-                                'invoice_number': final_invoice,
-                                'amount': str(order.amount) if order.amount else None,
-                                'date': order.date.isoformat() if order.date else None,
-                                'customer_code': order.customer_code,
-                                'customer_name': order.customer_name,
-                            })
+                        elif not options['local_only']:
+                            # Store for VPS push (VPS will save it)
+                            updated_orders.append(invoice_update)
+                            stats['updated'] += 1
                         
                     except Exception as e:
                         stats['errors'] += 1
@@ -278,7 +281,7 @@ class Command(BaseCommand):
                 self._push_to_vps(updated_orders, from_date, to_date, stats)
             
             # Summary
-            mode_str = "Local only (test)" if options['local_only'] else "Save local" if options['save_local'] else "Full sync (local + VPS)"
+            mode_str = "Local only (test)" if options['local_only'] else "Save local" if options['save_local'] else "Push to VPS"
             self.stdout.write(self.style.SUCCESS(
                 f'\n========= INVOICE SYNC SUMMARY =========\n'
                 f'Duration: {(datetime.now() - start_time).total_seconds():.2f} seconds\n'

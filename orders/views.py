@@ -4336,6 +4336,14 @@ def sync_receive(request):
                     fields_to_update = base_update_fields.copy()
                     if has_status_updates:
                         fields_to_update.append('status')
+                    
+                    # Check if any record has invoice_number (for invoice sync)
+                    has_invoice_updates = any(
+                        isinstance(r, dict) and 'invoice_number' in r and r.get('invoice_number') is not None
+                        for r in records
+                    )
+                    if has_invoice_updates:
+                        fields_to_update.append('invoice_number')
                 
                 DeliveryOrder.objects.bulk_update(to_update, fields=fields_to_update, batch_size=500)
             
