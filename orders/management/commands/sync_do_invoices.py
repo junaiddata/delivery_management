@@ -211,70 +211,71 @@ class Command(BaseCommand):
         updated_orders = []  # Store updated orders for VPS push
         
         # Process invoices
+        # Default behavior: Push to VPS only (like cancelled orders)
         if options['local_only']:
             self.stdout.write(self.style.WARNING('--local-only mode: Will not save or push'))
         elif options['save_local']:
             self.stdout.write('Mode: Save to local database only')
         else:
-            self.stdout.write('Mode: Push to VPS (VPS will save)')
+            self.stdout.write('Mode: Push to VPS (VPS will save) - Like cancelled orders')
         
         try:
-            with transaction.atomic():
-                for do_number, invoice_data in do_invoice_map.items():
-                    try:
-                        # Find the delivery order
+            # Process invoices - no local DB transaction needed for VPS push mode
+            for do_number, invoice_data in do_invoice_map.items():
+                try:
+                    # Normalize invoice (handle null/NIL)
+                    base_invoice = normalize_invoice(invoice_data['invoice'])
+                    final_invoice = base_invoice
+                    
+                    # Try to check uniqueness against local DB if available (optional)
+                    # This is just for guidance - VPS will do final uniqueness check
+                    if options['save_local']:
+                        # Only check local DB if we're saving locally
                         try:
                             order = DeliveryOrder.objects.get(do_number=do_number)
-                        except DeliveryOrder.DoesNotExist:
-                            stats['not_found'] += 1
-                            logger.debug(f"DO {do_number} not found in database")
-                            continue
-                        
-                        # Normalize invoice (handle null/NIL)
-                        base_invoice = normalize_invoice(invoice_data['invoice'])
-                        
-                        # Make invoice unique (check against local DB for uniqueness)
-                        old_invoice = order.invoice_number
-                        final_invoice = make_invoice_unique(base_invoice, order)
-                        
-                        if final_invoice != base_invoice:
-                            stats['duplicates_resolved'] += 1
-                            logger.debug(f"DO {do_number}: Invoice {base_invoice} -> {final_invoice} (duplicate resolved)")
-                        
-                        # If invoice is changing and there was an old invoice, delete CreditPayment
-                        if old_invoice and old_invoice != final_invoice:
-                            deleted_count = CreditPayment.objects.filter(delivery_order=order).delete()[0]
-                            if deleted_count > 0:
-                                stats['credit_payments_deleted'] += deleted_count
-                                logger.debug(f"DO {do_number}: Deleted {deleted_count} CreditPayment record(s) due to invoice change")
-                        
-                        # Prepare update data
-                        invoice_update = {
-                            'do_number': order.do_number,
-                            'invoice_number': final_invoice,
-                            'amount': str(invoice_data['amount']) if invoice_data['amount'] is not None else (str(order.amount) if order.amount else None),
-                            'date': order.date.isoformat() if order.date else None,
-                            'customer_code': order.customer_code,
-                            'customer_name': order.customer_name,
-                        }
-                        
-                        if options['save_local']:
-                            # Save directly to local database
+                            old_invoice = order.invoice_number
+                            final_invoice = make_invoice_unique(base_invoice, order)
+                            
+                            if final_invoice != base_invoice:
+                                stats['duplicates_resolved'] += 1
+                                logger.debug(f"DO {do_number}: Invoice {base_invoice} -> {final_invoice} (duplicate resolved)")
+                            
+                            # If invoice is changing and there was an old invoice, delete CreditPayment
+                            if old_invoice and old_invoice != final_invoice:
+                                deleted_count = CreditPayment.objects.filter(delivery_order=order).delete()[0]
+                                if deleted_count > 0:
+                                    stats['credit_payments_deleted'] += deleted_count
+                                    logger.debug(f"DO {do_number}: Deleted {deleted_count} CreditPayment record(s) due to invoice change")
+                            
+                            # Save locally
                             order.invoice_number = final_invoice
                             if invoice_data['amount'] is not None:
                                 order.amount = invoice_data['amount']
                             order.save()
                             stats['updated'] += 1
-                        elif not options['local_only']:
+                        except DeliveryOrder.DoesNotExist:
+                            stats['not_found'] += 1
+                            logger.debug(f"DO {do_number} not found in local database (save-local mode)")
+                            continue
+                    else:
+                        # VPS push mode: Just prepare data, no local DB query needed
+                        # VPS will handle uniqueness check and saving
+                        invoice_update = {
+                            'do_number': do_number,
+                            'invoice_number': final_invoice,
+                            'amount': str(invoice_data['amount']) if invoice_data['amount'] is not None else None,
+                        }
+                        
+                        if not options['local_only']:
                             # Store for VPS push (VPS will save it)
                             updated_orders.append(invoice_update)
                             stats['updated'] += 1
-                        
-                    except Exception as e:
-                        stats['errors'] += 1
-                        error_msg = f"Error processing DO {do_number}: {str(e)}"
-                        errors.append(error_msg)
-                        logger.error(error_msg, exc_info=True)
+                    
+                except Exception as e:
+                    stats['errors'] += 1
+                    error_msg = f"Error processing DO {do_number}: {str(e)}"
+                    errors.append(error_msg)
+                    logger.error(error_msg, exc_info=True)
             
             # Push to VPS if not in local-only or save-local mode
             if not options['local_only'] and not options['save_local']:

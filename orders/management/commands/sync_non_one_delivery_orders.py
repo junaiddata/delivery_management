@@ -123,12 +123,14 @@ class Command(BaseCommand):
         for record in records:
             try:
                 mapped_record = client._map_api_to_model(record)
+                # Set default status to 'Delivered' for all non-one DOs
+                mapped_record['status'] = 'Delivered'
                 mapped.append(mapped_record)
             except Exception as e:
                 logger.error(f"Error mapping record {record.get('DocNum', 'unknown')}: {e}")
                 self.stdout.write(self.style.ERROR(f"Error mapping record: {e}"))
         
-        self.stdout.write(f'Mapped {len(mapped)} records to model format')
+        self.stdout.write(f'Mapped {len(mapped)} records to model format (all with status="Delivered")')
         
         # Step 4: SERIALIZE for JSON (dates -> strings)
         serialized = serialize_for_json(mapped)
@@ -249,8 +251,7 @@ class Command(BaseCommand):
             'updated': 0,
             'errors': 0,
             'items_created': 0,
-            'items_updated': 0,
-            'items_deleted': 0
+            'items_updated': 0
         }
         
         errors = []
@@ -285,11 +286,14 @@ class Command(BaseCommand):
                     if do_number in existing_map:
                         # Update existing record - only API-sourced fields
                         obj = existing_map[do_number]
-                        update_fields = ['date', 'customer_code', 'customer_name', 'city', 'area', 'salesman', 'amount', 'lpo', 'mobile_number']
+                        update_fields = ['date', 'customer_code', 'customer_name', 'city', 'area', 'salesman', 'amount', 'lpo', 'mobile_number', 'status']
                         
                         for field in update_fields:
                             if field in record:
                                 setattr(obj, field, record[field])
+                        
+                        # Always set status to 'Delivered' for non-one DOs
+                        obj.status = 'Delivered'
                         
                         to_update.append(obj)
                         stats['updated'] += 1
@@ -308,7 +312,7 @@ class Command(BaseCommand):
                             mobile_number=record.get('mobile_number'),  # From BusinessPartner.Cellular
                             invoice_number=record.get('invoice_number'),  # Usually None
                             # App-managed fields use defaults:
-                            status='Pending',  # Default status
+                            status=record.get('status', 'Delivered'),  # Default to 'Delivered' for non-one DOs
                             driver=None,  # Default driver
                             vehicle=None,  # Default vehicle
                             delivery_date=None,  # Default delivery_date
@@ -324,7 +328,7 @@ class Command(BaseCommand):
                 
                 # Bulk update existing records
                 if to_update:
-                    update_fields = ['date', 'customer_code', 'customer_name', 'city', 'area', 'salesman', 'amount', 'lpo', 'mobile_number']
+                    update_fields = ['date', 'customer_code', 'customer_name', 'city', 'area', 'salesman', 'amount', 'lpo', 'mobile_number', 'status']
                     DeliveryOrder.objects.bulk_update(to_update, fields=update_fields, batch_size=500)
                 
                 # Process DeliveryItemWise records - only update if changed
@@ -341,7 +345,6 @@ class Command(BaseCommand):
                     
                     items_to_create = []
                     items_to_update = []
-                    items_to_delete_keys = set(existing_items_map.keys())  # Start with all existing items
                     
                     for do_number, document_lines in items_to_process:
                         if not document_lines:
@@ -381,8 +384,6 @@ class Command(BaseCommand):
                                     existing_item.quantity = quantity
                                     existing_item.price = price
                                     items_to_update.append(existing_item)
-                                # Remove from delete list since it still exists
-                                items_to_delete_keys.discard(key)
                             else:
                                 # New item - create it
                                 items_to_create.append(
@@ -394,13 +395,6 @@ class Command(BaseCommand):
                                         price=price
                                     )
                                 )
-                    
-                    # Delete items that are no longer in the API response
-                    if items_to_delete_keys:
-                        items_to_delete = [existing_items_map[key] for key in items_to_delete_keys]
-                        deleted_count = len(items_to_delete)
-                        DeliveryItemWise.objects.filter(id__in=[item.id for item in items_to_delete]).delete()
-                        stats['items_deleted'] = deleted_count
                     
                     # Create new items
                     if items_to_create:
@@ -417,7 +411,6 @@ class Command(BaseCommand):
                 f"Updated: {stats['updated']}, "
                 f"Items created: {stats['items_created']}, "
                 f"Items updated: {stats.get('items_updated', 0)}, "
-                f"Items deleted: {stats['items_deleted']}, "
                 f"Errors: {stats['errors']}"
             ))
             

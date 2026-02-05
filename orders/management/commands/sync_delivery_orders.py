@@ -141,6 +141,17 @@ class Command(BaseCommand):
             missing_fields = [field for field in required_fields if field not in first_record or first_record.get(field) is None]
             if missing_fields:
                 self.stdout.write(self.style.WARNING(f"Warning: Some records may be missing required fields: {missing_fields}"))
+            
+            # Diagnostic: Check document_lines in serialized data
+            records_with_items = sum(1 for r in serialized if r.get('document_lines') and len(r.get('document_lines', [])) > 0)
+            records_without_items = len(serialized) - records_with_items
+            self.stdout.write(f"Diagnostic: {records_with_items} records have document_lines, {records_without_items} records missing/empty document_lines")
+            if records_without_items > 0:
+                self.stdout.write(self.style.WARNING(f"WARNING: {records_without_items} records are missing document_lines - items may not sync properly"))
+                # Log first few DOs without items for debugging
+                sample_missing = [r.get('do_number') for r in serialized if not r.get('document_lines') or len(r.get('document_lines', [])) == 0][:5]
+                if sample_missing:
+                    self.stdout.write(self.style.WARNING(f"Sample DOs without document_lines: {', '.join(sample_missing)}"))
         
         # Step 5: SAVE DATA
         if options['save_local']:
@@ -248,8 +259,7 @@ class Command(BaseCommand):
             'updated': 0,
             'errors': 0,
             'items_created': 0,
-            'items_updated': 0,
-            'items_deleted': 0
+            'items_updated': 0
         }
         
         errors = []
@@ -338,68 +348,58 @@ class Command(BaseCommand):
                         key = (item.do_number, item.item_code)
                         existing_items_map[key] = item
                     
-                    items_to_create = []
-                    items_to_update = []
-                    items_to_delete_keys = set(existing_items_map.keys())  # Start with all existing items
+                items_to_create = []
+                items_to_update = []
+                
+                for do_number, document_lines in items_to_process:
+                    if not document_lines:
+                        continue
                     
-                    for do_number, document_lines in items_to_process:
-                        if not document_lines:
+                    for line in document_lines:
+                        item_code = str(line.get('ItemCode', ''))
+                        if not item_code:
                             continue
                         
-                        for line in document_lines:
-                            item_code = str(line.get('ItemCode', ''))
-                            if not item_code:
-                                continue
-                            
-                            item_description = str(line.get('ItemDescription', ''))
-                            
-                            # Parse quantity
-                            quantity = line.get('Quantity', 0)
-                            try:
-                                quantity = int(float(quantity)) if quantity else 0
-                            except (ValueError, TypeError):
-                                quantity = 0
-                            
-                            # Parse price
-                            price = line.get('Price', 0)
-                            try:
-                                price = Decimal(str(price)) if price else Decimal('0.00')
-                            except (InvalidOperation, ValueError, TypeError):
-                                price = Decimal('0.00')
-                            
-                            key = (do_number, item_code)
-                            
-                            if key in existing_items_map:
-                                # Item exists - check if it needs updating
-                                existing_item = existing_items_map[key]
-                                if (existing_item.item_description != item_description or
-                                    existing_item.quantity != quantity or
-                                    existing_item.price != price):
-                                    # Update existing item
-                                    existing_item.item_description = item_description
-                                    existing_item.quantity = quantity
-                                    existing_item.price = price
-                                    items_to_update.append(existing_item)
-                                # Remove from delete list since it still exists
-                                items_to_delete_keys.discard(key)
-                            else:
-                                # New item - create it
-                                items_to_create.append(
-                                    DeliveryItemWise(
-                                        do_number=do_number,
-                                        item_code=item_code,
-                                        item_description=item_description,
-                                        quantity=quantity,
-                                        price=price
-                                    )
+                        item_description = str(line.get('ItemDescription', ''))
+                        
+                        # Parse quantity
+                        quantity = line.get('Quantity', 0)
+                        try:
+                            quantity = int(float(quantity)) if quantity else 0
+                        except (ValueError, TypeError):
+                            quantity = 0
+                        
+                        # Parse price
+                        price = line.get('Price', 0)
+                        try:
+                            price = Decimal(str(price)) if price else Decimal('0.00')
+                        except (InvalidOperation, ValueError, TypeError):
+                            price = Decimal('0.00')
+                        
+                        key = (do_number, item_code)
+                        
+                        if key in existing_items_map:
+                            # Item exists - check if it needs updating
+                            existing_item = existing_items_map[key]
+                            if (existing_item.item_description != item_description or
+                                existing_item.quantity != quantity or
+                                existing_item.price != price):
+                                # Update existing item
+                                existing_item.item_description = item_description
+                                existing_item.quantity = quantity
+                                existing_item.price = price
+                                items_to_update.append(existing_item)
+                        else:
+                            # New item - create it
+                            items_to_create.append(
+                                DeliveryItemWise(
+                                    do_number=do_number,
+                                    item_code=item_code,
+                                    item_description=item_description,
+                                    quantity=quantity,
+                                    price=price
                                 )
-                    
-                    # Delete items that are no longer in the API response
-                    if items_to_delete_keys:
-                        items_to_delete = [existing_items_map[key] for key in items_to_delete_keys]
-                        deleted_count = len(items_to_delete)
-                        DeliveryItemWise.objects.filter(id__in=[item.id for item in items_to_delete]).delete()
-                        stats['items_deleted'] = deleted_count
+                            )
                     
                     # Create new items
                     if items_to_create:
@@ -416,7 +416,6 @@ class Command(BaseCommand):
                 f"Updated: {stats['updated']}, "
                 f"Items created: {stats['items_created']}, "
                 f"Items updated: {stats.get('items_updated', 0)}, "
-                f"Items deleted: {stats['items_deleted']}, "
                 f"Errors: {stats['errors']}"
             ))
             

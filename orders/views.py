@@ -4132,14 +4132,13 @@ def sync_receive(request):
     }
     """
     # Initialize stats early for error handling
-    stats = {
-        'created': 0,
-        'updated': 0,
-        'errors': 0,
-        'items_created': 0,
-        'items_updated': 0,
-        'items_deleted': 0
-    }
+        stats = {
+            'created': 0,
+            'updated': 0,
+            'errors': 0,
+            'items_created': 0,
+            'items_updated': 0
+        }
     
     try:
         # Check if request body exists
@@ -4390,11 +4389,15 @@ def sync_receive(request):
                 
                 items_to_create = []
                 items_to_update = []
-                items_to_delete_keys = set(existing_items_map.keys())  # Start with all existing items
                 
+                # Process document_lines - only create/update, never delete
                 for do_number, document_lines in items_to_process:
+                    # Log diagnostic info
                     if not document_lines:
+                        logger.debug(f"DO {do_number}: document_lines is empty or missing - skipping item processing for this DO")
                         continue
+                    
+                    logger.debug(f"DO {do_number}: Processing {len(document_lines)} document_lines")
                     
                     for line in document_lines:
                         item_code = str(line.get('ItemCode', ''))
@@ -4430,8 +4433,6 @@ def sync_receive(request):
                                 existing_item.quantity = quantity
                                 existing_item.price = price
                                 items_to_update.append(existing_item)
-                            # Remove from delete list since it still exists
-                            items_to_delete_keys.discard(key)
                         else:
                             # New item - create it
                             items_to_create.append(
@@ -4443,13 +4444,6 @@ def sync_receive(request):
                                     price=price
                                 )
                             )
-                
-                # Delete items that are no longer in the API response
-                if items_to_delete_keys:
-                    items_to_delete = [existing_items_map[key] for key in items_to_delete_keys]
-                    deleted_count = len(items_to_delete)
-                    DeliveryItemWise.objects.filter(id__in=[item.id for item in items_to_delete]).delete()
-                    stats['items_deleted'] = deleted_count
                 
                 # Create new items
                 if items_to_create:
