@@ -4132,13 +4132,13 @@ def sync_receive(request):
     }
     """
     # Initialize stats early for error handling
-        stats = {
-            'created': 0,
-            'updated': 0,
-            'errors': 0,
-            'items_created': 0,
-            'items_updated': 0
-        }
+    stats = {
+        'created': 0,
+        'updated': 0,
+        'errors': 0,
+        'items_created': 0,
+        'items_updated': 0
+    }
     
     try:
         # Check if request body exists
