@@ -1284,7 +1284,11 @@ def account_delivered_orders(request):
     status_filter = request.GET.get('status', 'all')
 
     # Base queryset - exclude Received and Cancelled by default
-    delivered_orders = DeliveryOrder.objects.exclude(status__in=['Received by A/c', 'Cancelled']).order_by('-date')
+    delivered_orders = (
+        DeliveryOrder.objects.filter(do_number__startswith='1')
+        .exclude(status__in=['Received by A/c', 'Cancelled'])
+        .order_by('-date')
+    )
 
     # Apply status filter if not 'all'
     if status_filter != 'all':
@@ -1321,7 +1325,7 @@ def account_delivered_orders(request):
 @role_required('Accounts')  # Restrict to Accounts role
 def mark_received_by_accounts(request, order_id):
     """ View to update DO status to 'Received by A/c' """
-    order = get_object_or_404(DeliveryOrder, id=order_id)
+    order = get_object_or_404(DeliveryOrder, id=order_id, do_number__startswith='1')
 
     if request.method == 'POST':
         order.status = 'Received by A/c'
@@ -1340,7 +1344,7 @@ def received_list(request):
     status_filter = request.GET.get('status', 'all')
 
     # Base queryset
-    orders = DeliveryOrder.objects.filter(status='Received by A/c').order_by('-date')
+    orders = DeliveryOrder.objects.filter(do_number__startswith='1', status='Received by A/c').order_by('-date')
 
     # Apply status filter
     if status_filter != 'all':
@@ -1365,12 +1369,6 @@ def received_list(request):
         'orders': page_obj,
         'search_query': search_query,
         'status_filter': status_filter,
-    })
-
-    # Pass the search query back to template to maintain it in pagination links
-    return render(request, 'orders/received_list.html', {
-        'orders': page_obj,
-        'search_query': search_query,
     })
 from django.shortcuts import render
 from .models import CustomerReply, MessageStatus
