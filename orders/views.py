@@ -1280,43 +1280,113 @@ def send_whatsapp_message(recipient_id, message_text):
 @role_required('Accounts')  # Restrict to Accounts role
 def account_delivered_orders(request):
     """ View for accounts department to see all delivered DOs and update status """
+    # Get all filter parameters
     search_query = request.GET.get('search', '').strip()
     status_filter = request.GET.get('status', 'all')
+    from_date = request.GET.get('from_date', '').strip()
+    to_date = request.GET.get('to_date', '').strip()
+    salesman_filter = request.GET.get('salesman', '').strip()
+    driver_filter = request.GET.get('driver', '').strip()
+    vehicle_filter = request.GET.get('vehicle', '').strip()
+    invoice_filter = request.GET.get('invoice', '').strip()
 
-    # Base queryset - exclude Received and Cancelled by default
+    # Base queryset - exclude Received and Cancelled by default, only DOs starting with '1'
+    # Use select_related for vehicle to optimize queries
     delivered_orders = (
         DeliveryOrder.objects.filter(do_number__startswith='1')
         .exclude(status__in=['Received by A/c', 'Cancelled'])
-        .order_by('-date')
+        .select_related('vehicle')
+        .order_by('-date', '-do_number')
     )
+
+    # Apply date range filters
+    if from_date and to_date:
+        delivered_orders = delivered_orders.filter(date__range=[from_date, to_date])
+    elif from_date:
+        delivered_orders = delivered_orders.filter(date__gte=from_date)
+    elif to_date:
+        delivered_orders = delivered_orders.filter(date__lte=to_date)
 
     # Apply status filter if not 'all'
     if status_filter != 'all':
         delivered_orders = delivered_orders.filter(status=status_filter)
 
-    # Apply search filter if query exists
+    # Apply salesman filter
+    if salesman_filter:
+        delivered_orders = delivered_orders.filter(salesman=salesman_filter)
+
+    # Apply driver filter
+    if driver_filter:
+        delivered_orders = delivered_orders.filter(driver=driver_filter)
+
+    # Apply vehicle filter
+    if vehicle_filter:
+        delivered_orders = delivered_orders.filter(vehicle_id=vehicle_filter)
+
+    # Apply invoice number filter
+    if invoice_filter:
+        delivered_orders = delivered_orders.filter(invoice_number__icontains=invoice_filter)
+
+    # Apply search filter if query exists (searches DO number, customer name, mobile)
     if search_query:
         delivered_orders = delivered_orders.filter(
             Q(do_number__icontains=search_query) |
             Q(customer_name__icontains=search_query) |
-            Q(salesman__icontains=search_query) |
-            Q(driver__icontains=search_query)
+            Q(mobile_number__icontains=search_query) |
+            Q(invoice_number__icontains=search_query)
         )
 
-    # Get count before pagination
+    # Get count before pagination (efficient count query)
     delivered_count = delivered_orders.count()
 
-    # Pagination
-    paginator = Paginator(delivered_orders, 1000)
+    # Pagination - reduce page size for better performance
+    paginator = Paginator(delivered_orders, 500)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
+
+    # Get distinct values for filter dropdowns (only from filtered base queryset for performance)
+    # Base queryset for filter options (without search/filters applied)
+    base_filter_queryset = (
+        DeliveryOrder.objects.filter(do_number__startswith='1')
+        .exclude(status__in=['Received by A/c', 'Cancelled'])
+    )
+    
+    # Get distinct values efficiently
+    salesmen = (
+        base_filter_queryset
+        .exclude(salesman__isnull=True)
+        .exclude(salesman='')
+        .values_list('salesman', flat=True)
+        .distinct()
+        .order_by('salesman')
+    )
+    
+    drivers = (
+        base_filter_queryset
+        .exclude(driver__isnull=True)
+        .exclude(driver='')
+        .values_list('driver', flat=True)
+        .distinct()
+        .order_by('driver')
+    )
+    
+    vehicles = Vehicle.objects.all().order_by('vehicle_number')
 
     return render(request, 'orders/account_delivered_orders.html', {
         'orders': page_obj,
         'delivered_count': delivered_count,
         'search_query': search_query,
         'status_filter': status_filter,
+        'from_date': from_date,
+        'to_date': to_date,
+        'salesman_filter': salesman_filter,
+        'driver_filter': driver_filter,
+        'vehicle_filter': vehicle_filter,
+        'invoice_filter': invoice_filter,
         'status_choices': DeliveryOrder.DO_STATUS_CHOICES,
+        'salesmen': salesmen,
+        'drivers': drivers,
+        'vehicles': vehicles,
     })
 
 

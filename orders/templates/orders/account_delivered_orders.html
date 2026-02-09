@@ -15,15 +15,19 @@
     <div class="card mb-4">
         <div class="card-body">
             <form method="get" class="row g-3">
-                <!-- Search Input -->
-                <div class="col-md-6">
-                    <input type="text" name="search" class="form-control"
-                           placeholder="🔍 Search DO Number, Customer, Salesman..."
-                           value="{{ search_query }}">
+                <!-- Date Range Filters -->
+                <div class="col-md-3">
+                    <label class="form-label">From Date</label>
+                    <input type="date" name="from_date" class="form-control" value="{{ from_date }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">To Date</label>
+                    <input type="date" name="to_date" class="form-control" value="{{ to_date }}">
                 </div>
 
                 <!-- Status Filter -->
-                <div class="col-md-4">
+                <div class="col-md-3">
+                    <label class="form-label">Status</label>
                     <select name="status" class="form-select">
                         <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Statuses</option>
                         {% for value, label in status_choices %}
@@ -36,9 +40,64 @@
                     </select>
                 </div>
 
+                <!-- Invoice Number Filter -->
+                <div class="col-md-3">
+                    <label class="form-label">Invoice Number</label>
+                    <input type="text" name="invoice" class="form-control"
+                           placeholder="Invoice No."
+                           value="{{ invoice_filter }}">
+                </div>
+
+                <!-- Search Input -->
+                <div class="col-md-4">
+                    <label class="form-label">Search</label>
+                    <input type="text" name="search" class="form-control"
+                           placeholder="🔍 DO Number, Customer, Mobile..."
+                           value="{{ search_query }}">
+                </div>
+
+                <!-- Salesman Filter -->
+                <div class="col-md-2">
+                    <label class="form-label">Salesman</label>
+                    <select name="salesman" class="form-select">
+                        <option value="">All Salesmen</option>
+                        {% for salesman in salesmen %}
+                            <option value="{{ salesman }}" {% if salesman_filter == salesman %}selected{% endif %}>
+                                {{ salesman }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Driver Filter -->
+                <div class="col-md-2">
+                    <label class="form-label">Driver</label>
+                    <select name="driver" class="form-select">
+                        <option value="">All Drivers</option>
+                        {% for driver in drivers %}
+                            <option value="{{ driver }}" {% if driver_filter == driver %}selected{% endif %}>
+                                {{ driver }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Vehicle Filter -->
+                <div class="col-md-2">
+                    <label class="form-label">Vehicle</label>
+                    <select name="vehicle" class="form-select">
+                        <option value="">All Vehicles</option>
+                        {% for vehicle in vehicles %}
+                            <option value="{{ vehicle.id }}" {% if vehicle_filter == vehicle.id|stringformat:"s" %}selected{% endif %}>
+                                {{ vehicle.vehicle_number }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
                 <!-- Form Buttons -->
-                <div class="col-md-2 d-flex gap-2">
-                    <button type="submit" class="btn btn-primary">Apply</button>
+                <div class="col-md-2 d-flex gap-2 align-items-end">
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
                     <a href="?" class="btn btn-outline-secondary">Reset</a>
                 </div>
             </form>
@@ -122,12 +181,12 @@
         <ul class="pagination justify-content-center">
             {% if orders.has_previous %}
                 <li class="page-item">
-                    <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}">
+                    <a class="page-link" href="?{% if request.GET %}{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}{% endif %}page=1">
                         &laquo;&laquo; First
                     </a>
                 </li>
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ orders.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}">
+                    <a class="page-link" href="?{% if request.GET %}{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}{% endif %}page={{ orders.previous_page_number }}">
                         &laquo; Previous
                     </a>
                 </li>
@@ -139,12 +198,12 @@
 
             {% if orders.has_next %}
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ orders.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}">
+                    <a class="page-link" href="?{% if request.GET %}{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}{% endif %}page={{ orders.next_page_number }}">
                         Next &raquo;
                     </a>
                 </li>
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ orders.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}">
+                    <a class="page-link" href="?{% if request.GET %}{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}{% endif %}page={{ orders.paginator.num_pages }}">
                         Last &raquo;&raquo;
                     </a>
                 </li>
