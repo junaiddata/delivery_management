@@ -1276,10 +1276,8 @@ def send_whatsapp_message(recipient_id, message_text):
 #             return JsonResponse({"error": "Invalid JSON"}, status=400)
 
 
-@login_required
-@role_required('Accounts')  # Restrict to Accounts role
-def account_delivered_orders(request):
-    """ View for accounts department to see all delivered DOs and update status """
+def _get_account_delivered_orders_queryset(request):
+    """Helper function to get filtered queryset for account delivered orders"""
     # Get all filter parameters
     search_query = request.GET.get('search', '').strip()
     status_filter = request.GET.get('status', 'all')
@@ -1336,6 +1334,26 @@ def account_delivered_orders(request):
             Q(invoice_number__icontains=search_query)
         )
 
+    return delivered_orders
+
+
+@login_required
+@role_required('Accounts')  # Restrict to Accounts role
+def account_delivered_orders(request):
+    """ View for accounts department to see all delivered DOs and update status """
+    # Get all filter parameters for template
+    search_query = request.GET.get('search', '').strip()
+    status_filter = request.GET.get('status', 'all')
+    from_date = request.GET.get('from_date', '').strip()
+    to_date = request.GET.get('to_date', '').strip()
+    salesman_filter = request.GET.get('salesman', '').strip()
+    driver_filter = request.GET.get('driver', '').strip()
+    vehicle_filter = request.GET.get('vehicle', '').strip()
+    invoice_filter = request.GET.get('invoice', '').strip()
+
+    # Get filtered queryset using helper function
+    delivered_orders = _get_account_delivered_orders_queryset(request)
+
     # Get count before pagination (efficient count query)
     delivered_count = delivered_orders.count()
 
@@ -1388,6 +1406,59 @@ def account_delivered_orders(request):
         'drivers': drivers,
         'vehicles': vehicles,
     })
+
+
+@login_required
+@role_required('Accounts')
+def export_account_delivered_orders_to_excel(request):
+    """Export account delivered orders to Excel with all filters applied"""
+    # Get filtered queryset using the same logic as the view
+    orders = _get_account_delivered_orders_queryset(request)
+
+    # Build DataFrame with all relevant columns
+    data = {
+        'DO Number': [order.do_number for order in orders],
+        'Invoice Number': [order.invoice_number if order.invoice_number else '' for order in orders],
+        'Date': [order.date.strftime('%Y-%m-%d') if order.date else '' for order in orders],
+        'Customer Code': [order.customer_code if order.customer_code else '' for order in orders],
+        'Customer Name': [order.customer_name for order in orders],
+        'Mobile Number': [order.mobile_number if order.mobile_number else '' for order in orders],
+        'Salesman': [order.salesman if order.salesman else '' for order in orders],
+        'Driver': [order.driver if order.driver else '' for order in orders],
+        'Vehicle': [order.vehicle.vehicle_number if order.vehicle else '' for order in orders],
+        'Delivery Date': [order.delivery_date.strftime('%Y-%m-%d %H:%M:%S') if order.delivery_date else '' for order in orders],
+        'Status': [order.status for order in orders],
+        'Amount': [float(order.amount) if order.amount else 0.0 for order in orders],
+        'LPO': [order.lpo if order.lpo else '' for order in orders],
+        'City': [order.city if order.city else '' for order in orders],
+        'Area': [order.area if order.area else '' for order in orders],
+    }
+    df = pd.DataFrame(data)
+
+    # Create HTTP response with Excel content type
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    
+    # Generate filename with current date/time
+    from datetime import datetime
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    response['Content-Disposition'] = f'attachment; filename=account_delivered_orders_{timestamp}.xlsx'
+
+    # Write to Excel
+    with pd.ExcelWriter(response, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Delivered Orders')
+        
+        # Auto-adjust column widths
+        worksheet = writer.sheets['Delivered Orders']
+        from openpyxl.utils import get_column_letter
+        for idx, col in enumerate(df.columns):
+            max_length = max(
+                df[col].astype(str).map(len).max(),
+                len(str(col))
+            )
+            # Set column width (with some padding)
+            worksheet.column_dimensions[get_column_letter(idx + 1)].width = min(max_length + 2, 50)
+
+    return response
 
 
 

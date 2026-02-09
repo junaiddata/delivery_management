@@ -47,6 +47,7 @@ urlpatterns = [
      path("webhook/", whatsapp_webhook, name="whatsapp-webhook"),
 
     path('accounts/delivered-orders/', account_delivered_orders, name='account_delivered_orders'),
+    path('accounts/delivered-orders/export/', views.export_account_delivered_orders_to_excel, name='export_account_delivered_orders'),
     path('accounts/received-orders/', received_list, name='received_list'),
     path('accounts/delivered-orders/<int:order_id>/mark-received/', mark_received_by_accounts, name='mark_received_by_accounts'),
     path("messages-dashboard/", messages_dashboard, name="messages_dashboard"),
