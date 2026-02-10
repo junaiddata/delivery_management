@@ -313,6 +313,44 @@ class SAPAPIClient:
         logger.info(f"Fetched {len(all_records)} unique delivery orders from last {days_back} days")
         return all_records
     
+    def sync_by_date_range(self, from_date, to_date):
+        """
+        Fetch records for a date range (from_date to to_date inclusive)
+        
+        Args:
+            from_date: datetime.date or string in YYYY-MM-DD format (start date)
+            to_date: datetime.date or string in YYYY-MM-DD format (end date)
+            
+        Returns:
+            List of unique delivery order records (deduplicated by DocNum)
+        """
+        # Convert string dates to date objects if needed
+        if isinstance(from_date, str):
+            from_date = datetime.strptime(from_date, '%Y-%m-%d').date()
+        if isinstance(to_date, str):
+            to_date = datetime.strptime(to_date, '%Y-%m-%d').date()
+        
+        all_records = []
+        seen_docnums = set()
+        
+        # Fetch records for each day in the range
+        current_date = from_date
+        while current_date <= to_date:
+            records = self.fetch_by_date(current_date)
+            
+            # Deduplicate by DocNum
+            for record in records:
+                docnum = str(record.get('DocNum', ''))
+                if docnum and docnum not in seen_docnums:
+                    seen_docnums.add(docnum)
+                    all_records.append(record)
+            
+            # Move to next day
+            current_date += timedelta(days=1)
+        
+        logger.info(f"Fetched {len(all_records)} unique delivery orders from {from_date} to {to_date}")
+        return all_records
+    
     def _filter_records(self, records, exclude_one_prefix=False):
         """
         Apply business filters to records

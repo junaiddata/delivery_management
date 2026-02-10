@@ -63,6 +63,16 @@ class Command(BaseCommand):
             help='Sync specific date (YYYY-MM-DD format)'
         )
         parser.add_argument(
+            '--from-date',
+            type=str,
+            help='Sync from date (YYYY-MM-DD format). Use with --to-date for date range'
+        )
+        parser.add_argument(
+            '--to-date',
+            type=str,
+            help='Sync to date (YYYY-MM-DD format). Use with --from-date for date range'
+        )
+        parser.add_argument(
             '--id',
             type=int,
             help='Sync single record by DocNum'
@@ -93,6 +103,22 @@ class Command(BaseCommand):
             # Fetch single record by DocNum
             self.stdout.write(f"Fetching delivery order with DocNum: {options['id']}")
             records = client.fetch_by_docnum(options['id'])
+        elif options['from_date'] or options['to_date']:
+            # Fetch records for date range
+            if not options['from_date'] or not options['to_date']:
+                self.stdout.write(self.style.ERROR('Both --from-date and --to-date are required for date range sync'))
+                return
+            try:
+                from_date = datetime.strptime(options['from_date'], '%Y-%m-%d').date()
+                to_date = datetime.strptime(options['to_date'], '%Y-%m-%d').date()
+                if from_date > to_date:
+                    self.stdout.write(self.style.ERROR('--from-date must be before or equal to --to-date'))
+                    return
+                self.stdout.write(f"Fetching delivery orders from {from_date} to {to_date}")
+                records = client.sync_by_date_range(from_date, to_date)
+            except ValueError as e:
+                self.stdout.write(self.style.ERROR(f"Invalid date format. Use YYYY-MM-DD: {e}"))
+                return
         elif options['date']:
             # Fetch records for specific date
             try:
@@ -168,6 +194,8 @@ class Command(BaseCommand):
                     'records_count': len(serialized),
                     'days_back': options.get('days_back'),
                     'date': options.get('date'),
+                    'from_date': options.get('from_date'),
+                    'to_date': options.get('to_date'),
                     'docnum': options.get('id'),
                 }
             }
