@@ -1,177 +1,148 @@
 {% extends 'orders/base.html' %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2 class="mb-4">📦 Delivered Orders - Accounts Department</h2>
+<div class="container-fluid px-4 mt-3">
+    <h5 class="mb-3 fw-bold text-dark">📦 Delivered Orders — Accounts Department</h5>
 
     <!-- Bootstrap CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <!-- Action Buttons -->
-    <div class="d-flex gap-2 mb-3 flex-wrap">
-        <a href="{% url 'received_list' %}" class="btn btn-primary">📜 View All Received Orders</a>
-        <a href="{% url 'export_account_delivered_orders' %}?{{ request.GET.urlencode }}" class="btn btn-success">
-            📥 Export to Excel
+    <div class="d-flex gap-2 mb-2 flex-wrap align-items-center">
+        <a href="{% url 'received_list' %}" class="btn btn-primary btn-sm">📜 All Received</a>
+        <a href="{% url 'export_account_delivered_orders' %}?{{ request.GET.urlencode }}" class="btn btn-success btn-sm">
+            📥 Export Excel
         </a>
+        <div class="ms-auto d-flex align-items-center gap-1">
+            <span class="badge bg-success rounded-pill px-3 py-2" id="delivered-count-badge" style="font-size: 11px;">
+                {{ delivered_count }}
+            </span>
+            <span class="text-success fw-semibold" style="font-size: 11px;">Remaining</span>
+        </div>
     </div>
 
     <!-- Filter and Search Form -->
-    <div class="card mb-4">
-        <div class="card-body">
-            <form method="get" class="row g-3">
-                <!-- Date Range Filters -->
-                <div class="col-md-3">
-                    <label class="form-label">From Date</label>
-                    <input type="date" name="from_date" class="form-control" value="{{ from_date }}">
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-2 px-3">
+            <form method="get" class="row g-2 align-items-end">
+                <div class="col-auto">
+                    <label class="form-label mb-0 small text-muted">From</label>
+                    <input type="date" name="from_date" class="form-control form-control-sm" value="{{ from_date }}">
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label">To Date</label>
-                    <input type="date" name="to_date" class="form-control" value="{{ to_date }}">
+                <div class="col-auto">
+                    <label class="form-label mb-0 small text-muted">To</label>
+                    <input type="date" name="to_date" class="form-control form-control-sm" value="{{ to_date }}">
                 </div>
-
-                <!-- Status Filter -->
-                <div class="col-md-3">
-                    <label class="form-label">Status</label>
-                    <select name="status" class="form-select">
-                        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Statuses</option>
+                <div class="col-auto">
+                    <label class="form-label mb-0 small text-muted">Status</label>
+                    <select name="status" class="form-select form-select-sm">
+                        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All</option>
                         {% for value, label in status_choices %}
                             {% if value != 'Received by A/c' and value != 'Cancelled' %}
-                            <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>
-                                {{ label }}
-                            </option>
+                            <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
                             {% endif %}
                         {% endfor %}
                     </select>
                 </div>
-
-                <!-- Invoice Number Filter -->
-                <div class="col-md-3">
-                    <label class="form-label">Invoice Number</label>
-                    <input type="text" name="invoice" class="form-control"
-                           placeholder="Invoice No."
-                           value="{{ invoice_filter }}">
+                <div class="col-auto">
+                    <label class="form-label mb-0 small text-muted">Invoice</label>
+                    <input type="text" name="invoice" class="form-control form-control-sm" placeholder="Invoice No." value="{{ invoice_filter }}">
                 </div>
-
-                <!-- Search Input -->
-                <div class="col-md-4">
-                    <label class="form-label">Search</label>
-                    <input type="text" name="search" class="form-control"
-                           placeholder="🔍 DO Number, Customer, Mobile..."
-                           value="{{ search_query }}">
+                <div class="col-auto">
+                    <label class="form-label mb-0 small text-muted">Search</label>
+                    <input type="text" name="search" class="form-control form-control-sm" placeholder="DO, Customer, Mobile..." value="{{ search_query }}" style="min-width: 160px;">
                 </div>
-
-                <!-- Salesman Filter -->
-                <div class="col-md-2">
-                    <label class="form-label">Salesman</label>
-                    <select name="salesman" class="form-select">
-                        <option value="">All Salesmen</option>
+                <div class="col-auto">
+                    <label class="form-label mb-0 small text-muted">Salesman</label>
+                    <select name="salesman" class="form-select form-select-sm">
+                        <option value="">All</option>
                         {% for salesman in salesmen %}
-                            <option value="{{ salesman }}" {% if salesman_filter == salesman %}selected{% endif %}>
-                                {{ salesman }}
-                            </option>
+                            <option value="{{ salesman }}" {% if salesman_filter == salesman %}selected{% endif %}>{{ salesman }}</option>
                         {% endfor %}
                     </select>
                 </div>
-
-                <!-- Driver Filter -->
-                <div class="col-md-2">
-                    <label class="form-label">Driver</label>
-                    <select name="driver" class="form-select">
-                        <option value="">All Drivers</option>
+                <div class="col-auto">
+                    <label class="form-label mb-0 small text-muted">Driver</label>
+                    <select name="driver" class="form-select form-select-sm">
+                        <option value="">All</option>
                         {% for driver in drivers %}
-                            <option value="{{ driver }}" {% if driver_filter == driver %}selected{% endif %}>
-                                {{ driver }}
-                            </option>
+                            <option value="{{ driver }}" {% if driver_filter == driver %}selected{% endif %}>{{ driver }}</option>
                         {% endfor %}
                     </select>
                 </div>
-
-                <!-- Vehicle Filter -->
-                <div class="col-md-2">
-                    <label class="form-label">Vehicle</label>
-                    <select name="vehicle" class="form-select">
-                        <option value="">All Vehicles</option>
+                <div class="col-auto">
+                    <label class="form-label mb-0 small text-muted">Vehicle</label>
+                    <select name="vehicle" class="form-select form-select-sm">
+                        <option value="">All</option>
                         {% for vehicle in vehicles %}
-                            <option value="{{ vehicle.id }}" {% if vehicle_filter == vehicle.id|stringformat:"s" %}selected{% endif %}>
-                                {{ vehicle.vehicle_number }}
-                            </option>
+                            <option value="{{ vehicle.id }}" {% if vehicle_filter == vehicle.id|stringformat:"s" %}selected{% endif %}>{{ vehicle.vehicle_number }}</option>
                         {% endfor %}
                     </select>
                 </div>
-
-                <!-- Form Buttons -->
-                <div class="col-md-2 d-flex gap-2 align-items-end">
-                    <button type="submit" class="btn btn-primary">Apply Filters</button>
-                    <a href="?" class="btn btn-outline-secondary">Reset</a>
+                <div class="col-auto d-flex gap-1">
+                    <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+                    <a href="?" class="btn btn-outline-secondary btn-sm">Reset</a>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Orders Count Badge -->
-    <div class="d-flex justify-content-end align-items-center mb-3 gap-3 flex-wrap">
-        <div class="d-flex align-items-center">
-            <div class="badge bg-success rounded-circle d-flex justify-content-center align-items-center"
-                 style="width: 40px; height: 40px; font-size: 16px;">
-                 {{ delivered_count }}
-            </div>
-            <span class="ms-2 fw-bold text-success">Remaining to Receive</span>
-        </div>
-    </div>
-
     <!-- Orders Table -->
     <div class="table-responsive">
-        <table class="table table-bordered table-hover" id="ordersTable">
-            <thead class="table-dark">
+        <table class="table table-hover align-middle mb-2 compact-table" id="ordersTable">
+            <thead>
                 <tr>
-                    <th>DO Number</th>
-                    <th> Invoice No.</th>
+                    <th>DO #</th>
+                    <th>Invoice #</th>
                     <th>Date</th>
-                    <th>Customer</th>
+                    <th class="col-customer">Customer</th>
                     <th>Salesman</th>
                     <th>Driver</th>
-                    <th>Delivery Date</th>
+                    <th>Delivered</th>
                     <th>Status</th>
                     <th>Action</th>
                 </tr>
             </thead>
             <tbody>
                 {% for order in orders %}
-                <tr>
-                    <td>{{ order.do_number }}</td>
-                    <td> {{ order.invoice_number }}   </td>
+                <tr data-order-id="{{ order.id }}">
+                    <td class="fw-semibold">{{ order.do_number }}</td>
+                    <td>{{ order.invoice_number }}</td>
                     <td>{{ order.date }}</td>
-                    <td>{{ order.customer_name }}</td>
+                    <td class="col-customer">{{ order.customer_name }}</td>
                     <td>{{ order.salesman }}</td>
                     <td>{{ order.driver }}</td>
                     <td>{{ order.delivery_date|date:"d M Y, h:i A" }}</td>
                     <td>
-                        <span class="badge
+                        <span class="badge rounded-pill
                             {% if order.status == 'Delivered' %}bg-success
                             {% elif order.status == 'Pending' %}bg-warning text-dark
                             {% elif order.status == 'Not Delivered' %}bg-danger
                             {% elif order.status == 'Partial Delivery' %}bg-info
                             {% elif order.status == 'Out for Delivery' %}bg-primary
                             {% elif order.status == 'Loaded' %}bg-secondary
-                            {% else %}bg-light text-dark{% endif %}">
+                            {% else %}bg-light text-dark{% endif %}"
+                            style="font-size: 10px; padding: 3px 8px;">
                             {{ order.status }}
                         </span>
                     </td>
-                    <td>
+                    <td class="mark-received-cell">
                         {% if order.status != 'Received by A/c' and order.status != 'Cancelled' %}
-                            <form method="post" action="{% url 'mark_received_by_accounts' order.id %}" onsubmit="return confirmStatusChange();">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-sm btn-warning">✅ Mark as Received</button>
-                            </form>
+                            <button type="button" class="btn btn-sm btn-warning btn-mark-received"
+                                    data-order-id="{{ order.id }}"
+                                    data-url="{% url 'mark_received_by_accounts' order.id %}"
+                                    style="font-size: 10px; padding: 2px 8px; white-space: nowrap;">
+                                ✅ Receive
+                            </button>
                         {% else %}
-                            <span class="text-success fw-bold">✔ Received by A/c</span>
+                            <span class="text-success fw-bold" style="font-size: 10px;">✔ Received</span>
                         {% endif %}
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="8" class="text-center text-danger">
+                    <td colspan="9" class="text-center text-danger py-3">
                         No orders found{% if search_query %} matching "{{ search_query }}"{% endif %}
                         {% if status_filter != 'all' %} with status "{{ status_filter }}"{% endif %}.
                     </td>
@@ -182,80 +153,219 @@
     </div>
 
     <!-- Pagination -->
-    <nav aria-label="Page navigation">
-        <ul class="pagination justify-content-center">
+    <nav>
+        <ul class="pagination pagination-sm justify-content-center mb-3">
             {% if orders.has_previous %}
                 <li class="page-item">
-                    <a class="page-link" href="?{% if request.GET %}{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}{% endif %}page=1">
-                        &laquo;&laquo; First
-                    </a>
+                    <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page=1">&laquo;&laquo;</a>
                 </li>
                 <li class="page-item">
-                    <a class="page-link" href="?{% if request.GET %}{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}{% endif %}page={{ orders.previous_page_number }}">
-                        &laquo; Previous
-                    </a>
+                    <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ orders.previous_page_number }}">&laquo;</a>
                 </li>
             {% endif %}
-
             <li class="page-item disabled">
-                <span class="page-link">Page {{ orders.number }} of {{ orders.paginator.num_pages }}</span>
+                <span class="page-link">{{ orders.number }} / {{ orders.paginator.num_pages }}</span>
             </li>
-
             {% if orders.has_next %}
                 <li class="page-item">
-                    <a class="page-link" href="?{% if request.GET %}{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}{% endif %}page={{ orders.next_page_number }}">
-                        Next &raquo;
-                    </a>
+                    <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ orders.next_page_number }}">&raquo;</a>
                 </li>
                 <li class="page-item">
-                    <a class="page-link" href="?{% if request.GET %}{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}{% endif %}page={{ orders.paginator.num_pages }}">
-                        Last &raquo;&raquo;
-                    </a>
+                    <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ orders.paginator.num_pages }}">&raquo;&raquo;</a>
                 </li>
             {% endif %}
         </ul>
     </nav>
 </div>
 
-<!-- JavaScript for Confirmation -->
+{% csrf_token %}
+
 <script>
-    function confirmStatusChange() {
-        return confirm("Are you sure you want to mark this order as 'Received by A/c'?");
+(function() {
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const parts = document.cookie.split(';');
+            for (let i = 0; i < parts.length; i++) {
+                const part = parts[i].trim();
+                if (part.indexOf(name + '=') === 0) {
+                    cookieValue = decodeURIComponent(part.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
     }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.btn-mark-received').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                if (!confirm("Mark this order as 'Received by A/c'?")) return;
+                const url = this.dataset.url;
+                const row = this.closest('tr');
+                const originalText = this.textContent;
+                this.disabled = true;
+                this.textContent = '...';
+
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': getCookie('csrftoken'),
+                    },
+                    body: 'csrfmiddlewaretoken=' + encodeURIComponent(getCookie('csrftoken')),
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        row.style.transition = 'opacity 0.25s ease';
+                        row.style.opacity = '0';
+                        setTimeout(function() {
+                            row.remove();
+                            const badge = document.getElementById('delivered-count-badge');
+                            if (badge) {
+                                const n = parseInt(badge.textContent.trim(), 10);
+                                badge.textContent = isNaN(n) ? 0 : Math.max(0, n - 1);
+                            }
+                        }, 250);
+                    } else {
+                        btn.disabled = false;
+                        btn.textContent = originalText;
+                        alert(data.error || 'Failed.');
+                    }
+                })
+                .catch(function() {
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                    alert('Request failed.');
+                });
+            });
+        });
+    });
+})();
 </script>
 
 <style>
-    /* Custom badge colors */
-    .bg-warning.text-dark {
-        color: #212529 !important;
+    /* ── Compact Table ── */
+    .compact-table {
+        font-size: 11.5px;
+        border-collapse: separate;
+        border-spacing: 0;
     }
 
-    /* Responsive adjustments */
+    .compact-table thead th {
+        background: #1e293b;
+        color: #f1f5f9;
+        font-size: 10.5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 6px 10px;
+        white-space: nowrap;
+        border: none;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+    }
+
+    .compact-table tbody td {
+        padding: 4px 10px;
+        white-space: nowrap;
+        vertical-align: middle;
+        border-bottom: 1px solid #e9ecef;
+        color: #334155;
+    }
+
+    .compact-table tbody tr {
+        transition: background 0.15s ease;
+    }
+
+    .compact-table tbody tr:hover {
+        background: #f0f7ff;
+    }
+
+    /* Customer column — wide, no wrap */
+    .col-customer {
+        min-width: 240px;
+        max-width: 400px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* ── Card / Filter bar ── */
+    .card {
+        border-radius: 8px;
+    }
+    .card-body .form-label {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+    }
+    .form-control-sm, .form-select-sm {
+        font-size: 11.5px;
+        padding: 4px 8px;
+    }
+
+    /* ── Buttons ── */
+    .btn-sm {
+        font-size: 11px;
+        padding: 4px 10px;
+        border-radius: 6px;
+    }
+
+    /* ── Warning button override ── */
+    button.btn-warning,
+    .btn.btn-warning,
+    form button.btn-warning {
+        background: #ffc107 !important;
+        border-color: #ffc107 !important;
+        color: #000 !important;
+        box-shadow: none !important;
+        border-radius: 4px !important;
+    }
+    button.btn-warning:hover,
+    .btn.btn-warning:hover {
+        background: #e0a800 !important;
+        border-color: #d39e00 !important;
+        color: #000 !important;
+    }
+
+    /* ── Pagination ── */
+    .pagination-sm .page-link {
+        font-size: 11px;
+        padding: 3px 8px;
+    }
+
+    /* ── Badges ── */
+    .badge {
+        font-weight: 500;
+    }
+
+    /* ── Scrollbar styling ── */
+    .table-responsive::-webkit-scrollbar {
+        height: 6px;
+    }
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 3px;
+    }
+
+    /* ── Responsive ── */
     @media (max-width: 768px) {
-        .d-flex.flex-wrap {
-            justify-content: center !important;
+        .compact-table {
+            font-size: 10.5px;
         }
-
-        .form-select, .form-control {
-            margin-bottom: 10px;
+        .compact-table thead th {
+            font-size: 9.5px;
+            padding: 5px 6px;
+        }
+        .compact-table tbody td {
+            padding: 3px 6px;
+        }
+        .col-customer {
+            min-width: 180px;
         }
     }
-/* Force Bootstrap warning button to stay yellow, overriding base.html's generic button rule */
-button.btn-warning,
-.btn.btn-warning,
-form button.btn-warning {
-    background: #ffc107 !important;
-    border-color: #ffc107 !important;
-    color: #000 !important;
-    box-shadow: none !important;
-}
-
-/* Keep hover consistent */
-button.btn-warning:hover,
-.btn.btn-warning:hover {
-    background: #e0a800 !important;
-    border-color: #d39e00 !important;
-    color: #000 !important;
-}
 </style>
 {% endblock %}

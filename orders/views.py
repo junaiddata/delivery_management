@@ -1465,15 +1465,31 @@ def export_account_delivered_orders_to_excel(request):
 @login_required
 @role_required('Accounts')  # Restrict to Accounts role
 def mark_received_by_accounts(request, order_id):
-    """ View to update DO status to 'Received by A/c' """
+    """ View to update DO status to 'Received by A/c'. Returns JSON for AJAX requests. """
     order = get_object_or_404(DeliveryOrder, id=order_id, do_number__startswith='1')
+    is_ajax = (
+        request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+        request.accepts('application/json')
+    )
 
     if request.method == 'POST':
         order.status = 'Received by A/c'
         order.received_date = timezone.now()
         order.save()
-        return redirect('account_delivered_orders')  # Redirect back to the list
+        if is_ajax:
+            return JsonResponse({
+                'success': True,
+                'order_id': order_id,
+                'message': 'Order marked as received successfully.',
+            })
+        # Non-AJAX: redirect and preserve filters
+        next_url = request.GET.get('next') or request.POST.get('next')
+        if next_url:
+            return redirect(next_url)
+        return redirect('account_delivered_orders')
 
+    if is_ajax:
+        return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
     return render(request, 'orders/confirm_status_change.html', {'order': order})
 
 
