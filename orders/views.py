@@ -4257,8 +4257,15 @@ def customer_frequency_simple(request):
 @login_required
 def sync_settings(request):
     """Settings page for manual sync: dropdown, days/date, Sync and Sync all buttons. Admin only."""
-    # Admin only
-    if not (getattr(request.user, 'role', None) and request.user.role.role == 'Admin'):
+    # Admin only (and Junaid Admin)
+    try:
+        user_role = getattr(request.user, 'role', None)
+        if user_role is None:
+            return redirect('home')
+        role_name = user_role.role
+        if role_name not in ('Admin', 'Junaid Admin'):
+            return redirect('home')
+    except (Role.DoesNotExist, AttributeError):
         return redirect('home')
     from orders.sync_services import (
         sync_delivery_orders_core,
