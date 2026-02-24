@@ -4257,106 +4257,118 @@ def customer_frequency_simple(request):
 @login_required
 def sync_settings(request):
     """Settings page for manual sync: dropdown, days/date, Sync and Sync all buttons. Admin only."""
-    # Admin only (and Junaid Admin)
+    import traceback
     try:
-        user_role = getattr(request.user, 'role', None)
-        if user_role is None:
-            return redirect('home')
-        role_name = user_role.role
-        if role_name not in ('Admin', 'Junaid Admin'):
-            return redirect('home')
-    except (Role.DoesNotExist, AttributeError):
-        return redirect('home')
-    from orders.sync_services import (
-        sync_delivery_orders_core,
-        sync_non_one_delivery_orders_core,
-        sync_invoices_core,
-        sync_cancelled_orders_core,
-        sync_all_core,
-    )
-    from django.contrib import messages
-
-    message = None
-    message_type = None
-
-    if request.method == 'POST':
-        sync_type = request.POST.get('sync_type', '')
-        days_back = int(request.POST.get('days_back', 3) or 3)
-        specific_date = request.POST.get('specific_date', '').strip() or None
-        from_date = request.POST.get('from_date', '').strip() or None
-        to_date = request.POST.get('to_date', '').strip() or None
-        sync_all = request.POST.get('sync_all') == '1'
-        sync_cancelled_btn = 'sync_cancelled' in request.POST
-
+        # Admin only (and Junaid Admin)
         try:
-            if sync_cancelled_btn:
-                result = sync_cancelled_orders_core()
-                stats = result.get('stats', {})
-                message = f"Cancelled orders sync completed: updated={stats.get('updated', 0)}"
-                message_type = 'success'
-            elif sync_all:
-                result = sync_all_core(days_back=days_back)
-                do_stats = result.get('delivery_orders', {}).get('stats', {})
-                non_one_stats = result.get('non_one', {}).get('stats', {})
-                inv_stats = result.get('invoices', {}).get('stats', {})
-                message = (
-                    f"Sync all completed: DO created={do_stats.get('created', 0)}, "
-                    f"updated={do_stats.get('updated', 0)}; "
-                    f"Non-one created={non_one_stats.get('created', 0)}, updated={non_one_stats.get('updated', 0)}; "
-                    f"Invoices updated={inv_stats.get('updated', 0)}"
-                )
-                message_type = 'success'
-            elif sync_type == 'delivery_orders':
-                result = sync_delivery_orders_core(
-                    days_back=days_back,
-                    specific_date=specific_date,
-                    docnum=None
-                )
-                stats = result.get('stats', {})
-                message = f"Delivery orders sync completed: created={stats.get('created', 0)}, updated={stats.get('updated', 0)}"
-                message_type = 'success'
-            elif sync_type == 'non_one':
-                result = sync_non_one_delivery_orders_core(
-                    days_back=days_back,
-                    specific_date=specific_date,
-                    from_date=from_date,
-                    to_date=to_date,
-                    docnum=None
-                )
-                stats = result.get('stats', {})
-                message = f"Non-one orders sync completed: created={stats.get('created', 0)}, updated={stats.get('updated', 0)}"
-                message_type = 'success'
-            elif sync_type == 'invoices':
-                result = sync_invoices_core(
-                    days_back=days_back,
-                    specific_date=specific_date,
-                    from_date=from_date,
-                    to_date=to_date
-                )
-                stats = result.get('stats', {})
-                message = f"Invoices sync completed: updated={stats.get('updated', 0)}, not_found={stats.get('not_found', 0)}"
-                message_type = 'success'
-            elif sync_type == 'cancelled':
-                result = sync_cancelled_orders_core()
-                stats = result.get('stats', {})
-                message = f"Cancelled orders sync completed: updated={stats.get('updated', 0)}"
-                message_type = 'success'
-            else:
-                message = "Please select a sync type."
+            user_role = getattr(request.user, 'role', None)
+            if user_role is None:
+                return redirect('home')
+            role_name = user_role.role
+            if role_name not in ('Admin', 'Junaid Admin'):
+                return redirect('home')
+        except (Role.DoesNotExist, AttributeError):
+            return redirect('home')
+
+        from orders.sync_services import (
+            sync_delivery_orders_core,
+            sync_non_one_delivery_orders_core,
+            sync_invoices_core,
+            sync_cancelled_orders_core,
+            sync_all_core,
+        )
+        from django.contrib import messages
+
+        message = None
+        message_type = None
+
+        if request.method == 'POST':
+            sync_type = request.POST.get('sync_type', '')
+            days_back = int(request.POST.get('days_back', 3) or 3)
+            specific_date = request.POST.get('specific_date', '').strip() or None
+            from_date = request.POST.get('from_date', '').strip() or None
+            to_date = request.POST.get('to_date', '').strip() or None
+            sync_all = request.POST.get('sync_all') == '1'
+            sync_cancelled_btn = 'sync_cancelled' in request.POST
+
+            try:
+                if sync_cancelled_btn:
+                    result = sync_cancelled_orders_core()
+                    stats = result.get('stats', {})
+                    message = f"Cancelled orders sync completed: updated={stats.get('updated', 0)}"
+                    message_type = 'success'
+                elif sync_all:
+                    result = sync_all_core(days_back=days_back)
+                    do_stats = result.get('delivery_orders', {}).get('stats', {})
+                    non_one_stats = result.get('non_one', {}).get('stats', {})
+                    inv_stats = result.get('invoices', {}).get('stats', {})
+                    message = (
+                        f"Sync all completed: DO created={do_stats.get('created', 0)}, "
+                        f"updated={do_stats.get('updated', 0)}; "
+                        f"Non-one created={non_one_stats.get('created', 0)}, updated={non_one_stats.get('updated', 0)}; "
+                        f"Invoices updated={inv_stats.get('updated', 0)}"
+                    )
+                    message_type = 'success'
+                elif sync_type == 'delivery_orders':
+                    result = sync_delivery_orders_core(
+                        days_back=days_back,
+                        specific_date=specific_date,
+                        docnum=None
+                    )
+                    stats = result.get('stats', {})
+                    message = f"Delivery orders sync completed: created={stats.get('created', 0)}, updated={stats.get('updated', 0)}"
+                    message_type = 'success'
+                elif sync_type == 'non_one':
+                    result = sync_non_one_delivery_orders_core(
+                        days_back=days_back,
+                        specific_date=specific_date,
+                        from_date=from_date,
+                        to_date=to_date,
+                        docnum=None
+                    )
+                    stats = result.get('stats', {})
+                    message = f"Non-one orders sync completed: created={stats.get('created', 0)}, updated={stats.get('updated', 0)}"
+                    message_type = 'success'
+                elif sync_type == 'invoices':
+                    result = sync_invoices_core(
+                        days_back=days_back,
+                        specific_date=specific_date,
+                        from_date=from_date,
+                        to_date=to_date
+                    )
+                    stats = result.get('stats', {})
+                    message = f"Invoices sync completed: updated={stats.get('updated', 0)}, not_found={stats.get('not_found', 0)}"
+                    message_type = 'success'
+                elif sync_type == 'cancelled':
+                    result = sync_cancelled_orders_core()
+                    stats = result.get('stats', {})
+                    message = f"Cancelled orders sync completed: updated={stats.get('updated', 0)}"
+                    message_type = 'success'
+                else:
+                    message = "Please select a sync type."
+                    message_type = 'error'
+            except Exception as e:
+                message = str(e)
                 message_type = 'error'
-        except Exception as e:
-            message = str(e)
-            message_type = 'error'
-            logger.error(f"Sync settings error: {e}", exc_info=True)
+                logger.error(f"Sync settings error: {e}", exc_info=True)
 
-        if message_type == 'success':
-            messages.success(request, message)
-        else:
-            messages.error(request, message)
+            if message_type == 'success':
+                messages.success(request, message)
+            else:
+                messages.error(request, message)
 
-        return redirect('sync_settings')
+            return redirect('sync_settings')
 
-    return render(request, 'orders/sync_settings.html', {})
+        return render(request, 'orders/sync_settings.html', {})
+    except Exception as e:
+        logger.exception("sync_settings error")
+        # Show error on page for debugging (remove in production if needed)
+        from django.http import HttpResponse
+        return HttpResponse(
+            f"<h2>Sync Settings Error</h2><pre>{traceback.format_exc()}</pre>",
+            status=500,
+            content_type="text/html",
+        )
 
 
 # ==================== SAP API SYNC ENDPOINT ====================
