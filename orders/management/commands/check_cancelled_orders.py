@@ -1,6 +1,5 @@
 """
-Django management command to check and update cancelled delivery orders from SAP API to VPS
-Only updates VPS database - does not touch local database
+Django management command to check and update cancelled delivery orders from SAP API
 """
 import logging
 import requests
@@ -8,6 +7,7 @@ from datetime import datetime
 from django.core.management.base import BaseCommand
 from django.conf import settings
 from orders.api_client import SAPAPIClient
+from orders.sync_services import sync_cancelled_orders_core
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -20,108 +20,120 @@ class Command(BaseCommand):
         parser.add_argument(
             '--dry-run',
             action='store_true',
-            help='Show what would be changed without actually updating the VPS',
+            help='Show what would be changed without actually updating',
         )
         parser.add_argument(
             '--local',
             action='store_true',
             help='Test mode: use local URL instead of VPS (http://localhost:8000/api/sync/delivery-orders/)',
         )
+        parser.add_argument(
+            '--save-local',
+            action='store_true',
+            help='Update local database directly (VPS-centric mode, no HTTP push)',
+        )
     
     def handle(self, *args, **options):
         start_time = datetime.now()
         dry_run = options['dry_run']
+        save_local = options.get('save_local', False)
+        updated_count = 0
         
         self.stdout.write(self.style.SUCCESS('Starting cancelled delivery orders check...'))
         
         if dry_run:
-            self.stdout.write(self.style.WARNING("DRY RUN MODE - No changes will be made to VPS"))
+            self.stdout.write(self.style.WARNING("DRY RUN MODE - No changes will be made"))
         
-        # Initialize API client
-        client = SAPAPIClient()
-        
-        # Fetch only last 5 pages of cancelled orders from API
-        self.stdout.write("Fetching last 5 pages of cancelled orders from API...")
-        try:
-            cancelled_records = self._fetch_last_pages_cancelled_orders(client)
-        except Exception as e:
-            self.stdout.write(self.style.ERROR(f"Error fetching cancelled orders: {e}"))
-            logger.error(f"Error fetching cancelled orders: {e}", exc_info=True)
-            return
-        
-        if not cancelled_records:
-            self.stdout.write(self.style.WARNING("No cancelled orders found in API"))
-            return
-        
-        self.stdout.write(self.style.SUCCESS(f"Found {len(cancelled_records)} cancelled orders in API"))
-        
-        # Extract DocNum values from cancelled records and filter by do_number > 126000000
-        cancelled_docnums = []
-        for record in cancelled_records:
-            docnum = str(record.get('DocNum', '')).strip()
-            if docnum:
-                try:
-                    # Convert to integer for comparison
-                    docnum_int = int(docnum)
-                    if docnum_int > 126000000:
-                        cancelled_docnums.append(docnum)
-                except ValueError:
-                    # If not a valid integer, skip it
-                    logger.debug(f"Skipping non-numeric DocNum: {docnum}")
-                    continue
-        
-        if not cancelled_docnums:
-            self.stdout.write(self.style.WARNING("No cancelled orders found with do_number > 126000000"))
-            return
-        
-        self.stdout.write(f"Found {len(cancelled_docnums)} cancelled DOs with do_number > 126000000")
-        
-        # Display summary
-        self.stdout.write(f"\n========= SUMMARY =========")
-        self.stdout.write(f"Total cancelled orders in API: {len(cancelled_records)}")
-        self.stdout.write(f"Cancelled DOs with do_number > 126000000: {len(cancelled_docnums)}")
-        
-        if len(cancelled_docnums) <= 20:
-            self.stdout.write(f"\nDOs that will be updated to 'Cancelled' status on VPS:")
-            for docnum in sorted(cancelled_docnums):
-                if dry_run:
-                    self.stdout.write(f"  - DO {docnum}: -> 'Cancelled'")
-                else:
-                    self.stdout.write(f"  - DO {docnum}: -> 'Cancelled'")
-        else:
-            self.stdout.write(f"\nFirst 20 DOs that will be updated:")
-            for docnum in sorted(cancelled_docnums)[:20]:
-                self.stdout.write(f"  - DO {docnum}")
-            self.stdout.write(f"  ... and {len(cancelled_docnums) - 20} more")
-        
-        # Send status updates to VPS
-        if not dry_run:
+        if save_local and not dry_run:
+            # VPS-centric: update local DB directly
+            try:
+                result = sync_cancelled_orders_core()
+                stats = result.get('stats', {})
+                updated_count = stats.get('updated', 0)
+                self.stdout.write(self.style.SUCCESS(
+                    f"[OK] Successfully updated {updated_count} delivery orders to 'Cancelled' status in local database"
+                ))
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f"[ERROR] Sync failed: {e}"))
+                logger.error(f"Sync failed: {e}", exc_info=True)
+        elif not dry_run:
+            # Legacy: push to VPS via HTTP
+            client = SAPAPIClient()
+            self.stdout.write("Fetching last 5 pages of cancelled orders from API...")
+            try:
+                cancelled_records = self._fetch_last_pages_cancelled_orders(client)
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f"Error fetching cancelled orders: {e}"))
+                logger.error(f"Error fetching cancelled orders: {e}", exc_info=True)
+                return
+            
+            if not cancelled_records:
+                self.stdout.write(self.style.WARNING("No cancelled orders found in API"))
+                return
+            
+            cancelled_docnums = []
+            for record in cancelled_records:
+                docnum = str(record.get('DocNum', '')).strip()
+                if docnum:
+                    try:
+                        if int(docnum) > 126000000:
+                            cancelled_docnums.append(docnum)
+                    except ValueError:
+                        continue
+            
+            if not cancelled_docnums:
+                self.stdout.write(self.style.WARNING("No cancelled orders found with do_number > 126000000"))
+                return
+            
             target = "local server" if options.get('local') else "VPS"
             self.stdout.write(f"\nSending cancelled status updates to {target}...")
-            vps_updated = self._send_cancelled_status_to_vps(cancelled_docnums, use_local=options.get('local'))
+            updated_count = self._send_cancelled_status_to_vps(cancelled_docnums, use_local=options.get('local'))
             
-            if vps_updated:
+            if updated_count:
                 self.stdout.write(self.style.SUCCESS(
-                    f"[OK] Successfully updated {vps_updated} delivery orders to 'Cancelled' status on {target}"
+                    f"[OK] Successfully updated {updated_count} delivery orders to 'Cancelled' status on {target}"
                 ))
             else:
                 self.stdout.write(self.style.ERROR(
                     f"[ERROR] Failed to update {target} (check logs for details)"
                 ))
         else:
+            # Dry run: fetch and display
+            client = SAPAPIClient()
+            self.stdout.write("Fetching last 5 pages of cancelled orders from API...")
+            try:
+                cancelled_records = self._fetch_last_pages_cancelled_orders(client)
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f"Error fetching cancelled orders: {e}"))
+                return
+            
+            if not cancelled_records:
+                self.stdout.write(self.style.WARNING("No cancelled orders found in API"))
+                return
+            
+            cancelled_docnums = []
+            for record in cancelled_records:
+                docnum = str(record.get('DocNum', '')).strip()
+                if docnum:
+                    try:
+                        if int(docnum) > 126000000:
+                            cancelled_docnums.append(docnum)
+                    except ValueError:
+                        continue
+            
+            updated_count = len(cancelled_docnums)
             self.stdout.write(self.style.SUCCESS(
-                f"\n[OK] Would update {len(cancelled_docnums)} delivery orders to 'Cancelled' status on VPS"
+                f"\n[OK] Would update {updated_count} delivery orders to 'Cancelled' status"
             ))
         
         # Log summary
         duration = (datetime.now() - start_time).total_seconds()
+        updated_str = "N/A (dry-run)" if dry_run else updated_count
         self.stdout.write(self.style.SUCCESS(
             f'\n========= CHECK SUMMARY =========\n'
             f'Duration: {duration:.2f} seconds\n'
-            f'Cancelled orders in API: {len(cancelled_records)}\n'
-            f'DOs with do_number > 126000000: {len(cancelled_docnums)}\n'
-            f'Updated: {("N/A (dry-run)" if dry_run else vps_updated)}\n'
-            f'Mode: {"Dry run" if dry_run else "Live update"}\n'
+            f'Updated: {updated_str}\n'
+            f'Mode: {"Dry run" if dry_run else "Save local" if save_local else "Push to VPS"}\n'
             f'================================'
         ))
     

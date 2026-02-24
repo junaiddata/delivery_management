@@ -858,6 +858,16 @@
                                     </div>
                                     <span class="action-btn-arrow">→</span>
                                 </a>
+                                <a href="{% url 'sync_settings' %}" class="action-btn admin-only-btn">
+                                    <div class="action-btn-content">
+                                        <div class="action-btn-icon">⚙️</div>
+                                        <div class="action-btn-text">
+                                            <h3>Sync Settings</h3>
+                                            <p>Admin only – Sync from API to database</p>
+                                        </div>
+                                    </div>
+                                    <span class="action-btn-arrow">→</span>
+                                </a>
                             {% elif user.role.role == 'Warehouse' %}
                                 <a href="{% url 'vehicle_list' %}" class="action-btn">
                                     <div class="action-btn-content">

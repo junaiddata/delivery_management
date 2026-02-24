@@ -207,10 +207,19 @@ class SAPAPIClient:
                 
         except requests.exceptions.Timeout:
             logger.error(f"API request timeout after {self.timeout}s")
-            return {'value': [], 'count': 0}
+            raise RuntimeError(
+                "Cannot connect to API (timeout). Is the SSH tunnel running?"
+            ) from None
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"API connection failed: {e}")
+            raise RuntimeError(
+                "Cannot connect to API. Is the SSH tunnel running?"
+            ) from None
         except requests.exceptions.RequestException as e:
             logger.error(f"API request failed: {e}")
-            return {'value': [], 'count': 0}
+            raise RuntimeError(
+                "Cannot connect to API. Is the SSH tunnel running?"
+            ) from None
         except Exception as e:
             logger.error(f"Unexpected error in API request: {e}")
             return {'value': [], 'count': 0}
@@ -609,10 +618,19 @@ class SAPAPIClient:
                 
         except requests.exceptions.Timeout:
             logger.error(f"DOInvoice API request timeout after {self.timeout}s")
-            return []
+            raise RuntimeError(
+                "Cannot connect to API (timeout). Is the SSH tunnel running?"
+            ) from None
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"DOInvoice API connection failed: {e}")
+            raise RuntimeError(
+                "Cannot connect to API. Is the SSH tunnel running?"
+            ) from None
         except requests.exceptions.RequestException as e:
             logger.error(f"DOInvoice API request failed: {e}")
-            return []
+            raise RuntimeError(
+                "Cannot connect to API. Is the SSH tunnel running?"
+            ) from None
         except Exception as e:
             logger.error(f"Unexpected error in DOInvoice API request: {e}")
             return []

@@ -4252,6 +4252,106 @@ def customer_frequency_simple(request):
     })
 
 
+# ==================== SYNC SETTINGS PAGE ====================
+
+@login_required
+def sync_settings(request):
+    """Settings page for manual sync: dropdown, days/date, Sync and Sync all buttons. Admin only."""
+    # Admin only
+    if not (getattr(request.user, 'role', None) and request.user.role.role == 'Admin'):
+        return redirect('home')
+    from orders.sync_services import (
+        sync_delivery_orders_core,
+        sync_non_one_delivery_orders_core,
+        sync_invoices_core,
+        sync_cancelled_orders_core,
+        sync_all_core,
+    )
+    from django.contrib import messages
+
+    message = None
+    message_type = None
+
+    if request.method == 'POST':
+        sync_type = request.POST.get('sync_type', '')
+        days_back = int(request.POST.get('days_back', 3) or 3)
+        specific_date = request.POST.get('specific_date', '').strip() or None
+        from_date = request.POST.get('from_date', '').strip() or None
+        to_date = request.POST.get('to_date', '').strip() or None
+        sync_all = request.POST.get('sync_all') == '1'
+        sync_cancelled_btn = 'sync_cancelled' in request.POST
+
+        try:
+            if sync_cancelled_btn:
+                result = sync_cancelled_orders_core()
+                stats = result.get('stats', {})
+                message = f"Cancelled orders sync completed: updated={stats.get('updated', 0)}"
+                message_type = 'success'
+            elif sync_all:
+                result = sync_all_core(days_back=days_back)
+                do_stats = result.get('delivery_orders', {}).get('stats', {})
+                non_one_stats = result.get('non_one', {}).get('stats', {})
+                inv_stats = result.get('invoices', {}).get('stats', {})
+                message = (
+                    f"Sync all completed: DO created={do_stats.get('created', 0)}, "
+                    f"updated={do_stats.get('updated', 0)}; "
+                    f"Non-one created={non_one_stats.get('created', 0)}, updated={non_one_stats.get('updated', 0)}; "
+                    f"Invoices updated={inv_stats.get('updated', 0)}"
+                )
+                message_type = 'success'
+            elif sync_type == 'delivery_orders':
+                result = sync_delivery_orders_core(
+                    days_back=days_back,
+                    specific_date=specific_date,
+                    docnum=None
+                )
+                stats = result.get('stats', {})
+                message = f"Delivery orders sync completed: created={stats.get('created', 0)}, updated={stats.get('updated', 0)}"
+                message_type = 'success'
+            elif sync_type == 'non_one':
+                result = sync_non_one_delivery_orders_core(
+                    days_back=days_back,
+                    specific_date=specific_date,
+                    from_date=from_date,
+                    to_date=to_date,
+                    docnum=None
+                )
+                stats = result.get('stats', {})
+                message = f"Non-one orders sync completed: created={stats.get('created', 0)}, updated={stats.get('updated', 0)}"
+                message_type = 'success'
+            elif sync_type == 'invoices':
+                result = sync_invoices_core(
+                    days_back=days_back,
+                    specific_date=specific_date,
+                    from_date=from_date,
+                    to_date=to_date
+                )
+                stats = result.get('stats', {})
+                message = f"Invoices sync completed: updated={stats.get('updated', 0)}, not_found={stats.get('not_found', 0)}"
+                message_type = 'success'
+            elif sync_type == 'cancelled':
+                result = sync_cancelled_orders_core()
+                stats = result.get('stats', {})
+                message = f"Cancelled orders sync completed: updated={stats.get('updated', 0)}"
+                message_type = 'success'
+            else:
+                message = "Please select a sync type."
+                message_type = 'error'
+        except Exception as e:
+            message = str(e)
+            message_type = 'error'
+            logger.error(f"Sync settings error: {e}", exc_info=True)
+
+        if message_type == 'success':
+            messages.success(request, message)
+        else:
+            messages.error(request, message)
+
+        return redirect('sync_settings')
+
+    return render(request, 'orders/sync_settings.html', {})
+
+
 # ==================== SAP API SYNC ENDPOINT ====================
 
 from decimal import Decimal, InvalidOperation
@@ -4340,280 +4440,15 @@ def sync_receive(request):
     
     logger.info(f"Received sync request with {len(records)} records")
     
-    errors = []
-    
-    # Extract sync metadata early for invoice sync detection
-    sync_metadata = data.get('sync_metadata', {})
-    sync_type = sync_metadata.get('sync_type', 'normal')
-    update_only_mode = sync_metadata.get('update_only', False)
-    
-    # Check if any record has status field (before processing modifies records)
-    has_status_updates = any(isinstance(r, dict) and 'status' in r and r.get('status') for r in records)
-    # Check if any record has invoice_number field (before processing modifies records)
-    has_invoice_in_payload = any(isinstance(r, dict) and 'invoice_number' in r and r.get('invoice_number') is not None and str(r.get('invoice_number')).strip() != '' for r in records)
-    # Detect "status-only" payloads (used by cancelled-status sync): only do_number + status (+ optional document_lines)
-    status_only_mode = all(
-        isinstance(r, dict)
-        and set(r.keys()).issubset({'do_number', 'status', 'document_lines'})
-        and r.get('do_number')
-        and r.get('status')
-        for r in records
-    )
-    
-    # Process in atomic transaction
     try:
-        with transaction.atomic():
-            # Get existing records by do_number
-            do_numbers = [str(r.get('do_number', '')) for r in records if r.get('do_number')]
-            existing_orders = DeliveryOrder.objects.filter(do_number__in=do_numbers)
-            existing_map = {order.do_number: order for order in existing_orders}
-            
-            to_create = []
-            to_update = []
-            items_to_process = []  # (do_number, document_lines)
-            
-            for record in records:
-                do_number = str(record.get('do_number', ''))
-                if not do_number:
-                    errors.append('Record missing do_number')
-                    stats['errors'] += 1
-                    continue
-
-                # If this is a status-only update payload, do NOT attempt to create records or process items.
-                # Only update existing records' status; skip missing DOs.
-                if status_only_mode:
-                    if do_number in existing_map:
-                        obj = existing_map[do_number]
-                        obj.status = record.get('status')
-                        to_update.append(obj)
-                        stats['updated'] += 1
-                    else:
-                        # Skip unknown DOs (do not create)
-                        continue
-                    # Skip rest of the normal sync processing for this record
-                    continue
-                
-                # Extract document_lines for later processing
-                document_lines = record.pop('document_lines', [])
-                items_to_process.append((do_number, document_lines))
-                
-                # Parse date
-                date_str = record.get('date')
-                if date_str:
-                    try:
-                        if isinstance(date_str, str):
-                            record['date'] = datetime.strptime(date_str, '%Y-%m-%d').date()
-                        else:
-                            record['date'] = date_str
-                    except (ValueError, TypeError):
-                        errors.append(f'Invalid date for DO {do_number}: {date_str}')
-                        record['date'] = None
-                
-                # Parse amount
-                amount_str = record.get('amount')
-                if amount_str:
-                    try:
-                        record['amount'] = Decimal(str(amount_str))
-                    except (InvalidOperation, ValueError, TypeError):
-                        record['amount'] = None
-                
-                # Handle empty strings for optional fields
-                for field in ['city', 'area', 'salesman', 'lpo', 'mobile_number']:
-                    if record.get(field) == '':
-                        record[field] = None
-                
-                if do_number in existing_map:
-                    # Update existing record - only API-sourced fields
-                    obj = existing_map[do_number]
-                    update_fields = ['date', 'customer_code', 'customer_name', 'city', 'area', 'salesman', 'amount', 'lpo', 'mobile_number']
-                    
-                    # If status is explicitly provided in the record, include it in updates
-                    # This allows status updates (e.g., for cancelled orders) to be synced
-                    if 'status' in record and record.get('status'):
-                        update_fields.append('status')
-                    
-                    # If invoice_number is provided, include it in updates (for invoice sync)
-                    if 'invoice_number' in record:
-                        invoice_val = record.get('invoice_number')
-                        # Always set invoice_number if it's in the record (even if None/empty)
-                        if invoice_val is not None and str(invoice_val).strip() != '':
-                            setattr(obj, 'invoice_number', str(invoice_val).strip())
-                            logger.debug(f"Setting invoice_number for DO {do_number}: {invoice_val}")
-                        else:
-                            # Set to None if explicitly provided as None/empty
-                            setattr(obj, 'invoice_number', None)
-                            logger.debug(f"Setting invoice_number to None for DO {do_number}")
-                        # Mark that this object needs invoice_number update
-                        obj._needs_invoice_update = True
-                    
-                    for field in update_fields:
-                        if field in record:
-                            setattr(obj, field, record[field])
-                    
-                    to_update.append(obj)
-                    stats['updated'] += 1
-                else:
-                    # Check if this is an update-only sync (e.g., invoice updates)
-                    # If sync_metadata indicates update_only, skip creation
-                    sync_metadata = data.get('sync_metadata', {})
-                    if sync_metadata.get('update_only', False):
-                        # Skip creation for update-only syncs (like invoice updates)
-                        errors.append(f'DO {do_number} not found (update-only mode, skipping creation)')
-                        stats['errors'] += 1
-                        continue
-                    # If a status update record is sent for a DO that doesn't exist, skip it (do not create).
-                    if 'status' in record and record.get('status') and not record.get('date'):
-                        continue
-                    # Create new record with defaults for app-managed fields
-                    # Use provided status if available, otherwise default to 'Pending'
-                    status_value = record.get('status', 'Pending')
-                    new_order = DeliveryOrder(
-                        do_number=do_number,
-                        date=record.get('date'),
-                        customer_code=record.get('customer_code', ''),
-                        customer_name=record.get('customer_name', ''),
-                        city=record.get('city'),
-                        area=record.get('area'),
-                        salesman=record.get('salesman'),
-                        amount=record.get('amount'),
-                        lpo=record.get('lpo'),
-                        mobile_number=record.get('mobile_number'),  # From BusinessPartner.Cellular
-                        invoice_number=record.get('invoice_number'),  # Usually None
-                        # App-managed fields use defaults or provided values:
-                        status=status_value,  # Use provided status or default to 'Pending'
-                        driver=None,  # Default driver
-                        vehicle=None,  # Default vehicle
-                        delivery_date=None,  # Default delivery_date
-                        received_date=None,  # Default received_date
-                        salesman_mobile=None,  # Default salesman_mobile
-                    )
-                    to_create.append(new_order)
-                    stats['created'] += 1
-            
-            # Bulk create new records
-            if to_create:
-                DeliveryOrder.objects.bulk_create(to_create, batch_size=500)
-            
-            # Bulk update existing records
-            if to_update:
-                # Base update fields (always updated if present)
-                base_update_fields = ['date', 'customer_code', 'customer_name', 'city', 'area', 'salesman', 'amount', 'lpo', 'mobile_number']
-                
-                # If this is a status-only payload, update only status.
-                if status_only_mode:
-                    fields_to_update = ['status']
-                else:
-                    # Include status in update fields if any record had status updates
-                    fields_to_update = base_update_fields.copy()
-                    if has_status_updates:
-                        fields_to_update.append('status')
-                    
-                    # Check if any record has invoice_number (for invoice sync)
-                    # Use the flag we set earlier (has_invoice_in_payload), or check objects directly
-                    if has_invoice_in_payload:
-                        # If invoice_number was in the payload, always include it in bulk_update
-                        fields_to_update.append('invoice_number')
-                        invoice_count = len([obj for obj in to_update if hasattr(obj, '_needs_invoice_update') and obj._needs_invoice_update])
-                        logger.info(f"Invoice updates detected: {invoice_count} orders with invoice_number. Fields to update: {fields_to_update}")
-                    else:
-                        # Fallback: check objects directly
-                        has_invoice_on_objects = any(
-                            hasattr(obj, '_needs_invoice_update') and obj._needs_invoice_update
-                            for obj in to_update
-                        ) or any(
-                            hasattr(obj, 'invoice_number') and obj.invoice_number is not None and str(obj.invoice_number).strip() != ''
-                            for obj in to_update
-                        )
-                        if has_invoice_on_objects:
-                            fields_to_update.append('invoice_number')
-                            logger.info(f"Invoice_number found on objects. Adding invoice_number to update fields.")
-                
-                DeliveryOrder.objects.bulk_update(to_update, fields=fields_to_update, batch_size=500)
-            
-            # Process DeliveryItemWise records - only update if changed
-            if items_to_process and not status_only_mode:
-                synced_do_numbers = [do_num for do_num, _ in items_to_process]
-                
-                # Get existing items for all synced DOs
-                existing_items = DeliveryItemWise.objects.filter(do_number__in=synced_do_numbers)
-                # Create a map: (do_number, item_code) -> DeliveryItemWise object
-                existing_items_map = {}
-                for item in existing_items:
-                    key = (item.do_number, item.item_code)
-                    existing_items_map[key] = item
-                
-                items_to_create = []
-                items_to_update = []
-                
-                # Process document_lines - only create/update, never delete
-                for do_number, document_lines in items_to_process:
-                    # Log diagnostic info
-                    if not document_lines:
-                        logger.debug(f"DO {do_number}: document_lines is empty or missing - skipping item processing for this DO")
-                        continue
-                    
-                    logger.debug(f"DO {do_number}: Processing {len(document_lines)} document_lines")
-                    
-                    for line in document_lines:
-                        item_code = str(line.get('ItemCode', ''))
-                        if not item_code:
-                            continue
-                        
-                        item_description = str(line.get('ItemDescription', ''))
-                        
-                        # Parse quantity
-                        quantity = line.get('Quantity', 0)
-                        try:
-                            quantity = int(float(quantity)) if quantity else 0
-                        except (ValueError, TypeError):
-                            quantity = 0
-                        
-                        # Parse price
-                        price = line.get('Price', 0)
-                        try:
-                            price = Decimal(str(price)) if price else Decimal('0.00')
-                        except (InvalidOperation, ValueError, TypeError):
-                            price = Decimal('0.00')
-                        
-                        key = (do_number, item_code)
-                        
-                        if key in existing_items_map:
-                            # Item exists - check if it needs updating
-                            existing_item = existing_items_map[key]
-                            if (existing_item.item_description != item_description or
-                                existing_item.quantity != quantity or
-                                existing_item.price != price):
-                                # Update existing item
-                                existing_item.item_description = item_description
-                                existing_item.quantity = quantity
-                                existing_item.price = price
-                                items_to_update.append(existing_item)
-                        else:
-                            # New item - create it
-                            items_to_create.append(
-                                DeliveryItemWise(
-                                    do_number=do_number,
-                                    item_code=item_code,
-                                    item_description=item_description,
-                                    quantity=quantity,
-                                    price=price
-                                )
-                            )
-                
-                # Create new items
-                if items_to_create:
-                    DeliveryItemWise.objects.bulk_create(items_to_create, batch_size=1000)
-                    stats['items_created'] = len(items_to_create)
-                
-                # Update changed items
-                if items_to_update:
-                    DeliveryItemWise.objects.bulk_update(items_to_update, ['item_description', 'quantity', 'price'], batch_size=1000)
-                    stats['items_updated'] = len(items_to_update)
-        
+        from orders.sync_services import save_delivery_order_records
+        result = save_delivery_order_records(records, data.get('sync_metadata', {}))
+        stats = {k: v for k, v in result.items() if k != 'errors_list'}
+        errors = result.get('errors_list', [])
         return JsonResponse({
             'success': True,
             'stats': stats,
-            'errors': errors[:10] if errors else []  # Limit errors in response
+            'errors': errors[:10] if errors else []
         })
         
     except Exception as e:

@@ -8,9 +8,9 @@ from datetime import datetime, timedelta, date
 from decimal import Decimal, InvalidOperation
 from django.core.management.base import BaseCommand
 from django.conf import settings
-from django.db import transaction
 from orders.api_client import SAPAPIClient
 from orders.models import DeliveryOrder, CreditPayment
+from orders.sync_services import sync_invoices_core
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -121,156 +121,108 @@ class Command(BaseCommand):
         
         self.stdout.write(self.style.SUCCESS('Starting invoice sync from DOInvoice API...'))
         
-        # Determine date range
-        today = date.today()
-        
-        if options['from_date'] and options['to_date']:
+        if options['save_local']:
             try:
-                from_date = datetime.strptime(options['from_date'], '%Y-%m-%d').date()
-                to_date = datetime.strptime(options['to_date'], '%Y-%m-%d').date()
-            except ValueError:
-                self.stdout.write(self.style.ERROR('Invalid date format. Use YYYY-MM-DD'))
-                return
-        elif options['from_date']:
-            try:
-                from_date = datetime.strptime(options['from_date'], '%Y-%m-%d').date()
-                to_date = today
-            except ValueError:
-                self.stdout.write(self.style.ERROR('Invalid date format. Use YYYY-MM-DD'))
-                return
-        elif options['to_date']:
-            try:
-                to_date = datetime.strptime(options['to_date'], '%Y-%m-%d').date()
-                days_back = options['days_back']
-                from_date = to_date - timedelta(days=days_back - 1)  # -1 because we include to_date
-            except ValueError:
-                self.stdout.write(self.style.ERROR('Invalid date format. Use YYYY-MM-DD'))
-                return
-        else:
-            # Default: last 3 days including today
-            days_back = options['days_back']
-            to_date = today
-            from_date = today - timedelta(days=days_back - 1)  # -1 because we include today
-        
-        self.stdout.write(f"Fetching invoices from {from_date} to {to_date}")
-        
-        # Initialize API client
-        client = SAPAPIClient()
-        
-        # Fetch invoice data
-        invoice_records = client.fetch_do_invoices(from_date, to_date)
-        
-        if not invoice_records:
-            self.stdout.write(self.style.WARNING('No invoice records fetched from API'))
-            return
-        
-        self.stdout.write(self.style.SUCCESS(f'Fetched {len(invoice_records)} invoice records from API'))
-        
-        # Group by DO number (API returns line items, we need one record per DO)
-        do_invoice_map = {}
-        for record in invoice_records:
-            do_number = str(record.get('DO', '')).strip()
-            if not do_number:
-                continue
-            
-            invoice_value = record.get('INVOICE')
-            amount_value = record.get('AMOUNT')
-            
-            # Parse amount
-            amount = None
-            if amount_value is not None:
-                try:
-                    amount = Decimal(str(amount_value))
-                except (InvalidOperation, ValueError, TypeError):
-                    logger.warning(f"Invalid amount for DO {do_number}: {amount_value}")
-            
-            # Group by DO - keep the invoice and amount (they should be same for all lines of same DO)
-            if do_number not in do_invoice_map:
-                do_invoice_map[do_number] = {
-                    'invoice': invoice_value,
-                    'amount': amount
-                }
-            else:
-                # If amount is None in first record but available in later record, update it
-                if do_invoice_map[do_number]['amount'] is None and amount is not None:
-                    do_invoice_map[do_number]['amount'] = amount
-        
-        self.stdout.write(f'Grouped to {len(do_invoice_map)} unique DOs')
-        
-        # Process each DO
-        stats = {
-            'updated': 0,
-            'not_found': 0,
-            'skipped': 0,
-            'duplicates_resolved': 0,
-            'credit_payments_deleted': 0,
-            'errors': 0
-        }
-        
-        errors = []
-        updated_orders = []  # Store updated orders for VPS push
-        
-        # Process invoices
-        # Default behavior: Push to VPS only (like cancelled orders)
-        if options['local_only']:
+                today = date.today()
+                from_date = to_date = None
+                if options.get('from_date') and options.get('to_date'):
+                    from_date = datetime.strptime(options['from_date'], '%Y-%m-%d').date()
+                    to_date = datetime.strptime(options['to_date'], '%Y-%m-%d').date()
+                elif options.get('from_date'):
+                    from_date = datetime.strptime(options['from_date'], '%Y-%m-%d').date()
+                    to_date = today
+                elif options.get('to_date'):
+                    to_date = datetime.strptime(options['to_date'], '%Y-%m-%d').date()
+                    from_date = to_date - timedelta(days=options['days_back'] - 1)
+                result = sync_invoices_core(
+                    days_back=options['days_back'],
+                    from_date=from_date,
+                    to_date=to_date
+                )
+                stats = result.get('stats', {})
+                self.stdout.write(self.style.SUCCESS(
+                    f"[OK] Saved to database! Updated: {stats.get('updated', 0)}, "
+                    f"Not found: {stats.get('not_found', 0)}, "
+                    f"Duplicates resolved: {stats.get('duplicates_resolved', 0)}, "
+                    f"Credit payments deleted: {stats.get('credit_payments_deleted', 0)}, "
+                    f"Errors: {stats.get('errors', 0)}"
+                ))
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f"[ERROR] Sync failed: {e}"))
+                logger.error(f"Sync failed: {e}", exc_info=True)
+        elif options['local_only']:
             self.stdout.write(self.style.WARNING('--local-only mode: Will not save or push'))
-        elif options['save_local']:
-            self.stdout.write('Mode: Save to local database only')
+            return
         else:
-            self.stdout.write('Mode: Push to VPS (VPS will save) - Like cancelled orders')
-        
-        try:
-            # Process invoices - no local DB transaction needed for VPS push mode
+            # Push to VPS (legacy path)
+            today = date.today()
+            if options['from_date'] and options['to_date']:
+                try:
+                    from_date = datetime.strptime(options['from_date'], '%Y-%m-%d').date()
+                    to_date = datetime.strptime(options['to_date'], '%Y-%m-%d').date()
+                except ValueError:
+                    self.stdout.write(self.style.ERROR('Invalid date format. Use YYYY-MM-DD'))
+                    return
+            elif options['from_date']:
+                try:
+                    from_date = datetime.strptime(options['from_date'], '%Y-%m-%d').date()
+                    to_date = today
+                except ValueError:
+                    self.stdout.write(self.style.ERROR('Invalid date format. Use YYYY-MM-DD'))
+                    return
+            elif options['to_date']:
+                try:
+                    to_date = datetime.strptime(options['to_date'], '%Y-%m-%d').date()
+                    days_back = options['days_back']
+                    from_date = to_date - timedelta(days=days_back - 1)
+                except ValueError:
+                    self.stdout.write(self.style.ERROR('Invalid date format. Use YYYY-MM-DD'))
+                    return
+            else:
+                days_back = options['days_back']
+                to_date = today
+                from_date = today - timedelta(days=days_back - 1)
+
+            self.stdout.write(f"Fetching invoices from {from_date} to {to_date}")
+            client = SAPAPIClient()
+            invoice_records = client.fetch_do_invoices(from_date, to_date)
+
+            if not invoice_records:
+                self.stdout.write(self.style.WARNING('No invoice records fetched from API'))
+                return
+
+            do_invoice_map = {}
+            for record in invoice_records:
+                do_number = str(record.get('DO', '')).strip()
+                if not do_number:
+                    continue
+                invoice_value = record.get('INVOICE')
+                amount_value = record.get('AMOUNT')
+                amount = None
+                if amount_value is not None:
+                    try:
+                        amount = Decimal(str(amount_value))
+                    except (InvalidOperation, ValueError, TypeError):
+                        pass
+                if do_number not in do_invoice_map:
+                    do_invoice_map[do_number] = {'invoice': invoice_value, 'amount': amount}
+                elif do_invoice_map[do_number]['amount'] is None and amount is not None:
+                    do_invoice_map[do_number]['amount'] = amount
+
+            stats = {'updated': 0, 'not_found': 0, 'duplicates_resolved': 0, 'credit_payments_deleted': 0, 'errors': 0}
+            errors = []
+            updated_orders = []
+
             for do_number, invoice_data in do_invoice_map.items():
                 try:
-                    # Normalize invoice (handle null/NIL)
                     base_invoice = normalize_invoice(invoice_data['invoice'])
-                    final_invoice = base_invoice
-                    
-                    # Try to check uniqueness against local DB if available (optional)
-                    # This is just for guidance - VPS will do final uniqueness check
-                    if options['save_local']:
-                        # Only check local DB if we're saving locally
-                        try:
-                            order = DeliveryOrder.objects.get(do_number=do_number)
-                            old_invoice = order.invoice_number
-                            final_invoice = make_invoice_unique(base_invoice, order)
-                            
-                            if final_invoice != base_invoice:
-                                stats['duplicates_resolved'] += 1
-                                logger.debug(f"DO {do_number}: Invoice {base_invoice} -> {final_invoice} (duplicate resolved)")
-                            
-                            # If invoice is changing and there was an old invoice, delete CreditPayment
-                            if old_invoice and old_invoice != final_invoice:
-                                deleted_count = CreditPayment.objects.filter(delivery_order=order).delete()[0]
-                                if deleted_count > 0:
-                                    stats['credit_payments_deleted'] += deleted_count
-                                    logger.debug(f"DO {do_number}: Deleted {deleted_count} CreditPayment record(s) due to invoice change")
-                            
-                            # Save locally
-                            order.invoice_number = final_invoice
-                            if invoice_data['amount'] is not None:
-                                order.amount = invoice_data['amount']
-                            order.save()
-                            stats['updated'] += 1
-                        except DeliveryOrder.DoesNotExist:
-                            stats['not_found'] += 1
-                            logger.debug(f"DO {do_number} not found in local database (save-local mode)")
-                            continue
-                    else:
-                        # VPS push mode: Just prepare data, no local DB query needed
-                        # VPS will handle uniqueness check and saving
-                        invoice_update = {
-                            'do_number': do_number,
-                            'invoice_number': final_invoice,
-                            'amount': str(invoice_data['amount']) if invoice_data['amount'] is not None else None,
-                        }
-                        
-                        if not options['local_only']:
-                            # Store for VPS push (VPS will save it)
-                            updated_orders.append(invoice_update)
-                            stats['updated'] += 1
-                    
+                    invoice_update = {
+                        'do_number': do_number,
+                        'invoice_number': base_invoice,
+                        'amount': str(invoice_data['amount']) if invoice_data['amount'] is not None else None,
+                    }
+                    updated_orders.append(invoice_update)
+                    stats['updated'] += 1
                 except Exception as e:
                     stats['errors'] += 1
                     error_msg = f"Error processing DO {do_number}: {str(e)}"

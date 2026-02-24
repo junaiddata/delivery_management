@@ -113,7 +113,8 @@
 <body>
     <nav>
         <a href="{% url 'home' %}">Home</a>
-        {% if user.is_authenticated %}
+        {% if user.is_authenticated and user.role and user.role.role == 'Admin' %}
+        <a href="{% url 'sync_settings' %}">Sync Settings</a>
         <form method="post" action="{% url 'logout' %}">
             {% csrf_token %}
             <button type="submit">Logout</button>

@@ -1,0 +1,246 @@
+{% extends "orders/base.html" %}
+{% block title %}Sync Settings{% endblock %}
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+    .sync-page {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+    .sync-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        overflow: hidden;
+        border: 1px solid #e5e7eb;
+    }
+    .sync-header {
+        background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+        padding: 1.75rem 2rem;
+        color: white;
+    }
+    .sync-header h1 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin: 0 0 0.25rem 0;
+    }
+    .sync-header p {
+        font-size: 0.875rem;
+        opacity: 0.9;
+        margin: 0;
+    }
+    .sync-body {
+        padding: 2rem;
+    }
+    .sync-messages {
+        margin-bottom: 1.5rem;
+    }
+    .sync-messages .success {
+        background: #d1fae5;
+        color: #065f46;
+        padding: 1rem 1.25rem;
+        border-radius: 10px;
+        border-left: 4px solid #10b981;
+        margin-bottom: 0.5rem;
+    }
+    .sync-messages .error {
+        background: #fee2e2;
+        color: #991b1b;
+        padding: 1rem 1.25rem;
+        border-radius: 10px;
+        border-left: 4px solid #dc2626;
+        margin-bottom: 0.5rem;
+    }
+    .sync-section {
+        margin-bottom: 2rem;
+    }
+    .sync-section:last-child {
+        margin-bottom: 0;
+    }
+    .sync-section-title {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #6b7280;
+        margin-bottom: 0.75rem;
+    }
+    .sync-quick-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    .sync-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.875rem 1.5rem;
+        border: none;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.9375rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        font-family: inherit;
+    }
+    .sync-btn-primary {
+        background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+        color: white;
+        box-shadow: 0 2px 8px rgba(30, 64, 175, 0.3);
+    }
+    .sync-btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(30, 64, 175, 0.4);
+    }
+    .sync-btn-success {
+        background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        color: white;
+        box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3);
+    }
+    .sync-btn-success:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4);
+    }
+    .sync-btn-warning {
+        background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+        color: white;
+        box-shadow: 0 2px 8px rgba(217, 119, 6, 0.3);
+    }
+    .sync-btn-warning:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(217, 119, 6, 0.4);
+    }
+    .sync-form-grid {
+        display: grid;
+        gap: 1.25rem;
+    }
+    .sync-form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    .sync-form-group label {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #374151;
+    }
+    .sync-form-group input,
+    .sync-form-group select {
+        padding: 0.625rem 1rem;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 0.9375rem;
+        font-family: inherit;
+    }
+    .sync-form-group input:focus,
+    .sync-form-group select:focus {
+        outline: none;
+        border-color: #1e40af;
+        box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
+    }
+    .sync-form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+    @media (max-width: 600px) {
+        .sync-form-row { grid-template-columns: 1fr; }
+        .sync-quick-actions { flex-direction: column; }
+    }
+    .sync-log-note {
+        font-size: 0.8125rem;
+        color: #6b7280;
+        margin-top: 1.5rem;
+        padding: 0.75rem 1rem;
+        background: #f9fafb;
+        border-radius: 8px;
+    }
+</style>
+
+<div class="sync-page">
+    <div class="sync-card">
+        <div class="sync-header">
+            <h1>Sync Settings</h1>
+            <p>Trigger sync from API to local database. Admin only.</p>
+        </div>
+        <div class="sync-body">
+            {% if messages %}
+            <div class="sync-messages">
+                {% for message in messages %}
+                <div class="{{ message.tags }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="sync-section">
+                <div class="sync-section-title">Quick actions</div>
+                <div class="sync-quick-actions">
+                    <form method="post" action="{% url 'sync_settings' %}" style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit" name="sync_all" value="1" class="sync-btn sync-btn-primary">
+                            Sync all (DO + non-one + invoices)
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'sync_settings' %}" style="display:inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="sync_cancelled" value="1" />
+                        <button type="submit" class="sync-btn sync-btn-warning">
+                            Sync cancelled orders
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="sync-section">
+                <div class="sync-section-title">Sync by type</div>
+                <form method="post" action="{% url 'sync_settings' %}">
+                    {% csrf_token %}
+                    <div class="sync-form-grid">
+                        <div class="sync-form-group">
+                            <label for="sync_type">Sync type</label>
+                            <select name="sync_type" id="sync_type">
+                                <option value="delivery_orders">Delivery orders (DOs starting with "1")</option>
+                                <option value="non_one">Non-one orders (DOs NOT starting with "1")</option>
+                                <option value="invoices">Invoices</option>
+                                <option value="cancelled">Cancelled orders</option>
+                            </select>
+                        </div>
+                        <div class="sync-form-row">
+                            <div class="sync-form-group">
+                                <label for="days_back">Last N days</label>
+                                <input type="number" name="days_back" id="days_back" value="3" min="1" max="30" />
+                            </div>
+                            <div class="sync-form-group">
+                                <label for="specific_date">Or specific date</label>
+                                <input type="date" name="specific_date" id="specific_date" />
+                            </div>
+                        </div>
+                        <div class="sync-form-row">
+                            <div class="sync-form-group">
+                                <label for="from_date">Or from date</label>
+                                <input type="date" name="from_date" id="from_date" />
+                            </div>
+                            <div class="sync-form-group">
+                                <label for="to_date">To date</label>
+                                <input type="date" name="to_date" id="to_date" />
+                            </div>
+                        </div>
+                        <div>
+                            <button type="submit" name="sync" value="1" class="sync-btn sync-btn-success">
+                                Sync selected
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <div class="sync-log-note">
+                Logs are written to <code>logs/sync_*.log</code> (RotatingFileHandler, 10MB, 5 backups).
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
