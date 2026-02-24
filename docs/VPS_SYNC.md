@@ -94,3 +94,15 @@ RuntimeError: Cannot connect to API. Is the SSH tunnel running?
 ```
 
 Check that the tunnel is running on the PC and that `API_BASE_HOST` is set to `http://localhost:8443` on the VPS.
+
+## Troubleshooting: Internal Server Error on Sync Settings
+
+1. **Test basic reachability:** Visit `https://do.junaidworld.com/settings/sync/ping/` – if you see "OK", routing works.
+
+2. **Gunicorn timeout:** Sync operations can take 60+ seconds. If you get 500 when clicking Sync, increase the worker timeout:
+   ```bash
+   gunicorn --timeout 120 delivery_management.wsgi:application
+   ```
+   Or in your systemd/service file: `ExecStart=... gunicorn --timeout 120 ...`
+
+3. **Check server logs:** Look at gunicorn/uwsgi and nginx error logs for the actual traceback.

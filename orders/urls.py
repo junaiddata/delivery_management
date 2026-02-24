@@ -107,6 +107,7 @@ urlpatterns = [
     path('api/orders/json/',views.all_orders_json,name='orders_json'),
     path('api/sync/delivery-orders/', views.sync_receive, name='sync_receive'),
     path('settings/sync/', views.sync_settings, name='sync_settings'),
+    path('settings/sync/ping/', views.sync_settings_ping, name='sync_settings_ping'),
          path('md/approve-bulk/<int:bulk_id>/', views.approve_bulk_credit_request, name='approve_bulk_credit_request'),
     path('refresh-customer-stats/', views.refresh_customer_stats, name='refresh_customer_stats'),
 

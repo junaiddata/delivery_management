@@ -4254,6 +4254,12 @@ def customer_frequency_simple(request):
 
 # ==================== SYNC SETTINGS PAGE ====================
 
+def sync_settings_ping(request):
+    """Minimal health check for /settings/sync/ - no auth, no DB. Use to isolate VPS issues."""
+    from django.http import HttpResponse
+    return HttpResponse("OK", content_type="text/plain")
+
+
 @login_required
 def sync_settings(request):
     """Settings page for manual sync: dropdown, days/date, Sync and Sync all buttons. Admin only."""
@@ -4270,19 +4276,20 @@ def sync_settings(request):
         except (Role.DoesNotExist, AttributeError):
             return redirect('home')
 
-        from orders.sync_services import (
-            sync_delivery_orders_core,
-            sync_non_one_delivery_orders_core,
-            sync_invoices_core,
-            sync_cancelled_orders_core,
-            sync_all_core,
-        )
         from django.contrib import messages
 
         message = None
         message_type = None
 
         if request.method == 'POST':
+            # Import only when needed (avoids heavy imports on GET; can fail on VPS)
+            from orders.sync_services import (
+                sync_delivery_orders_core,
+                sync_non_one_delivery_orders_core,
+                sync_invoices_core,
+                sync_cancelled_orders_core,
+                sync_all_core,
+            )
             sync_type = request.POST.get('sync_type', '')
             days_back = int(request.POST.get('days_back', 3) or 3)
             specific_date = request.POST.get('specific_date', '').strip() or None

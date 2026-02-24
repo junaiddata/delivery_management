@@ -1,3 +1,4 @@
+{% load custom_filters %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -113,7 +114,7 @@
 <body>
     <nav>
         <a href="{% url 'home' %}">Home</a>
-        {% if user.is_authenticated and user.role and user.role.role == 'Admin' %}
+        {% if user.is_authenticated and user|user_role_name in 'Admin,Junaid Admin' %}
         <a href="{% url 'sync_settings' %}">Sync Settings</a>
         <form method="post" action="{% url 'logout' %}">
             {% csrf_token %}
