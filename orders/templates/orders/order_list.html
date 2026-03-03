@@ -776,10 +776,10 @@
     <div class="quick-actions">
         <a href="{% url 'customer_frequency_simple' %}" class="btn btn-success">Customer Stats</a>
         <a href="{% url 'cancelled_do' %}" class="btn btn-secondary">Cancelled</a>
-        <a href="{% url 'transfer_list' %}" class="btn btn-info">Transfers</a>
+        <!-- <a href="{% url 'transfer_list' %}" class="btn btn-info">Transfers</a> -->
         <a href="{% url 'export_orders_to_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success">Export Excel</a>
         <a href="{% url 'export_orders_to_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-danger">Export PDF</a>
-        <a href="{% url 'transfer_upload_file' %}" class="btn btn-warning">Upload Transfers</a>
+        <!-- <a href="{% url 'transfer_upload_file' %}" class="btn btn-warning">Upload Transfers</a> -->
         <a href="{% url 'upload_file' %}" class="btn btn-primary">Upload DO</a>
         <a href="https://stock.junaidworld.com" target="_blank" class="btn btn-dark">Stock</a>
     </div>
