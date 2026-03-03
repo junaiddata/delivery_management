@@ -271,6 +271,10 @@ def vehicle_list(request):
     return render(request, 'orders/vehicle_list.html', {'vehicles': vehicles})
 from django.db import models  # Import models for Q objects
 from django.db.models import Q  # Import Q for complex queries
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.units import mm
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 
 @login_required
 @role_required('Admin', 'Junaid Admin')
@@ -687,6 +691,432 @@ def export_orders_to_excel(request):
         df.to_excel(writer, index=False, sheet_name='Orders')
 
     return response
+
+
+@login_required
+@role_required('Admin', 'Junaid Admin')
+def export_orders_to_pdf(request):
+    """Export filtered delivery orders to a professionally styled PDF."""
+    import io
+    import requests as http_requests
+    from datetime import datetime
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import landscape, A4
+    from reportlab.lib.units import mm, inch
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    from reportlab.platypus import (
+        SimpleDocTemplate, Table, TableStyle, Paragraph,
+        Spacer, Image, HRFlowable, PageBreak
+    )
+    from reportlab.graphics.shapes import Drawing, Line
+
+    orders = DeliveryOrder.objects.filter(do_number__startswith='1').order_by('-date', '-do_number')
+
+    # ── Apply filters ──
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+    if from_date and to_date:
+        orders = orders.filter(date__range=[from_date, to_date])
+    elif from_date:
+        orders = orders.filter(date__gte=from_date)
+    elif to_date:
+        orders = orders.filter(date__lte=to_date)
+
+    date_filter = request.GET.get('date')
+    if date_filter:
+        orders = orders.filter(date=date_filter)
+
+    status_filter = request.GET.get('status')
+    if status_filter == "delivered_group":
+        orders = orders.filter(status__in=["Delivered", "Received by A/c"])
+    elif status_filter:
+        orders = orders.filter(status=status_filter)
+
+    driver_filter = request.GET.get('driver')
+    if driver_filter:
+        orders = orders.filter(driver=driver_filter)
+
+    salesman = request.GET.get('salesman')
+    if salesman:
+        orders = orders.filter(salesman=salesman)
+
+    city = request.GET.get('city')
+    if city:
+        orders = orders.filter(city=city)
+
+    areas_selected = request.GET.getlist('area')
+    if areas_selected:
+        orders = orders.filter(area__in=areas_selected)
+
+    vehicle_filter = request.GET.get('vehicle')
+    if vehicle_filter:
+        orders = orders.filter(vehicle_id=vehicle_filter)
+
+    search_query = request.GET.get('search_query')
+    if search_query:
+        orders = orders.filter(
+            models.Q(do_number__icontains=search_query) |
+            models.Q(customer_name__icontains=search_query) |
+            models.Q(mobile_number__icontains=search_query) |
+            models.Q(invoice_number__icontains=search_query)
+        )
+
+    # ── Colors ──
+    NAVY = colors.HexColor('#1e3a5f')
+    NAVY_LIGHT = colors.HexColor('#2d5a8e')
+    BLUE_ACCENT = colors.HexColor('#3b82f6')
+    BG_LIGHT = colors.HexColor('#f8fafc')
+    BG_ALT = colors.HexColor('#f1f5f9')
+    BORDER_LIGHT = colors.HexColor('#e2e8f0')
+    TEXT_DARK = colors.HexColor('#1e293b')
+    TEXT_MID = colors.HexColor('#475569')
+    TEXT_MUTED = colors.HexColor('#64748b')
+    GREEN = colors.HexColor('#16a34a')
+    RED = colors.HexColor('#dc2626')
+    ORANGE = colors.HexColor('#d97706')
+
+    STATUS_COLORS = {
+        'Pending': (colors.HexColor('#fef2f2'), colors.HexColor('#dc2626')),
+        'Loaded': (colors.HexColor('#fef3c7'), colors.HexColor('#d97706')),
+        'Out for Delivery': (colors.HexColor('#dbeafe'), colors.HexColor('#2563eb')),
+        'Delivered': (colors.HexColor('#dcfce7'), colors.HexColor('#16a34a')),
+        'Partial Delivery': (colors.HexColor('#e0e7ff'), colors.HexColor('#4f46e5')),
+        'Not Delivered': (colors.HexColor('#f1f5f9'), colors.HexColor('#475569')),
+        'Cancelled': (colors.HexColor('#fef2f2'), colors.HexColor('#991b1b')),
+        'Received by A/c': (colors.HexColor('#f0fdf4'), colors.HexColor('#15803d')),
+        'On Hold': (colors.HexColor('#fff7ed'), colors.HexColor('#c2410c')),
+        'GRV': (colors.HexColor('#f5f3ff'), colors.HexColor('#7c3aed')),
+    }
+
+    # ── Styles ──
+    styles = getSampleStyleSheet()
+
+    style_title = ParagraphStyle(
+        'ReportTitle', parent=styles['Normal'],
+        fontName='Helvetica-Bold', fontSize=16,
+        textColor=NAVY, spaceAfter=2,
+    )
+    style_subtitle = ParagraphStyle(
+        'ReportSubtitle', parent=styles['Normal'],
+        fontName='Helvetica', fontSize=8.5,
+        textColor=TEXT_MUTED, spaceAfter=0,
+    )
+    style_filter_label = ParagraphStyle(
+        'FilterLabel', parent=styles['Normal'],
+        fontName='Helvetica-Bold', fontSize=7,
+        textColor=NAVY,
+    )
+    style_filter_value = ParagraphStyle(
+        'FilterValue', parent=styles['Normal'],
+        fontName='Helvetica', fontSize=7,
+        textColor=TEXT_MID,
+    )
+    style_cell = ParagraphStyle(
+        'CellStyle', parent=styles['Normal'],
+        fontName='Helvetica', fontSize=7,
+        textColor=TEXT_DARK, leading=9,
+    )
+    style_cell_bold = ParagraphStyle(
+        'CellBold', parent=styles['Normal'],
+        fontName='Helvetica-Bold', fontSize=7,
+        textColor=TEXT_DARK, leading=9,
+    )
+    style_cell_blue = ParagraphStyle(
+        'CellBlue', parent=styles['Normal'],
+        fontName='Helvetica-Bold', fontSize=7,
+        textColor=BLUE_ACCENT, leading=9,
+    )
+    style_cell_green = ParagraphStyle(
+        'CellGreen', parent=styles['Normal'],
+        fontName='Helvetica', fontSize=6.5,
+        textColor=GREEN, leading=9,
+    )
+    style_cell_muted = ParagraphStyle(
+        'CellMuted', parent=styles['Normal'],
+        fontName='Helvetica', fontSize=6.5,
+        textColor=TEXT_MUTED, leading=9,
+    )
+    style_header = ParagraphStyle(
+        'HeaderCell', parent=styles['Normal'],
+        fontName='Helvetica-Bold', fontSize=7,
+        textColor=colors.white, leading=9,
+    )
+    style_amount = ParagraphStyle(
+        'AmountCell', parent=styles['Normal'],
+        fontName='Helvetica-Bold', fontSize=7,
+        textColor=TEXT_DARK, leading=9,
+        alignment=TA_RIGHT,
+    )
+    style_footer = ParagraphStyle(
+        'Footer', parent=styles['Normal'],
+        fontName='Helvetica', fontSize=6.5,
+        textColor=TEXT_MUTED, alignment=TA_CENTER,
+    )
+
+    # ── Fetch logo ──
+    logo_img = None
+    try:
+        logo_url = 'https://junaidworld.com/wp-content/uploads/2023/09/footer-logo.png.webp'
+        logo_response = http_requests.get(logo_url, timeout=5)
+        if logo_response.status_code == 200:
+            logo_buffer = io.BytesIO(logo_response.content)
+            logo_img = Image(logo_buffer, width=45 * mm, height=14 * mm)
+            logo_img.hAlign = 'LEFT'
+    except Exception:
+        logo_img = None
+
+    # ── Build active filters summary ──
+    active_filters = []
+    if from_date:
+        active_filters.append(('From', from_date))
+    if to_date:
+        active_filters.append(('To', to_date))
+    if status_filter:
+        display_status = 'Delivered Group' if status_filter == 'delivered_group' else status_filter
+        active_filters.append(('Status', display_status))
+    if driver_filter:
+        active_filters.append(('Driver', driver_filter))
+    if salesman:
+        active_filters.append(('Salesman', salesman))
+    if city:
+        active_filters.append(('City', city))
+    if areas_selected:
+        active_filters.append(('Area', ', '.join(areas_selected)))
+    if vehicle_filter:
+        active_filters.append(('Vehicle', vehicle_filter))
+    if search_query:
+        active_filters.append(('Search', search_query))
+
+    # ── Build header section ──
+    elements = []
+
+    # Logo + Title row
+    now = datetime.now()
+    title_text = Paragraph('Delivery Orders Report', style_title)
+    subtitle_text = Paragraph(
+        f'Generated on {now.strftime("%d %b %Y")} at {now.strftime("%I:%M %p")}  •  {orders.count()} orders',
+        style_subtitle,
+    )
+
+    if logo_img:
+        header_data = [[logo_img, [title_text, subtitle_text]]]
+        header_table = Table(header_data, colWidths=[50 * mm, None])
+        header_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        elements.append(header_table)
+    else:
+        elements.append(title_text)
+        elements.append(subtitle_text)
+
+    elements.append(Spacer(1, 3 * mm))
+    elements.append(HRFlowable(width='100%', thickness=1.5, color=NAVY, spaceAfter=3 * mm))
+
+    # Active filters row (if any)
+    if active_filters:
+        filter_items = []
+        for label, value in active_filters:
+            filter_items.append(
+                f'<font name="Helvetica-Bold" color="#1e3a5f">{label}:</font> '
+                f'<font color="#475569">{value}</font>'
+            )
+        filter_text = '&nbsp;&nbsp;•&nbsp;&nbsp;'.join(filter_items)
+        filter_para = Paragraph(
+            f'<font size="7">Filters Applied:&nbsp;&nbsp;{filter_text}</font>',
+            ParagraphStyle(
+                'FilterLine', parent=styles['Normal'],
+                fontName='Helvetica', fontSize=7,
+                textColor=TEXT_MID, backColor=BG_LIGHT,
+                borderColor=BORDER_LIGHT, borderWidth=0.5,
+                borderPadding=6, spaceAfter=4 * mm,
+            )
+        )
+        elements.append(filter_para)
+
+    # ── Build table ──
+    headers = ['#', 'Date', 'DO Number', 'Customer', 'LPO', 'Mobile', 'Salesman', 'City', 'Area', 'Status', 'Amount']
+
+    header_row = [Paragraph(h, style_header) for h in headers]
+
+    col_widths = [
+        8 * mm,    # #
+        20 * mm,   # Date
+        22 * mm,   # DO
+        55 * mm,   # Customer
+        22 * mm,   # LPO
+        25 * mm,   # Mobile
+        28 * mm,   # Salesman
+        22 * mm,   # City
+        22 * mm,   # Area
+        25 * mm,   # Status
+        22 * mm,   # Amount
+    ]
+
+    data_rows = [header_row]
+    total_amount = 0
+
+    for idx, o in enumerate(orders, 1):
+        amount_val = float(o.amount) if o.amount else 0
+        total_amount += amount_val
+
+        status_text = o.status or ''
+        status_bg, status_fg = STATUS_COLORS.get(status_text, (BG_LIGHT, TEXT_MID))
+        status_style = ParagraphStyle(
+            f'Status_{idx}', parent=styles['Normal'],
+            fontName='Helvetica-Bold', fontSize=6.5,
+            textColor=status_fg, leading=9,
+        )
+
+        row = [
+            Paragraph(str(idx), style_cell_muted),
+            Paragraph(o.date.strftime('%d-%b-%Y') if o.date else '', style_cell),
+            Paragraph(o.do_number or '', style_cell_blue),
+            Paragraph((o.customer_name or '')[:30], style_cell_bold),
+            Paragraph((o.lpo or '-')[:15], style_cell_muted),
+            Paragraph(o.mobile_number or '-', style_cell_green),
+            Paragraph((o.salesman or '-')[:15], style_cell),
+            Paragraph((o.city or '-')[:15], style_cell_muted),
+            Paragraph((o.area or '-')[:15], style_cell_muted),
+            Paragraph(status_text, status_style),
+            Paragraph(f'{amount_val:,.2f}' if amount_val else '-', style_amount),
+        ]
+        data_rows.append(row)
+
+    # ── Totals row ──
+    total_style = ParagraphStyle(
+        'TotalLabel', parent=styles['Normal'],
+        fontName='Helvetica-Bold', fontSize=8,
+        textColor=NAVY, leading=10,
+    )
+    total_amount_style = ParagraphStyle(
+        'TotalAmount', parent=styles['Normal'],
+        fontName='Helvetica-Bold', fontSize=8,
+        textColor=NAVY, leading=10, alignment=TA_RIGHT,
+    )
+
+    totals_row = [
+        '', '', '',
+        Paragraph(f'Total ({orders.count()} orders)', total_style),
+        '', '', '', '', '', '',
+        Paragraph(f'{total_amount:,.2f}', total_amount_style),
+    ]
+    data_rows.append(totals_row)
+
+    # ── Create table ──
+    table = Table(data_rows, colWidths=col_widths, repeatRows=1)
+
+    # Base style
+    table_style_commands = [
+        # Header
+        ('BACKGROUND', (0, 0), (-1, 0), NAVY),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 7),
+        ('TOPPADDING', (0, 0), (-1, 0), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+
+        # Body
+        ('FONTNAME', (0, 1), (-1, -2), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -2), 7),
+        ('TOPPADDING', (0, 1), (-1, -2), 4),
+        ('BOTTOMPADDING', (0, 1), (-1, -2), 4),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+
+        # Alignment
+        ('ALIGN', (0, 0), (0, -1), 'CENTER'),    # #
+        ('ALIGN', (-1, 0), (-1, -1), 'RIGHT'),    # Amount
+
+        # Grid
+        ('LINEBELOW', (0, 0), (-1, 0), 1.5, NAVY),
+        ('LINEBELOW', (0, 1), (-1, -3), 0.3, BORDER_LIGHT),
+
+        # Totals row
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#eff6ff')),
+        ('LINEABOVE', (0, -1), (-1, -1), 1.5, NAVY),
+        ('LINEBELOW', (0, -1), (-1, -1), 1.5, NAVY),
+        ('TOPPADDING', (0, -1), (-1, -1), 7),
+        ('BOTTOMPADDING', (0, -1), (-1, -1), 7),
+
+        # Rounded feel — outer box
+        ('BOX', (0, 0), (-1, -1), 0.8, BORDER_LIGHT),
+    ]
+
+    # Alternating row backgrounds
+    for i in range(1, len(data_rows) - 1):
+        if i % 2 == 0:
+            table_style_commands.append(('BACKGROUND', (0, i), (-1, i), BG_ALT))
+        else:
+            table_style_commands.append(('BACKGROUND', (0, i), (-1, i), colors.white))
+
+    # Per-row status cell background
+    for i, o in enumerate(orders, 1):
+        status_text = o.status or ''
+        if status_text in STATUS_COLORS:
+            bg, _ = STATUS_COLORS[status_text]
+            table_style_commands.append(('BACKGROUND', (9, i), (9, i), bg))
+
+    table.setStyle(TableStyle(table_style_commands))
+
+    elements.append(table)
+    elements.append(Spacer(1, 6 * mm))
+
+    # ── Footer note ──
+    footer_text = Paragraph(
+        f'Junaid World Trading LLC  •  Delivery Orders Report  •  Page generated {now.strftime("%d/%m/%Y %H:%M")}',
+        style_footer,
+    )
+    elements.append(HRFlowable(width='100%', thickness=0.5, color=BORDER_LIGHT, spaceBefore=2 * mm, spaceAfter=2 * mm))
+    elements.append(footer_text)
+
+    # ── Build PDF ──
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="delivery_orders_report.pdf"'
+
+    def add_page_number(canvas, doc):
+        canvas.saveState()
+        canvas.setFont('Helvetica', 6)
+        canvas.setFillColor(TEXT_MUTED)
+        page_text = f'Page {doc.page}'
+        canvas.drawRightString(
+            landscape(A4)[0] - 10 * mm,
+            8 * mm,
+            page_text,
+        )
+        canvas.drawString(
+            10 * mm,
+            8 * mm,
+            'Junaid World Trading LLC — Confidential',
+        )
+        # Top accent line
+        canvas.setStrokeColor(NAVY)
+        canvas.setLineWidth(2)
+        canvas.line(10 * mm, landscape(A4)[1] - 8 * mm,
+                    landscape(A4)[0] - 10 * mm, landscape(A4)[1] - 8 * mm)
+        canvas.restoreState()
+
+    doc = SimpleDocTemplate(
+        response,
+        pagesize=landscape(A4),
+        leftMargin=10 * mm,
+        rightMargin=10 * mm,
+        topMargin=14 * mm,
+        bottomMargin=14 * mm,
+        title='Delivery Orders Report',
+        author='Junaid World Trading LLC',
+    )
+
+    doc.build(elements, onFirstPage=add_page_number, onLaterPages=add_page_number)
+
+    return response
+
+
 @login_required
 @role_required('Admin')
 def delete_order(request, do_number):

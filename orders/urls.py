@@ -23,6 +23,7 @@ urlpatterns = [
     path('vehicles/25/update/', views.update_vehicle, name='rental_vehicle'),
     path('update/<str:do_number>/', views.update_order, name='update_order'),
     path('export/', views.export_orders_to_excel, name='export_orders_to_excel'),
+    path('export/pdf/', views.export_orders_to_pdf, name='export_orders_to_pdf'),
     path('delete_all/', views.delete_all_orders, name='delete_all_orders'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('delete_order/<str:do_number>', views.delete_order, name='delete_order'),

@@ -82,174 +82,404 @@
         font-weight: 500;
         white-space: nowrap;
     }
-    
-    /* Filters Card */
+
+    /* ===== REDESIGNED FILTERS ===== */
     .filters-card {
         background: #fff;
         border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 0.75rem;
+        border-radius: 10px;
         margin-bottom: 0.75rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        overflow: hidden;
     }
-    
+
+    .filters-toggle {
+        display: none;
+        width: 100%;
+        padding: 0.6rem 1rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border: none;
+        border-bottom: 1px solid #e2e8f0;
+        cursor: pointer;
+        color: #475569;
+        text-align: left;
+        transition: background 0.2s;
+    }
+
+    .filters-toggle:hover {
+        background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+    }
+
+    .filters-toggle::after {
+        content: ' ▼';
+        font-size: 0.6rem;
+        float: right;
+        transition: transform 0.2s;
+    }
+
+    .filters-toggle.expanded::after {
+        content: ' ▲';
+    }
+
+    .filters-content {
+        padding: 0.75rem;
+    }
+
     .filters-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 0.6rem 0.75rem;
         align-items: flex-end;
     }
-    
+
     .filter-group {
         display: flex;
         flex-direction: column;
-        gap: 0.15rem;
+        gap: 0.2rem;
+        min-width: 0;
     }
-    
+
     .filter-group label {
         font-size: 0.65rem;
-        font-weight: 600;
-        color: #64748b;
+        font-weight: 700;
+        color: #475569;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.4px;
     }
-    
+
     .filter-group input,
     .filter-group select {
-        padding: 0.35rem 0.5rem;
-        font-size: 0.75rem;
-        border: 1px solid #d1d5db;
-        border-radius: 4px;
-        min-width: 100px;
+        padding: 0.45rem 0.55rem;
+        font-size: 0.78rem;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 6px;
+        min-width: 0;
+        width: 100%;
+        background: #fff;
+        color: #1e293b;
+        transition: all 0.2s ease;
+        appearance: auto;
+        font-family: inherit;
     }
-    
+
     .filter-group input:focus,
     .filter-group select:focus {
         outline: none;
         border-color: #3b82f6;
-        box-shadow: 0 0 0 2px rgba(59,130,246,0.1);
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
     }
-    
+
+    .filter-group input::placeholder {
+        color: #94a3b8;
+        font-size: 0.72rem;
+    }
+
+    /* Searchable select wrapper */
     .filter-group-searchable {
         position: relative;
     }
-    
-    .dropdown-search {
-        display: block;
-        margin-bottom: 0.2rem;
-        padding: 0.25rem 0.4rem;
-        font-size: 0.7rem;
-        min-width: 100px;
-        height: 24px;
+
+    .filter-group-searchable .dropdown-search {
+        padding: 0.35rem 0.5rem;
+        font-size: 0.72rem;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 6px;
+        width: 100%;
+        margin-bottom: 0.25rem;
+        background: #f8fafc;
+        transition: all 0.2s ease;
+        font-family: inherit;
     }
-    
-    /* Multiselect dropdown - same look as regular select */
+
+    .filter-group-searchable .dropdown-search:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+        background: #fff;
+    }
+
+    .filter-group-searchable .dropdown-search::placeholder {
+        color: #94a3b8;
+        font-size: 0.68rem;
+    }
+
+    /* ===== MULTISELECT (Area) — Full Redesign ===== */
     .multiselect-wrapper {
         position: relative;
+        min-width: 0;
     }
-    
+
     .multiselect-trigger {
-        padding: 0.35rem 0.5rem;
-        font-size: 0.75rem;
-        border: 1px solid #d1d5db;
-        border-radius: 4px;
-        min-width: 100px;
+        padding: 0.45rem 0.55rem;
+        font-size: 0.78rem;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 6px;
         background: #fff;
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 0.5rem;
+        gap: 0.3rem;
+        min-height: 32px;
+        transition: all 0.2s ease;
+        color: #1e293b;
+        user-select: none;
     }
-    
+
     .multiselect-trigger:hover {
-        border-color: #9ca3af;
+        border-color: #cbd5e1;
+        background: #f8fafc;
     }
-    
+
     .multiselect-trigger.open {
         border-color: #3b82f6;
-        box-shadow: 0 0 0 2px rgba(59,130,246,0.1);
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+        background: #fff;
     }
-    
+
     .multiselect-trigger .multiselect-label {
         flex: 1;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        min-width: 0;
     }
-    
-    .multiselect-trigger .multiselect-arrow {
+
+    .multiselect-trigger .multiselect-label.placeholder {
+        color: #94a3b8;
+    }
+
+    .multiselect-trigger .multiselect-count {
+        background: #3b82f6;
+        color: #fff;
         font-size: 0.6rem;
-        color: #64748b;
+        font-weight: 700;
+        padding: 0.1rem 0.4rem;
+        border-radius: 10px;
+        min-width: 18px;
+        text-align: center;
+        flex-shrink: 0;
     }
-    
+
+    .multiselect-trigger .multiselect-arrow {
+        font-size: 0.5rem;
+        color: #94a3b8;
+        flex-shrink: 0;
+        transition: transform 0.2s ease;
+    }
+
+    .multiselect-trigger.open .multiselect-arrow {
+        transform: rotate(180deg);
+        color: #3b82f6;
+    }
+
     .multiselect-dropdown {
         display: none;
-        position: absolute;
-        top: 100%;
-        left: 0;
-        margin-top: 2px;
-        min-width: 100%;
-        max-height: 200px;
-        overflow: hidden;
+        position: fixed;
+        min-width: 220px;
+        max-width: 320px;
         background: #fff;
-        border: 1px solid #d1d5db;
-        border-radius: 4px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        z-index: 100;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        box-shadow: 0 12px 36px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06);
+        z-index: 9999;
+        overflow: hidden;
+        animation: msDropIn 0.15s ease-out;
     }
-    
+
+    @keyframes msDropIn {
+        from { opacity: 0; transform: translateY(-6px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+
     .multiselect-dropdown.open {
-        display: block;
+        display: flex;
+        flex-direction: column;
     }
-    
-    .multiselect-search {
-        padding: 0.3rem 0.5rem;
-        font-size: 0.7rem;
-        border: none;
-        border-bottom: 1px solid #e5e7eb;
+
+    /* Search inside dropdown */
+    .ms-search-wrap {
+        padding: 0.5rem;
+        border-bottom: 1px solid #f1f5f9;
+        background: #fafbfc;
+        flex-shrink: 0;
+    }
+
+    .ms-search-wrap .multiselect-search {
         width: 100%;
+        padding: 0.45rem 0.6rem 0.45rem 2rem;
+        font-size: 0.78rem;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 6px;
+        background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='%2394a3b8' viewBox='0 0 24 24'%3E%3Cpath d='M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'/%3E%3C/svg%3E") 0.5rem center no-repeat;
+        font-family: inherit;
+        color: #1e293b;
+        transition: all 0.2s ease;
         box-sizing: border-box;
     }
-    
-    .multiselect-options {
-        max-height: 160px;
-        overflow-y: auto;
+
+    .ms-search-wrap .multiselect-search:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.08);
     }
-    
+
+    .ms-search-wrap .multiselect-search::placeholder {
+        color: #94a3b8;
+        font-size: 0.74rem;
+    }
+
+    /* Select All / Clear row */
+    .ms-actions {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.35rem 0.6rem;
+        border-bottom: 1px solid #f1f5f9;
+        background: #fafbfc;
+        flex-shrink: 0;
+    }
+
+    .ms-actions button {
+        font-size: 0.68rem;
+        font-weight: 600;
+        color: #3b82f6;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0.15rem 0.3rem;
+        border-radius: 4px;
+        transition: all 0.15s;
+        font-family: inherit;
+    }
+
+    .ms-actions button:hover {
+        background: #eff6ff;
+        color: #2563eb;
+    }
+
+    .ms-actions button.clear-btn {
+        color: #ef4444;
+    }
+
+    .ms-actions button.clear-btn:hover {
+        background: #fef2f2;
+        color: #dc2626;
+    }
+
+    /* Options list */
+    .multiselect-options {
+        max-height: 220px;
+        overflow-y: auto;
+        padding: 0.25rem 0;
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e1 transparent;
+    }
+
+    .multiselect-options::-webkit-scrollbar {
+        width: 5px;
+    }
+
+    .multiselect-options::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .multiselect-options::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 10px;
+    }
+
     .multiselect-option {
         display: flex;
         align-items: center;
-        gap: 0.4rem;
-        padding: 0.35rem 0.5rem;
-        font-size: 0.75rem;
+        gap: 0.5rem;
+        padding: 0.45rem 0.65rem;
+        font-size: 0.78rem;
         cursor: pointer;
         margin: 0;
+        min-height: 34px;
+        transition: background 0.1s;
+        color: #334155;
+        border-left: 3px solid transparent;
     }
-    
+
     .multiselect-option:hover {
         background: #f1f5f9;
+        border-left-color: #3b82f6;
     }
-    
-    .multiselect-option input {
+
+    .multiselect-option.checked {
+        background: #eff6ff;
+        border-left-color: #3b82f6;
+        color: #1e40af;
+        font-weight: 500;
+    }
+
+    .multiselect-option input[type="checkbox"] {
         margin: 0;
         cursor: pointer;
+        width: 15px;
+        height: 15px;
+        accent-color: #3b82f6;
+        border-radius: 3px;
+        flex-shrink: 0;
     }
-    
-    .search-input {
-        min-width: 200px !important;
+
+    .multiselect-option span {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
-    
+
+    .ms-no-results {
+        padding: 1rem 0.65rem;
+        text-align: center;
+        color: #94a3b8;
+        font-size: 0.75rem;
+        display: none;
+    }
+
+    /* Filter buttons */
     .filter-buttons {
         display: flex;
         gap: 0.35rem;
+        align-self: flex-end;
     }
-    
+
     .filter-buttons .btn {
-        padding: 0.35rem 0.75rem;
+        padding: 0.45rem 0.85rem;
         font-size: 0.75rem;
+        border-radius: 6px;
+        font-weight: 600;
+        transition: all 0.15s;
     }
-    
+
+    @media (max-width: 768px) {
+        .filters-toggle { display: block; }
+        .filters-content { display: none; }
+        .filters-content.expanded { display: block; }
+        .filters-row {
+            grid-template-columns: 1fr 1fr;
+            gap: 0.6rem;
+        }
+        .filter-group-searchable,
+        .multiselect-wrapper {
+            grid-column: span 2;
+        }
+        .filter-buttons {
+            grid-column: span 2;
+            justify-content: stretch;
+        }
+        .filter-buttons .btn {
+            flex: 1;
+            text-align: center;
+            justify-content: center;
+        }
+    }
+
     /* Table Styles */
     .table-wrapper {
         background: #fff;
@@ -545,118 +775,130 @@
     <!-- Quick Actions -->
     <div class="quick-actions">
         <a href="{% url 'customer_frequency_simple' %}" class="btn btn-success">Customer Stats</a>
-        <!-- <a href="{% url 'password_gate' %}" class="btn btn-danger">Finance</a> -->
         <a href="{% url 'cancelled_do' %}" class="btn btn-secondary">Cancelled</a>
         <a href="{% url 'transfer_list' %}" class="btn btn-info">Transfers</a>
-        <a href="{% url 'export_orders_to_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success">Export</a>
+        <a href="{% url 'export_orders_to_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success">Export Excel</a>
+        <a href="{% url 'export_orders_to_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-danger">Export PDF</a>
         <a href="{% url 'transfer_upload_file' %}" class="btn btn-warning">Upload Transfers</a>
         <a href="{% url 'upload_file' %}" class="btn btn-primary">Upload DO</a>
         <a href="https://stock.junaidworld.com" target="_blank" class="btn btn-dark">Stock</a>
     </div>
     
-    <!-- Filters -->
+    <!-- ===== REDESIGNED FILTERS ===== -->
     <div class="filters-card">
+        <button type="button" class="filters-toggle" id="filtersToggle" aria-expanded="false">⚙ Filters & Search</button>
         <form method="get" id="filterForm">
-            <div class="filters-row">
-                <div class="filter-group">
-                    <label>From</label>
-                    <input type="date" name="from_date" id="from_date" value="{{ request.GET.from_date }}">
-                </div>
-                
-                <div class="filter-group">
-                    <label>To</label>
-                    <input type="date" name="to_date" id="to_date" value="{{ request.GET.to_date }}">
-                </div>
-                
-                <div class="filter-group">
-                    <label>Status</label>
-                    <select name="status">
-                        <option value="">All</option>
-                        <option value="Out for Delivery" {% if request.GET.status == 'Out for Delivery' %}selected{% endif %}>Out for Delivery</option>
-                        <option value="Pending" {% if request.GET.status == 'Pending' %}selected{% endif %}>Pending</option>
-                        <option value="Partial Delivery" {% if request.GET.status == 'Partial Delivery' %}selected{% endif %}>Partial</option>
-                        <option value="Loaded" {% if request.GET.status == 'Loaded' %}selected{% endif %}>Loaded</option>
-                        <option value="Cancelled" {% if request.GET.status == 'Cancelled' %}selected{% endif %}>Cancelled</option>
-                        <option value="Received by A/c" {% if request.GET.status == 'Received by A/c' %}selected{% endif %}>Received</option>
-                        <option value="Not Delivered" {% if request.GET.status == 'Not Delivered' %}selected{% endif %}>Not Delivered</option>
-                        <option value="On Hold" {% if request.GET.status == 'On Hold' %}selected{% endif %}>On Hold</option>
-                        <option value="GRV" {% if request.GET.status == 'GRV' %}selected{% endif %}>GRV</option>
-                        <option value="delivered_group" {% if request.GET.status == 'delivered_group' %}selected{% endif %}>Delivered</option>
-                    </select>
-                </div>
-                
-                <div class="filter-group">
-                    <label>Driver</label>
-                    <select name="driver">
-                        <option value="">All</option>
-                        <option value="Usman" {% if request.GET.driver == 'Usman' %}selected{% endif %}>Usman</option>
-                        <option value="Sayyam" {% if request.GET.driver == 'Sayyam' %}selected{% endif %}>Sayyam</option>
-                        <option value="Nizar" {% if request.GET.driver == 'Nizar' %}selected{% endif %}>Nizar</option>
-                        <option value="Fakheer" {% if request.GET.driver == 'Fakheer' %}selected{% endif %}>Fakheer</option>
-                        <option value="Acharuddin" {% if request.GET.driver == 'Acharuddin' %}selected{% endif %}>Acharuddin</option>
-                    </select>
-                </div>
-                
-                <div class="filter-group filter-group-searchable">
-                    <label>Salesman</label>
-                    <input type="text" class="dropdown-search" placeholder="Search salesman..." autocomplete="off" data-target="salesmanSelect">
-                    <select name="salesman" id="salesmanSelect" class="select-with-search">
-                        <option value="">All</option>
-                        {% for salesman in salesmen %}
-                            <option value="{{ salesman }}" {% if request.GET.salesman == salesman %}selected{% endif %}>{{ salesman }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="filter-group">
-                    <label>Vehicle</label>
-                    <select name="vehicle">
-                        <option value="">All</option>
-                        {% for vehicle in vehicles %}
-                            <option value="{{ vehicle.id }}" {% if request.GET.vehicle == vehicle.id|stringformat:"s" %}selected{% endif %}>{{ vehicle.vehicle_number }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="filter-group filter-group-searchable">
-                    <label>City</label>
-                    <input type="text" class="dropdown-search" placeholder="Search city..." autocomplete="off" data-target="citySelect">
-                    <select name="city" id="citySelect" class="select-with-search">
-                        <option value="">All</option>
-                        {% for city in citys %}
-                            <option value="{{ city }}" {% if request.GET.city == city %}selected{% endif %}>{{ city }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="filter-group multiselect-wrapper">
-                    <label>Area</label>
-                    <div class="multiselect-trigger" id="areaMultiselectTrigger" tabindex="0">
-                        <span class="multiselect-label" id="areaMultiselectLabel">All</span>
-                        <span class="multiselect-arrow">▼</span>
+            <div class="filters-content" id="filtersContent">
+                <div class="filters-row">
+                    <div class="filter-group">
+                        <label>From</label>
+                        <input type="date" name="from_date" id="from_date" value="{{ request.GET.from_date }}">
                     </div>
-                    <div class="multiselect-dropdown" id="areaMultiselectDropdown">
-                        <input type="text" class="multiselect-search" id="areaMultiselectSearch" placeholder="Search area..." autocomplete="off">
-                        <div class="multiselect-options" id="areaMultiselectOptions">
-                            {% for ar in areas %}
-                            <label class="multiselect-option" data-value="{{ ar }}">
-                                <input type="checkbox" value="{{ ar }}" {% if ar in selected_areas %}checked{% endif %}>
-                                <span>{{ ar }}</span>
-                            </label>
+                    
+                    <div class="filter-group">
+                        <label>To</label>
+                        <input type="date" name="to_date" id="to_date" value="{{ request.GET.to_date }}">
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label>Status</label>
+                        <select name="status">
+                            <option value="">All</option>
+                            <option value="Out for Delivery" {% if request.GET.status == 'Out for Delivery' %}selected{% endif %}>Out for Delivery</option>
+                            <option value="Pending" {% if request.GET.status == 'Pending' %}selected{% endif %}>Pending</option>
+                            <option value="Partial Delivery" {% if request.GET.status == 'Partial Delivery' %}selected{% endif %}>Partial</option>
+                            <option value="Loaded" {% if request.GET.status == 'Loaded' %}selected{% endif %}>Loaded</option>
+                            <option value="Cancelled" {% if request.GET.status == 'Cancelled' %}selected{% endif %}>Cancelled</option>
+                            <option value="Received by A/c" {% if request.GET.status == 'Received by A/c' %}selected{% endif %}>Received</option>
+                            <option value="Not Delivered" {% if request.GET.status == 'Not Delivered' %}selected{% endif %}>Not Delivered</option>
+                            <option value="On Hold" {% if request.GET.status == 'On Hold' %}selected{% endif %}>On Hold</option>
+                            <option value="GRV" {% if request.GET.status == 'GRV' %}selected{% endif %}>GRV</option>
+                            <option value="delivered_group" {% if request.GET.status == 'delivered_group' %}selected{% endif %}>Delivered</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label>Driver</label>
+                        <select name="driver">
+                            <option value="">All</option>
+                            <option value="Usman" {% if request.GET.driver == 'Usman' %}selected{% endif %}>Usman</option>
+                            <option value="Sayyam" {% if request.GET.driver == 'Sayyam' %}selected{% endif %}>Sayyam</option>
+                            <option value="Nizar" {% if request.GET.driver == 'Nizar' %}selected{% endif %}>Nizar</option>
+                            <option value="Fakheer" {% if request.GET.driver == 'Fakheer' %}selected{% endif %}>Fakheer</option>
+                            <option value="Acharuddin" {% if request.GET.driver == 'Acharuddin' %}selected{% endif %}>Acharuddin</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group filter-group-searchable">
+                        <label>Salesman</label>
+                        <input type="text" class="dropdown-search" placeholder="🔍 Search salesman..." autocomplete="off" data-target="salesmanSelect">
+                        <select name="salesman" id="salesmanSelect" class="select-with-search">
+                            <option value="">All</option>
+                            {% for salesman in salesmen %}
+                                <option value="{{ salesman }}" {% if request.GET.salesman == salesman %}selected{% endif %}>{{ salesman }}</option>
                             {% endfor %}
-                        </div>
+                        </select>
                     </div>
-                    <div id="areaHiddenInputs"></div>
-                </div>
-                
-                <div class="filter-group">
-                    <label>Search</label>
-                    <input type="text" name="search_query" id="searchInput" value="{{ request.GET.search_query|default:'' }}" class="search-input" placeholder="DO, Customer, Mobile..." autocomplete="off">
-                </div>
-                
-                <div class="filter-buttons">
-                    <button type="submit" class="btn btn-primary" id="filterBtn">Filter</button>
-                    <a href="{% url 'order_list' %}" class="btn btn-secondary">Reset</a>
+                    
+                    <div class="filter-group">
+                        <label>Vehicle</label>
+                        <select name="vehicle">
+                            <option value="">All</option>
+                            {% for vehicle in vehicles %}
+                                <option value="{{ vehicle.id }}" {% if request.GET.vehicle == vehicle.id|stringformat:"s" %}selected{% endif %}>{{ vehicle.vehicle_number }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group filter-group-searchable">
+                        <label>City</label>
+                        <input type="text" class="dropdown-search" placeholder="🔍 Search city..." autocomplete="off" data-target="citySelect">
+                        <select name="city" id="citySelect" class="select-with-search">
+                            <option value="">All</option>
+                            {% for city in citys %}
+                                <option value="{{ city }}" {% if request.GET.city == city %}selected{% endif %}>{{ city }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- ===== REDESIGNED AREA MULTISELECT ===== -->
+                    <div class="filter-group multiselect-wrapper">
+                        <label>Area</label>
+                        <div class="multiselect-trigger" id="areaMultiselectTrigger" tabindex="0">
+                            <span class="multiselect-label placeholder" id="areaMultiselectLabel">All Areas</span>
+                            <span class="multiselect-count" id="areaMultiselectCount" style="display:none;">0</span>
+                            <span class="multiselect-arrow">▼</span>
+                        </div>
+                        <div class="multiselect-dropdown" id="areaMultiselectDropdown">
+                            <div class="ms-search-wrap">
+                                <input type="text" class="multiselect-search" id="areaMultiselectSearch" placeholder="Search areas..." autocomplete="off">
+                            </div>
+                            <div class="ms-actions">
+                                <button type="button" id="areaSelectAll">Select All</button>
+                                <button type="button" id="areaClearAll" class="clear-btn">Clear All</button>
+                            </div>
+                            <div class="multiselect-options" id="areaMultiselectOptions">
+                                {% for ar in areas %}
+                                <label class="multiselect-option" data-value="{{ ar }}">
+                                    <input type="checkbox" value="{{ ar }}" {% if ar in selected_areas %}checked{% endif %}>
+                                    <span>{{ ar }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="ms-no-results" id="areaNoResults">No areas found</div>
+                        </div>
+                        <div id="areaHiddenInputs"></div>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label>Search</label>
+                        <input type="text" name="search_query" id="searchInput" value="{{ request.GET.search_query|default:'' }}" class="search-input" placeholder="DO, Customer, Mobile..." autocomplete="off">
+                    </div>
+                    
+                    <div class="filter-buttons">
+                        <button type="submit" class="btn btn-primary" id="filterBtn">Filter</button>
+                        <a href="{% url 'order_list' %}" class="btn btn-secondary">Reset</a>
+                    </div>
                 </div>
             </div>
         </form>
@@ -766,446 +1008,322 @@
 </div>
 
 <script>
-    // Ensure form submission works properly on first click
-    document.addEventListener('DOMContentLoaded', function() {
-        const filterForm = document.getElementById('filterForm');
-        const searchInput = document.getElementById('searchInput');
-        const filterBtn = document.getElementById('filterBtn');
-        
-        // Searchable dropdown: filter options when typing
-        document.querySelectorAll('.dropdown-search').forEach(function(searchEl) {
-            const targetId = searchEl.getAttribute('data-target');
-            const selectEl = document.getElementById(targetId);
-            if (!selectEl) return;
-            searchEl.addEventListener('input', function() {
-                const q = this.value.toLowerCase().trim();
-                Array.from(selectEl.options).forEach(function(opt) {
-                    const text = (opt.textContent || '').toLowerCase();
-                    opt.style.display = (opt.value === '' || text.indexOf(q) !== -1) ? '' : 'none';
-                });
+document.addEventListener('DOMContentLoaded', function() {
+    var filterForm = document.getElementById('filterForm');
+    var searchInput = document.getElementById('searchInput');
+    var filterBtn = document.getElementById('filterBtn');
+
+    // Mobile filters toggle
+    var filtersToggle = document.getElementById('filtersToggle');
+    var filtersContent = document.getElementById('filtersContent');
+    if (filtersToggle && filtersContent) {
+        filtersToggle.addEventListener('click', function() {
+            filtersContent.classList.toggle('expanded');
+            filtersToggle.classList.toggle('expanded', filtersContent.classList.contains('expanded'));
+            filtersToggle.setAttribute('aria-expanded', filtersContent.classList.contains('expanded'));
+        });
+    }
+
+    // Searchable dropdown: filter options when typing
+    document.querySelectorAll('.dropdown-search').forEach(function(searchEl) {
+        var targetId = searchEl.getAttribute('data-target');
+        var selectEl = document.getElementById(targetId);
+        if (!selectEl) return;
+        searchEl.addEventListener('input', function() {
+            var q = this.value.toLowerCase().trim();
+            Array.from(selectEl.options).forEach(function(opt) {
+                var text = (opt.textContent || '').toLowerCase();
+                opt.style.display = (opt.value === '' || text.indexOf(q) !== -1) ? '' : 'none';
             });
         });
-        
-        // Area multiselect dropdown
-        (function() {
-            const trigger = document.getElementById('areaMultiselectTrigger');
-            const dropdown = document.getElementById('areaMultiselectDropdown');
-            const label = document.getElementById('areaMultiselectLabel');
-            const searchInput = document.getElementById('areaMultiselectSearch');
-            const optionsContainer = document.getElementById('areaMultiselectOptions');
-            const hiddenContainer = document.getElementById('areaHiddenInputs');
-            const form = document.getElementById('filterForm');
-            
-            function getChecked() {
-                return Array.from(optionsContainer.querySelectorAll('input:checked')).map(cb => cb.value);
-            }
-            
-            function updateLabel() {
-                const checked = getChecked();
-                label.textContent = checked.length === 0 ? 'All' : (checked.length === 1 ? checked[0] : checked.length + ' selected');
-            }
-            
-            function syncHiddenInputs() {
-                hiddenContainer.innerHTML = '';
-                getChecked().forEach(function(val) {
-                    const inp = document.createElement('input');
-                    inp.type = 'hidden';
-                    inp.name = 'area';
-                    inp.value = val;
-                    hiddenContainer.appendChild(inp);
-                });
-            }
-            
-            function filterOptions() {
-                const q = (searchInput.value || '').toLowerCase().trim();
-                optionsContainer.querySelectorAll('.multiselect-option').forEach(function(opt) {
-                    const text = (opt.textContent || '').toLowerCase();
-                    opt.style.display = text.indexOf(q) !== -1 ? '' : 'none';
-                });
-            }
-            
-            function toggle() {
-                const isOpen = dropdown.classList.toggle('open');
-                trigger.classList.toggle('open', isOpen);
-                if (isOpen) { searchInput.value = ''; filterOptions(); searchInput.focus(); }
-            }
-            
-            function close() {
-                dropdown.classList.remove('open');
-                trigger.classList.remove('open');
-            }
-            
-            trigger.addEventListener('click', function(e) { e.preventDefault(); toggle(); });
-            trigger.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
-            searchInput.addEventListener('input', filterOptions);
-            searchInput.addEventListener('click', function(e) { e.stopPropagation(); });
-            
-            optionsContainer.addEventListener('change', function() {
-                updateLabel();
-                syncHiddenInputs();
-            });
-            
-            document.addEventListener('click', function(e) {
-                if (!trigger.contains(e.target) && !dropdown.contains(e.target)) close();
-            });
-            
-            updateLabel();
-            syncHiddenInputs();
-        })();
-        
-        if (filterForm) {
-            // Handle Enter key in search input
-            if (searchInput) {
-                searchInput.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        filterForm.submit();
-                    }
-                });
-            }
-            
-            // Ensure filter button submits form properly - remove any event listeners that might interfere
-            if (filterBtn) {
-                // Remove any existing listeners and add a clean one
-                filterBtn.onclick = function(e) {
-                    e.preventDefault();
-                    filterForm.submit();
-                    return false;
-                };
-            }
-            
-            // Auto-submit on filter changes (except search input)
-            const filterSelects = filterForm.querySelectorAll('select');
-            filterSelects.forEach(select => {
-                // Remove existing onchange and add new one
-                select.onchange = function() {
-                    filterForm.submit();
-                };
-            });
-            
-            const filterDates = filterForm.querySelectorAll('input[type="date"]');
-            filterDates.forEach(dateInput => {
-                // Remove existing onchange and add new one
-                dateInput.onchange = function() {
-                    filterForm.submit();
-                };
-            });
-        }
     });
 
-    // Edit Modal Functionality
-    function openEditModal(doNumber) {
-        const modal = document.getElementById('editOrderModal');
-        const form = document.getElementById('editOrderForm');
-        
-        // Show loading state
-        form.innerHTML = '<div style="text-align: center; padding: 2rem;">Loading...</div>';
-        modal.style.display = 'block';
-        
-        // Construct URL
-        const updateUrl = `/update/${doNumber}/`;
-        
-        // Fetch order data
-        fetch(updateUrl, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                populateForm(data);
+    // ===== AREA MULTISELECT =====
+    (function() {
+        var trigger = document.getElementById('areaMultiselectTrigger');
+        var dropdown = document.getElementById('areaMultiselectDropdown');
+        var labelEl = document.getElementById('areaMultiselectLabel');
+        var countEl = document.getElementById('areaMultiselectCount');
+        var searchInput = document.getElementById('areaMultiselectSearch');
+        var optionsContainer = document.getElementById('areaMultiselectOptions');
+        var hiddenContainer = document.getElementById('areaHiddenInputs');
+        var noResults = document.getElementById('areaNoResults');
+        var selectAllBtn = document.getElementById('areaSelectAll');
+        var clearAllBtn = document.getElementById('areaClearAll');
+
+        function getAllCheckboxes() {
+            return optionsContainer.querySelectorAll('input[type="checkbox"]');
+        }
+
+        function getVisibleOptions() {
+            return optionsContainer.querySelectorAll('.multiselect-option:not([style*="display: none"])');
+        }
+
+        function getChecked() {
+            return Array.from(getAllCheckboxes()).filter(function(cb) { return cb.checked; });
+        }
+
+        function updateUI() {
+            var checked = getChecked();
+            var total = checked.length;
+
+            // Update label
+            if (total === 0) {
+                labelEl.textContent = 'All Areas';
+                labelEl.classList.add('placeholder');
+                countEl.style.display = 'none';
+            } else if (total === 1) {
+                labelEl.textContent = checked[0].value;
+                labelEl.classList.remove('placeholder');
+                countEl.style.display = 'none';
             } else {
-                alert('Error loading order data');
-                closeEditModal();
+                labelEl.textContent = total + ' selected';
+                labelEl.classList.remove('placeholder');
+                countEl.textContent = total;
+                countEl.style.display = 'inline-block';
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error loading order data');
-            closeEditModal();
+
+            // Update checked class on options
+            optionsContainer.querySelectorAll('.multiselect-option').forEach(function(opt) {
+                var cb = opt.querySelector('input[type="checkbox"]');
+                opt.classList.toggle('checked', cb && cb.checked);
+            });
+
+            // Sync hidden inputs
+            hiddenContainer.innerHTML = '';
+            checked.forEach(function(cb) {
+                var inp = document.createElement('input');
+                inp.type = 'hidden';
+                inp.name = 'area';
+                inp.value = cb.value;
+                hiddenContainer.appendChild(inp);
+            });
+        }
+
+        function filterOptions() {
+            var q = (searchInput.value || '').toLowerCase().trim();
+            var visibleCount = 0;
+            optionsContainer.querySelectorAll('.multiselect-option').forEach(function(opt) {
+                var text = (opt.textContent || '').toLowerCase();
+                var show = text.indexOf(q) !== -1;
+                opt.style.display = show ? '' : 'none';
+                if (show) visibleCount++;
+            });
+            noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+        }
+
+        function positionDropdown() {
+            var rect = trigger.getBoundingClientRect();
+            dropdown.style.left = rect.left + 'px';
+            dropdown.style.top = (rect.bottom + 4) + 'px';
+            dropdown.style.minWidth = Math.max(rect.width, 220) + 'px';
+
+            // Flip above if no space below
+            var spaceBelow = window.innerHeight - rect.bottom;
+            if (spaceBelow < 280 && rect.top > 280) {
+                dropdown.style.top = 'auto';
+                dropdown.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+            }
+        }
+
+        function open() {
+            dropdown.classList.add('open');
+            trigger.classList.add('open');
+            searchInput.value = '';
+            filterOptions();
+            positionDropdown();
+            requestAnimationFrame(function() { searchInput.focus(); });
+        }
+
+        function close() {
+            dropdown.classList.remove('open');
+            trigger.classList.remove('open');
+        }
+
+        function toggle() {
+            if (dropdown.classList.contains('open')) close();
+            else open();
+        }
+
+        // Events
+        trigger.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); toggle(); });
+        trigger.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+            if (e.key === 'Escape') close();
+        });
+
+        searchInput.addEventListener('input', filterOptions);
+        searchInput.addEventListener('click', function(e) { e.stopPropagation(); });
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') { close(); trigger.focus(); }
+        });
+
+        optionsContainer.addEventListener('change', function() { updateUI(); });
+
+        // Click on option label (not just checkbox) should toggle
+        optionsContainer.addEventListener('click', function(e) { e.stopPropagation(); });
+
+        selectAllBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            getVisibleOptions().forEach(function(opt) {
+                var cb = opt.querySelector('input[type="checkbox"]');
+                if (cb) cb.checked = true;
+            });
+            updateUI();
+        });
+
+        clearAllBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            getAllCheckboxes().forEach(function(cb) { cb.checked = false; });
+            updateUI();
+        });
+
+        // Close on outside click
+        document.addEventListener('click', function(e) {
+            if (!trigger.contains(e.target) && !dropdown.contains(e.target)) close();
+        });
+
+        // Reposition on scroll/resize
+        window.addEventListener('scroll', function() {
+            if (dropdown.classList.contains('open')) positionDropdown();
+        }, true);
+        window.addEventListener('resize', function() {
+            if (dropdown.classList.contains('open')) positionDropdown();
+        });
+
+        // Init
+        updateUI();
+    })();
+
+    // Form submission
+    if (filterForm) {
+        if (searchInput) {
+            searchInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { e.preventDefault(); filterForm.submit(); }
+            });
+        }
+
+        if (filterBtn) {
+            filterBtn.onclick = function(e) {
+                e.preventDefault();
+                filterForm.submit();
+                return false;
+            };
+        }
+
+        // Auto-submit on select/date changes
+        filterForm.querySelectorAll('select').forEach(function(sel) {
+            sel.onchange = function() { filterForm.submit(); };
+        });
+        filterForm.querySelectorAll('input[type="date"]').forEach(function(d) {
+            d.onchange = function() { filterForm.submit(); };
         });
     }
-    
-    function populateForm(data) {
-        const form = document.getElementById('editOrderForm');
-        const order = data.order;
-        
-        form.innerHTML = `
-            <div class="modal-header">
-                <h2>Edit Order: ${order.do_number}</h2>
-                <span class="close" onclick="closeEditModal()">&times;</span>
-            </div>
-            <form id="orderEditForm" onsubmit="saveOrder(event, '${order.do_number}')">
-                <div class="form-group">
-                    <label for="edit_invoice_number">Invoice Number:</label>
-                    <input type="text" id="edit_invoice_number" name="invoice_number" value="${order.invoice_number || ''}" maxlength="100">
-                </div>
-                <div class="form-group">
-                    <label for="edit_credit_note">Credit Note:</label>
-                    <input type="text" id="edit_credit_note" name="credit_note" value="${order.credit_note || ''}" maxlength="15">
-                </div>
-                <div class="form-group">
-                    <label for="edit_amount">Amount:</label>
-                    <input type="text" id="edit_amount" name="amount" value="${order.amount || ''}" maxlength="15">
-                </div>
-                <div class="form-group">
-                    <label for="edit_mobile_number">Mobile Number:</label>
-                    <input type="text" id="edit_mobile_number" name="mobile_number" value="${order.mobile_number || ''}" maxlength="15">
-                </div>
-                <div class="form-group">
-                    <label for="edit_vehicle">Vehicle:</label>
-                    <select id="edit_vehicle" name="vehicle">
-                        <option value="">Select a vehicle</option>
-                        ${data.vehicles.map(v => 
-                            `<option value="${v.id}" ${v.id == order.vehicle_id ? 'selected' : ''}>${v.name}</option>`
-                        ).join('')}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="edit_driver">Driver:</label>
-                    <select id="edit_driver" name="driver">
-                        ${data.drivers.map(d => 
-                            `<option value="${d}" ${d == order.driver ? 'selected' : ''}>${d}</option>`
-                        ).join('')}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="edit_status">Status:</label>
-                    <select id="edit_status" name="status">
-                        ${data.statuses.map(s => 
-                            `<option value="${s}" ${s == order.status ? 'selected' : ''}>${s}</option>`
-                        ).join('')}
-                    </select>
-                </div>
-                <div class="form-actions">
-                    <button type="button" onclick="closeEditModal()" class="btn-cancel">Cancel</button>
-                    <button type="submit" class="btn-save">Save</button>
-                </div>
-            </form>
-        `;
-    }
-    
-    function saveOrder(event, doNumber) {
-        event.preventDefault();
-        
-        const form = document.getElementById('orderEditForm');
-        const formData = new FormData(form);
-        const data = Object.fromEntries(formData.entries());
-        
-        // Show loading state
-        const saveBtn = form.querySelector('.btn-save');
-        const originalText = saveBtn.textContent;
-        saveBtn.textContent = 'Saving...';
-        saveBtn.disabled = true;
-        
-        // Get CSRF token from cookie
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
+});
+
+// Edit Modal Functionality
+function openEditModal(doNumber) {
+    var modal = document.getElementById('editOrderModal');
+    var form = document.getElementById('editOrderForm');
+    form.innerHTML = '<div style="text-align: center; padding: 2rem;">Loading...</div>';
+    modal.style.display = 'block';
+    var updateUrl = '/update/' + doNumber + '/';
+    fetch(updateUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) populateForm(data);
+        else { alert('Error loading order data'); closeEditModal(); }
+    })
+    .catch(function() { alert('Error loading order data'); closeEditModal(); });
+}
+
+function populateForm(data) {
+    var form = document.getElementById('editOrderForm');
+    var order = data.order;
+    form.innerHTML =
+        '<div class="modal-header"><h2>Edit Order: ' + order.do_number + '</h2><span class="close" onclick="closeEditModal()">&times;</span></div>' +
+        '<form id="orderEditForm" onsubmit="saveOrder(event, \'' + order.do_number + '\')">' +
+        '<div class="form-group"><label>Invoice Number:</label><input type="text" id="edit_invoice_number" name="invoice_number" value="' + (order.invoice_number || '') + '" maxlength="100"></div>' +
+        '<div class="form-group"><label>Credit Note:</label><input type="text" id="edit_credit_note" name="credit_note" value="' + (order.credit_note || '') + '" maxlength="15"></div>' +
+        '<div class="form-group"><label>Amount:</label><input type="text" id="edit_amount" name="amount" value="' + (order.amount || '') + '" maxlength="15"></div>' +
+        '<div class="form-group"><label>Mobile Number:</label><input type="text" id="edit_mobile_number" name="mobile_number" value="' + (order.mobile_number || '') + '" maxlength="15"></div>' +
+        '<div class="form-group"><label>Vehicle:</label><select id="edit_vehicle" name="vehicle"><option value="">Select a vehicle</option>' +
+        data.vehicles.map(function(v) { return '<option value="' + v.id + '"' + (v.id == order.vehicle_id ? ' selected' : '') + '>' + v.name + '</option>'; }).join('') +
+        '</select></div>' +
+        '<div class="form-group"><label>Driver:</label><select id="edit_driver" name="driver">' +
+        data.drivers.map(function(d) { return '<option value="' + d + '"' + (d == order.driver ? ' selected' : '') + '>' + d + '</option>'; }).join('') +
+        '</select></div>' +
+        '<div class="form-group"><label>Status:</label><select id="edit_status" name="status">' +
+        data.statuses.map(function(s) { return '<option value="' + s + '"' + (s == order.status ? ' selected' : '') + '>' + s + '</option>'; }).join('') +
+        '</select></div>' +
+        '<div class="form-actions"><button type="button" onclick="closeEditModal()" class="btn-cancel">Cancel</button><button type="submit" class="btn-save">Save</button></div></form>';
+}
+
+function saveOrder(event, doNumber) {
+    event.preventDefault();
+    var form = document.getElementById('orderEditForm');
+    var formData = new FormData(form);
+    var data = {};
+    formData.forEach(function(v, k) { data[k] = v; });
+    var saveBtn = form.querySelector('.btn-save');
+    var originalText = saveBtn.textContent;
+    saveBtn.textContent = 'Saving...';
+    saveBtn.disabled = true;
+    function getCookie(name) {
+        var cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            var cookies = document.cookie.split(';');
+            for (var i = 0; i < cookies.length; i++) {
+                var cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
                 }
             }
-            return cookieValue;
         }
-        const csrftoken = getCookie('csrftoken');
-        
-        // Construct URL
-        const updateUrl = `/update/${doNumber}/`;
-        
-        fetch(updateUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': csrftoken
-            },
-            body: JSON.stringify(data)
-        })
-        .then(response => response.json())
-        .then(result => {
-            if (result.success) {
-                closeEditModal();
-                // Reload the page to show updated data
-                window.location.reload();
-            } else {
-                alert('Error saving order: ' + (result.message || 'Unknown error'));
-                saveBtn.textContent = originalText;
-                saveBtn.disabled = false;
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error saving order');
-            saveBtn.textContent = originalText;
-            saveBtn.disabled = false;
-        });
+        return cookieValue;
     }
-    
-    function closeEditModal() {
-        document.getElementById('editOrderModal').style.display = 'none';
-    }
-    
-    // Close modal when clicking outside
-    window.onclick = function(event) {
-        const modal = document.getElementById('editOrderModal');
-        if (event.target == modal) {
-            closeEditModal();
-        }
-    }
+    fetch('/update/' + doNumber + '/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': getCookie('csrftoken') },
+        body: JSON.stringify(data)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+        if (result.success) { closeEditModal(); window.location.reload(); }
+        else { alert('Error: ' + (result.message || 'Unknown error')); saveBtn.textContent = originalText; saveBtn.disabled = false; }
+    })
+    .catch(function() { alert('Error saving order'); saveBtn.textContent = originalText; saveBtn.disabled = false; });
+}
+
+function closeEditModal() { document.getElementById('editOrderModal').style.display = 'none'; }
+window.onclick = function(event) { if (event.target == document.getElementById('editOrderModal')) closeEditModal(); };
 </script>
 
 <!-- Edit Order Modal -->
 <div id="editOrderModal" class="modal">
     <div class="modal-content">
-        <div id="editOrderForm">
-            <!-- Form will be populated here -->
-        </div>
+        <div id="editOrderForm"></div>
     </div>
 </div>
 
 <style>
-    /* Modal Styles */
-    .modal {
-        display: none;
-        position: fixed;
-        z-index: 1000;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        overflow: auto;
-        background-color: rgba(0, 0, 0, 0.5);
-    }
-    
-    .modal-content {
-        background-color: #fefefe;
-        margin: 5% auto;
-        padding: 0;
-        border: 1px solid #888;
-        border-radius: 8px;
-        width: 90%;
-        max-width: 500px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        max-height: 90vh;
-        overflow-y: auto;
-    }
-    
-    .modal-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 1.25rem;
-        border-bottom: 1px solid #e5e7eb;
-        background-color: #1a237e;
-        color: white;
-        border-radius: 8px 8px 0 0;
-    }
-    
-    .modal-header h2 {
-        margin: 0;
-        font-size: 1.25rem;
-        font-weight: 600;
-    }
-    
-    .close {
-        color: white;
-        font-size: 28px;
-        font-weight: bold;
-        cursor: pointer;
-        line-height: 1;
-    }
-    
-    .close:hover,
-    .close:focus {
-        color: #f0f0f0;
-        text-decoration: none;
-    }
-    
-    #orderEditForm {
-        padding: 1.5rem;
-    }
-    
-    .form-group {
-        margin-bottom: 1.25rem;
-    }
-    
-    .form-group label {
-        display: block;
-        margin-bottom: 0.5rem;
-        font-weight: 600;
-        color: #374151;
-        font-size: 0.875rem;
-    }
-    
-    .form-group input[type="text"],
-    .form-group select {
-        width: 100%;
-        padding: 0.625rem;
-        border: 1px solid #d1d5db;
-        border-radius: 4px;
-        font-size: 0.875rem;
-        box-sizing: border-box;
-        transition: border-color 0.2s;
-    }
-    
-    .form-group input[type="text"]:focus,
-    .form-group select:focus {
-        outline: none;
-        border-color: #1a237e;
-        box-shadow: 0 0 0 3px rgba(26, 35, 126, 0.1);
-    }
-    
-    .form-actions {
-        display: flex;
-        gap: 0.75rem;
-        justify-content: flex-end;
-        margin-top: 1.5rem;
-        padding-top: 1.25rem;
-        border-top: 1px solid #e5e7eb;
-    }
-    
-    .btn-save {
-        background-color: #1a237e;
-        color: white;
-        padding: 0.625rem 1.5rem;
-        border: none;
-        border-radius: 4px;
-        font-size: 0.875rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background-color 0.2s;
-    }
-    
-    .btn-save:hover {
-        background-color: #3949ab;
-    }
-    
-    .btn-save:disabled {
-        background-color: #9ca3af;
-        cursor: not-allowed;
-    }
-    
-    .btn-cancel {
-        background-color: #6b7280;
-        color: white;
-        padding: 0.625rem 1.5rem;
-        border: none;
-        border-radius: 4px;
-        font-size: 0.875rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background-color 0.2s;
-    }
-    
-    .btn-cancel:hover {
-        background-color: #4b5563;
-    }
+    .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); }
+    .modal-content { background-color: #fefefe; margin: 5% auto; padding: 0; border: 1px solid #888; border-radius: 8px; width: 90%; max-width: 500px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-height: 90vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem; border-bottom: 1px solid #e5e7eb; background-color: #1a237e; color: white; border-radius: 8px 8px 0 0; }
+    .modal-header h2 { margin: 0; font-size: 1.25rem; font-weight: 600; }
+    .close { color: white; font-size: 28px; font-weight: bold; cursor: pointer; line-height: 1; }
+    .close:hover { color: #f0f0f0; }
+    #orderEditForm { padding: 1.5rem; }
+    .form-group { margin-bottom: 1.25rem; }
+    .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151; font-size: 0.875rem; }
+    .form-group input[type="text"], .form-group select { width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.875rem; box-sizing: border-box; transition: border-color 0.2s; }
+    .form-group input[type="text"]:focus, .form-group select:focus { outline: none; border-color: #1a237e; box-shadow: 0 0 0 3px rgba(26,35,126,0.1); }
+    .form-actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid #e5e7eb; }
+    .btn-save { background-color: #1a237e; color: white; padding: 0.625rem 1.5rem; border: none; border-radius: 4px; font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: background-color 0.2s; }
+    .btn-save:hover { background-color: #3949ab; }
+    .btn-save:disabled { background-color: #9ca3af; cursor: not-allowed; }
+    .btn-cancel { background-color: #6b7280; color: white; padding: 0.625rem 1.5rem; border: none; border-radius: 4px; font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: background-color 0.2s; }
+    .btn-cancel:hover { background-color: #4b5563; }
 </style>
 {% endblock %}

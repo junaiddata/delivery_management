@@ -19,3 +19,4 @@ django-extensions>=3.1.0
 django-import-export>=2.0.0
 django-widget-tweaks
 python-dotenv
+reportlab>=4.0.0
