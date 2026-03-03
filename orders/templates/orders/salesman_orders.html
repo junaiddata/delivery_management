@@ -83,65 +83,165 @@
         white-space: nowrap;
     }
     
-    /* Filters Card */
+    /* Filters - Same design as order_list */
     .filters-card {
         background: #fff;
         border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 0.75rem;
+        border-radius: 10px;
         margin-bottom: 0.75rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        overflow: hidden;
     }
-    
+    .filters-toggle {
+        display: none;
+        width: 100%;
+        padding: 0.6rem 1rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border: none;
+        border-bottom: 1px solid #e2e8f0;
+        cursor: pointer;
+        color: #475569;
+        text-align: left;
+    }
+    .filters-toggle::after { content: ' ▼'; font-size: 0.6rem; float: right; }
+    .filters-toggle.expanded::after { content: ' ▲'; }
+    .filters-content { padding: 0.75rem; }
     .filters-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 0.6rem 0.75rem;
         align-items: flex-end;
     }
-    
     .filter-group {
         display: flex;
         flex-direction: column;
-        gap: 0.15rem;
+        gap: 0.2rem;
+        min-width: 0;
     }
-    
     .filter-group label {
         font-size: 0.65rem;
-        font-weight: 600;
-        color: #64748b;
+        font-weight: 700;
+        color: #475569;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.4px;
     }
-    
     .filter-group input,
     .filter-group select {
-        padding: 0.35rem 0.5rem;
-        font-size: 0.75rem;
-        border: 1px solid #d1d5db;
-        border-radius: 4px;
-        min-width: 100px;
+        padding: 0.45rem 0.55rem;
+        font-size: 0.78rem;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 6px;
+        min-width: 0;
+        width: 100%;
+        background: #fff;
+        color: #1e293b;
+        font-family: inherit;
     }
-    
     .filter-group input:focus,
     .filter-group select:focus {
         outline: none;
         border-color: #3b82f6;
-        box-shadow: 0 0 0 2px rgba(59,130,246,0.1);
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
     }
-    
-    .search-input {
-        min-width: 200px !important;
+    .filter-group-searchable .dropdown-search {
+        padding: 0.35rem 0.5rem;
+        font-size: 0.72rem;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 6px;
+        width: 100%;
+        margin-bottom: 0.25rem;
+        background: #f8fafc;
+        font-family: inherit;
     }
-    
-    .filter-buttons {
+    .filter-group-searchable .dropdown-search:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+        background: #fff;
+    }
+    /* Multiselect - same as order_list */
+    .multiselect-wrapper { position: relative; min-width: 0; }
+    .multiselect-trigger {
+        padding: 0.45rem 0.55rem;
+        font-size: 0.78rem;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 6px;
+        background: #fff;
+        cursor: pointer;
         display: flex;
-        gap: 0.35rem;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.3rem;
+        min-height: 32px;
+        color: #1e293b;
+        user-select: none;
     }
-    
-    .filter-buttons .btn {
-        padding: 0.35rem 0.75rem;
-        font-size: 0.75rem;
+    .multiselect-trigger:hover { border-color: #cbd5e1; background: #f8fafc; }
+    .multiselect-trigger.open { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); background: #fff; }
+    .multiselect-trigger .multiselect-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+    .multiselect-trigger .multiselect-label.placeholder { color: #94a3b8; }
+    .multiselect-trigger .multiselect-count { background: #3b82f6; color: #fff; font-size: 0.6rem; font-weight: 700; padding: 0.1rem 0.4rem; border-radius: 10px; min-width: 18px; text-align: center; flex-shrink: 0; }
+    .multiselect-trigger .multiselect-arrow { font-size: 0.5rem; color: #94a3b8; flex-shrink: 0; }
+    .multiselect-trigger.open .multiselect-arrow { transform: rotate(180deg); color: #3b82f6; }
+    .multiselect-dropdown {
+        display: none;
+        position: fixed;
+        min-width: 220px;
+        max-width: 320px;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        box-shadow: 0 12px 36px rgba(0,0,0,0.12);
+        z-index: 9999;
+        overflow: hidden;
+    }
+    .multiselect-dropdown.open { display: flex; flex-direction: column; }
+    .ms-search-wrap { padding: 0.5rem; border-bottom: 1px solid #f1f5f9; background: #fafbfc; }
+    .ms-search-wrap .multiselect-search {
+        width: 100%;
+        padding: 0.45rem 0.6rem 0.45rem 2rem;
+        font-size: 0.78rem;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 6px;
+        background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='%2394a3b8' viewBox='0 0 24 24'%3E%3Cpath d='M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'/%3E%3C/svg%3E") 0.5rem center no-repeat;
+        font-family: inherit;
+        box-sizing: border-box;
+    }
+    .ms-actions { display: flex; justify-content: space-between; padding: 0.35rem 0.6rem; border-bottom: 1px solid #f1f5f9; background: #fafbfc; }
+    .ms-actions button { font-size: 0.68rem; font-weight: 600; color: #3b82f6; background: none; border: none; cursor: pointer; padding: 0.15rem 0.3rem; border-radius: 4px; font-family: inherit; }
+    .ms-actions button:hover { background: #eff6ff; color: #2563eb; }
+    .ms-actions button.clear-btn { color: #ef4444; }
+    .ms-actions button.clear-btn:hover { background: #fef2f2; color: #dc2626; }
+    .multiselect-options { max-height: 220px; overflow-y: auto; padding: 0.25rem 0; }
+    .multiselect-option {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.45rem 0.65rem;
+        font-size: 0.78rem;
+        cursor: pointer;
+        margin: 0;
+        min-height: 34px;
+        color: #334155;
+        border-left: 3px solid transparent;
+    }
+    .multiselect-option:hover { background: #f1f5f9; border-left-color: #3b82f6; }
+    .multiselect-option.checked { background: #eff6ff; border-left-color: #3b82f6; color: #1e40af; font-weight: 500; }
+    .multiselect-option input[type="checkbox"] { margin: 0; cursor: pointer; width: 15px; height: 15px; accent-color: #3b82f6; flex-shrink: 0; }
+    .multiselect-option span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ms-no-results { padding: 1rem 0.65rem; text-align: center; color: #94a3b8; font-size: 0.75rem; display: none; }
+    .filter-buttons { display: flex; gap: 0.35rem; align-self: flex-end; }
+    .filter-buttons .btn { padding: 0.45rem 0.85rem; font-size: 0.75rem; border-radius: 6px; font-weight: 600; }
+    @media (max-width: 768px) {
+        .filters-toggle { display: block; }
+        .filters-content { display: none; }
+        .filters-content.expanded { display: block; }
+        .filters-row { grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+        .filter-group-searchable, .multiselect-wrapper { grid-column: span 2; }
+        .filter-buttons { grid-column: span 2; justify-content: stretch; }
+        .filter-buttons .btn { flex: 1; text-align: center; }
     }
     
     /* Table Styles */
@@ -363,20 +463,6 @@
             justify-content: space-between;
         }
         
-        .filters-row {
-            flex-direction: column;
-            align-items: stretch;
-        }
-        
-        .filter-group {
-            width: 100%;
-        }
-        
-        .filter-group input,
-        .filter-group select {
-            width: 100%;
-        }
-        
         .table-scroll {
             overflow-x: auto;
         }
@@ -460,57 +546,84 @@
     <div class="quick-actions">
         <a href="https://stock.junaidworld.com" target="_blank" class="btn btn-dark">Stock Details</a>
         <a href="{% url 'customer_frequency_simple' %}" target="_blank" class="btn btn-success">Customer Analysis</a>
+        <a href="{% url 'export_salesman_orders_to_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-danger">Export PDF</a>
     </div>
 
-    <!-- Filters -->
+    <!-- Filters - Same design as order_list -->
     <div class="filters-card">
+        <button type="button" class="filters-toggle" id="filtersToggle" aria-expanded="false">⚙ Filters & Search</button>
         <form method="get" id="filterForm">
-            <div class="filters-row">
-                <div class="filter-group">
-                    <label>From</label>
-                    <input type="date" name="from_date" id="from_date" value="{{ from_date }}">
-                </div>
-                
-                <div class="filter-group">
-                    <label>To</label>
-                    <input type="date" name="to_date" id="to_date" value="{{ to_date }}">
-                </div>
-                
-                <div class="filter-group">
-                    <label>Status</label>
-                    <select name="status">
-                        <option value="">All</option>
-                        <option value="Out for Delivery" {% if status_filter == 'Out for Delivery' %}selected{% endif %}>Out for Delivery</option>
-                        <option value="Pending" {% if status_filter == 'Pending' %}selected{% endif %}>Pending</option>
-                        <option value="Partial Delivery" {% if status_filter == 'Partial Delivery' %}selected{% endif %}>Partial</option>
-                        <option value="Loaded" {% if status_filter == 'Loaded' %}selected{% endif %}>Loaded</option>
-                        <option value="Delivered" {% if status_filter == 'Delivered' %}selected{% endif %}>Delivered</option>
-                        <option value="Received by A/c" {% if status_filter == 'Received by A/c' %}selected{% endif %}>Received</option>
-                        <option value="Not Delivered" {% if status_filter == 'Not Delivered' %}selected{% endif %}>Not Delivered</option>
-                        <option value="On Hold" {% if status_filter == 'On Hold' %}selected{% endif %}>On Hold</option>
-                        <option value="GRV" {% if status_filter == 'GRV' %}selected{% endif %}>GRV</option>
-                        <option value="delivered_group" {% if status_filter == 'delivered_group' %}selected{% endif %}>Delivered Group</option>
-                    </select>
-                </div>
-                
-                <div class="filter-group">
-                    <label>City</label>
-                    <select name="city">
-                        <option value="">All</option>
-                        {% for city in cities %}
-                            <option value="{{ city }}" {% if city_filter == city %}selected{% endif %}>{{ city }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="filter-group">
-                    <label>Search</label>
-                    <input type="text" name="search_query" id="searchInput" value="{{ search_query|default:'' }}" class="search-input" placeholder="DO, Customer, Mobile..." autocomplete="off">
-                </div>
-
-                <div class="filter-buttons">
-                    <button type="submit" class="btn btn-primary" id="filterBtn">Filter</button>
-                    <a href="{% url 'salesman_orders' %}" class="btn btn-secondary">Reset</a>
+            <div class="filters-content" id="filtersContent">
+                <div class="filters-row">
+                    <div class="filter-group">
+                        <label>From</label>
+                        <input type="date" name="from_date" id="from_date" value="{{ from_date }}">
+                    </div>
+                    <div class="filter-group">
+                        <label>To</label>
+                        <input type="date" name="to_date" id="to_date" value="{{ to_date }}">
+                    </div>
+                    <div class="filter-group">
+                        <label>Status</label>
+                        <select name="status">
+                            <option value="">All</option>
+                            <option value="Out for Delivery" {% if status_filter == 'Out for Delivery' %}selected{% endif %}>Out for Delivery</option>
+                            <option value="Pending" {% if status_filter == 'Pending' %}selected{% endif %}>Pending</option>
+                            <option value="Partial Delivery" {% if status_filter == 'Partial Delivery' %}selected{% endif %}>Partial</option>
+                            <option value="Loaded" {% if status_filter == 'Loaded' %}selected{% endif %}>Loaded</option>
+                            <option value="Delivered" {% if status_filter == 'Delivered' %}selected{% endif %}>Delivered</option>
+                            <option value="Received by A/c" {% if status_filter == 'Received by A/c' %}selected{% endif %}>Received</option>
+                            <option value="Not Delivered" {% if status_filter == 'Not Delivered' %}selected{% endif %}>Not Delivered</option>
+                            <option value="On Hold" {% if status_filter == 'On Hold' %}selected{% endif %}>On Hold</option>
+                            <option value="GRV" {% if status_filter == 'GRV' %}selected{% endif %}>GRV</option>
+                            <option value="delivered_group" {% if status_filter == 'delivered_group' %}selected{% endif %}>Delivered Group</option>
+                        </select>
+                    </div>
+                    <div class="filter-group filter-group-searchable">
+                        <label>City</label>
+                        <input type="text" class="dropdown-search" placeholder="🔍 Search city..." autocomplete="off" data-target="citySelect">
+                        <select name="city" id="citySelect" class="select-with-search">
+                            <option value="">All</option>
+                            {% for city in cities %}
+                                <option value="{{ city }}" {% if city_filter == city %}selected{% endif %}>{{ city }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="filter-group multiselect-wrapper">
+                        <label>Area</label>
+                        <div class="multiselect-trigger" id="areaMultiselectTrigger" tabindex="0">
+                            <span class="multiselect-label placeholder" id="areaMultiselectLabel">All Areas</span>
+                            <span class="multiselect-count" id="areaMultiselectCount" style="display:none;">0</span>
+                            <span class="multiselect-arrow">▼</span>
+                        </div>
+                        <div class="multiselect-dropdown" id="areaMultiselectDropdown">
+                            <div class="ms-search-wrap">
+                                <input type="text" class="multiselect-search" id="areaMultiselectSearch" placeholder="Search areas..." autocomplete="off">
+                            </div>
+                            <div class="ms-actions">
+                                <button type="button" id="areaSelectAll">Select All</button>
+                                <button type="button" id="areaClearAll" class="clear-btn">Clear All</button>
+                            </div>
+                            <div class="multiselect-options" id="areaMultiselectOptions">
+                                {% for ar in areas %}
+                                <label class="multiselect-option" data-value="{{ ar }}">
+                                    <input type="checkbox" value="{{ ar }}" {% if ar in selected_areas %}checked{% endif %}>
+                                    <span>{{ ar }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            <div class="ms-no-results" id="areaNoResults">No areas found</div>
+                        </div>
+                        <div id="areaHiddenInputs"></div>
+                    </div>
+                    <div class="filter-group">
+                        <label>Search</label>
+                        <input type="text" name="search_query" id="searchInput" value="{{ search_query|default:'' }}" class="search-input" placeholder="DO, Customer, Mobile..." autocomplete="off">
+                    </div>
+                    <div class="filter-buttons">
+                        <button type="submit" class="btn btn-primary" id="filterBtn">Filter</button>
+                        <a href="{% url 'salesman_orders' %}" class="btn btn-secondary">Reset</a>
+                    </div>
                 </div>
             </div>
         </form>
@@ -612,47 +725,172 @@
 </div>
 
 <script>
-    // Ensure form submission works properly on first click
-    document.addEventListener('DOMContentLoaded', function() {
-        const filterForm = document.getElementById('filterForm');
-        const searchInput = document.getElementById('searchInput');
-        const filterBtn = document.getElementById('filterBtn');
-        
-        if (filterForm) {
-            // Handle Enter key in search input
-            if (searchInput) {
-                searchInput.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        filterForm.submit();
-                    }
-                });
-            }
-            
-            // Ensure filter button submits form properly
-            if (filterBtn) {
-                filterBtn.onclick = function(e) {
-                    e.preventDefault();
-                    filterForm.submit();
-                    return false;
-                };
-            }
-            
-            // Auto-submit on filter changes (except search input)
-            const filterSelects = filterForm.querySelectorAll('select');
-            filterSelects.forEach(select => {
-                select.onchange = function() {
-                    filterForm.submit();
-                };
+document.addEventListener('DOMContentLoaded', function() {
+    var filterForm = document.getElementById('filterForm');
+    var searchInput = document.getElementById('searchInput');
+    var filterBtn = document.getElementById('filterBtn');
+
+    // Mobile filters toggle
+    var filtersToggle = document.getElementById('filtersToggle');
+    var filtersContent = document.getElementById('filtersContent');
+    if (filtersToggle && filtersContent) {
+        filtersToggle.addEventListener('click', function() {
+            filtersContent.classList.toggle('expanded');
+            filtersToggle.classList.toggle('expanded', filtersContent.classList.contains('expanded'));
+        });
+    }
+
+    // Searchable dropdown: filter options when typing
+    document.querySelectorAll('.dropdown-search').forEach(function(searchEl) {
+        var targetId = searchEl.getAttribute('data-target');
+        var selectEl = document.getElementById(targetId);
+        if (!selectEl) return;
+        searchEl.addEventListener('input', function() {
+            var q = this.value.toLowerCase().trim();
+            Array.from(selectEl.options).forEach(function(opt) {
+                var text = (opt.textContent || '').toLowerCase();
+                opt.style.display = (opt.value === '' || text.indexOf(q) !== -1) ? '' : 'none';
             });
-            
-            const filterDates = filterForm.querySelectorAll('input[type="date"]');
-            filterDates.forEach(dateInput => {
-                dateInput.onchange = function() {
-                    filterForm.submit();
-                };
+        });
+    });
+
+    // Area multiselect - same as order_list
+    (function() {
+        var trigger = document.getElementById('areaMultiselectTrigger');
+        var dropdown = document.getElementById('areaMultiselectDropdown');
+        var labelEl = document.getElementById('areaMultiselectLabel');
+        var countEl = document.getElementById('areaMultiselectCount');
+        var searchInput = document.getElementById('areaMultiselectSearch');
+        var optionsContainer = document.getElementById('areaMultiselectOptions');
+        var hiddenContainer = document.getElementById('areaHiddenInputs');
+        var noResults = document.getElementById('areaNoResults');
+        var selectAllBtn = document.getElementById('areaSelectAll');
+        var clearAllBtn = document.getElementById('areaClearAll');
+
+        function getAllCheckboxes() { return optionsContainer ? optionsContainer.querySelectorAll('input[type="checkbox"]') : []; }
+        function getVisibleOptions() { return optionsContainer ? optionsContainer.querySelectorAll('.multiselect-option:not([style*="display: none"])') : []; }
+        function getChecked() { return Array.from(getAllCheckboxes()).filter(function(cb) { return cb.checked; }); }
+
+        function updateUI() {
+            var checked = getChecked();
+            var total = checked.length;
+            if (total === 0) {
+                labelEl.textContent = 'All Areas';
+                labelEl.classList.add('placeholder');
+                countEl.style.display = 'none';
+            } else if (total === 1) {
+                labelEl.textContent = checked[0].value;
+                labelEl.classList.remove('placeholder');
+                countEl.style.display = 'none';
+            } else {
+                labelEl.textContent = total + ' selected';
+                labelEl.classList.remove('placeholder');
+                countEl.textContent = total;
+                countEl.style.display = 'inline-block';
+            }
+            optionsContainer.querySelectorAll('.multiselect-option').forEach(function(opt) {
+                var cb = opt.querySelector('input[type="checkbox"]');
+                opt.classList.toggle('checked', cb && cb.checked);
+            });
+            hiddenContainer.innerHTML = '';
+            checked.forEach(function(cb) {
+                var inp = document.createElement('input');
+                inp.type = 'hidden';
+                inp.name = 'area';
+                inp.value = cb.value;
+                hiddenContainer.appendChild(inp);
             });
         }
-    });
+
+        function filterOptions() {
+            var q = (searchInput.value || '').toLowerCase().trim();
+            var visibleCount = 0;
+            optionsContainer.querySelectorAll('.multiselect-option').forEach(function(opt) {
+                var text = (opt.textContent || '').toLowerCase();
+                var show = text.indexOf(q) !== -1;
+                opt.style.display = show ? '' : 'none';
+                if (show) visibleCount++;
+            });
+            noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+        }
+
+        function positionDropdown() {
+            var rect = trigger.getBoundingClientRect();
+            dropdown.style.left = rect.left + 'px';
+            dropdown.style.top = (rect.bottom + 4) + 'px';
+            dropdown.style.minWidth = Math.max(rect.width, 220) + 'px';
+            var spaceBelow = window.innerHeight - rect.bottom;
+            if (spaceBelow < 280 && rect.top > 280) {
+                dropdown.style.top = 'auto';
+                dropdown.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+            }
+        }
+
+        function open() {
+            dropdown.classList.add('open');
+            trigger.classList.add('open');
+            searchInput.value = '';
+            filterOptions();
+            positionDropdown();
+            requestAnimationFrame(function() { searchInput.focus(); });
+        }
+
+        function close() {
+            dropdown.classList.remove('open');
+            trigger.classList.remove('open');
+        }
+
+        function toggle() {
+            if (dropdown.classList.contains('open')) close();
+            else open();
+        }
+
+        if (trigger && dropdown) {
+            trigger.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); toggle(); });
+            trigger.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+                if (e.key === 'Escape') close();
+            });
+            searchInput.addEventListener('input', filterOptions);
+            searchInput.addEventListener('click', function(e) { e.stopPropagation(); });
+            optionsContainer.addEventListener('change', function() { updateUI(); });
+            optionsContainer.addEventListener('click', function(e) { e.stopPropagation(); });
+            selectAllBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                getVisibleOptions().forEach(function(opt) {
+                    var cb = opt.querySelector('input[type="checkbox"]');
+                    if (cb) cb.checked = true;
+                });
+                updateUI();
+            });
+            clearAllBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                getAllCheckboxes().forEach(function(cb) { cb.checked = false; });
+                updateUI();
+            });
+            document.addEventListener('click', function(e) {
+                if (!trigger.contains(e.target) && !dropdown.contains(e.target)) close();
+            });
+            updateUI();
+        }
+    })();
+
+    if (filterForm) {
+        if (searchInput) {
+            searchInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { e.preventDefault(); filterForm.submit(); }
+            });
+        }
+        if (filterBtn) {
+            filterBtn.onclick = function(e) { e.preventDefault(); filterForm.submit(); return false; };
+        }
+        filterForm.querySelectorAll('select').forEach(function(select) {
+            select.onchange = function() { filterForm.submit(); };
+        });
+        filterForm.querySelectorAll('input[type="date"]').forEach(function(dateInput) {
+            dateInput.onchange = function() { filterForm.submit(); };
+        });
+    }
+});
 </script>
 {% endblock %}

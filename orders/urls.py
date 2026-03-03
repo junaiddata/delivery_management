@@ -33,6 +33,7 @@ urlpatterns = [
     path('security/vehicles/<int:vehicle_id>/verify/', views.security_verify, name='security_verify'),
 
     path('salesman/orders/', salesman_orders, name='salesman_orders'),
+    path('salesman/orders/export/pdf/', views.export_salesman_orders_to_pdf, name='export_salesman_orders_to_pdf'),
     path('salesman/do/<str:do_number>/items/', do_items, name='do_items'),
 
 

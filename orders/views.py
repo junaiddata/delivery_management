@@ -1117,6 +1117,233 @@ def export_orders_to_pdf(request):
     return response
 
 
+def _get_salesman_orders_queryset(request):
+    """Shared logic: get orders queryset for the logged-in salesman user with filters applied."""
+    user_salesman_map = {
+        'siyab': ['SIYAB'], 'muzain': ['MUZAIN'], 'rafiq': ['RAFIQ SHABBIR'],
+        'parthiban': ['PARTHIBAN'], 'rafiqabu': ['RAFIQ ABUBAQAR'], 'rashid': ['RASHID'],
+        'nasheer': ['MR. NASHEER'], 'deira2': ['STORE DEIRA'], 'alabama': ['MERAJ'],
+        'anish': ['ANISH'], 'musharaf': ['MUSHARAF'], 'ibrahim': ['IBRAHIM'],
+        'adil': ['ADIL'], 'kadar': ['KADAR'], 'stephy': ['STEPHY'],
+    }
+    salesman_names = user_salesman_map.get(request.user.username, [])
+    if not salesman_names:
+        return DeliveryOrder.objects.none()
+    q_objects = Q()
+    for name in salesman_names:
+        q_objects |= Q(salesman__iexact=name)
+    orders = DeliveryOrder.objects.filter(q_objects).order_by('-date', '-do_number')
+
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+    if from_date and to_date:
+        orders = orders.filter(date__range=[from_date, to_date])
+    elif from_date:
+        orders = orders.filter(date__gte=from_date)
+    elif to_date:
+        orders = orders.filter(date__lte=to_date)
+
+    status_filter = request.GET.get('status')
+    if status_filter == "delivered_group":
+        orders = orders.filter(status__in=["Delivered", "Received by A/c"])
+    elif status_filter:
+        orders = orders.filter(status=status_filter)
+
+    city_filter = request.GET.get('city')
+    if city_filter:
+        orders = orders.filter(city=city_filter)
+
+    areas_selected = request.GET.getlist('area')
+    if areas_selected:
+        orders = orders.filter(area__in=areas_selected)
+
+    search_query = request.GET.get('search_query', '').strip()
+    if search_query:
+        orders = orders.filter(
+            Q(do_number__icontains=search_query) |
+            Q(customer_name__icontains=search_query) |
+            Q(mobile_number__icontains=search_query) |
+            Q(invoice_number__icontains=search_query)
+        )
+    return orders
+
+
+@login_required
+@role_required('Salesman')
+def export_salesman_orders_to_pdf(request):
+    """Export salesman's filtered orders to PDF - same design as main export."""
+    import io
+    import requests as http_requests
+    from datetime import datetime
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import landscape, A4
+    from reportlab.lib.units import mm
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_RIGHT
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, HRFlowable
+
+    orders = _get_salesman_orders_queryset(request)
+
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+    status_filter = request.GET.get('status')
+    city_filter = request.GET.get('city')
+    areas_selected = request.GET.getlist('area')
+    search_query = request.GET.get('search_query', '').strip()
+
+    NAVY = colors.HexColor('#1e3a5f')
+    BG_LIGHT = colors.HexColor('#f8fafc')
+    BG_ALT = colors.HexColor('#f1f5f9')
+    BORDER_LIGHT = colors.HexColor('#e2e8f0')
+    TEXT_DARK = colors.HexColor('#1e293b')
+    TEXT_MID = colors.HexColor('#475569')
+    TEXT_MUTED = colors.HexColor('#64748b')
+    BLUE_ACCENT = colors.HexColor('#3b82f6')
+    GREEN = colors.HexColor('#16a34a')
+    STATUS_COLORS = {
+        'Pending': (colors.HexColor('#fef2f2'), colors.HexColor('#dc2626')),
+        'Loaded': (colors.HexColor('#fef3c7'), colors.HexColor('#d97706')),
+        'Out for Delivery': (colors.HexColor('#dbeafe'), colors.HexColor('#2563eb')),
+        'Delivered': (colors.HexColor('#dcfce7'), colors.HexColor('#16a34a')),
+        'Partial Delivery': (colors.HexColor('#e0e7ff'), colors.HexColor('#4f46e5')),
+        'Not Delivered': (colors.HexColor('#f1f5f9'), colors.HexColor('#475569')),
+        'Cancelled': (colors.HexColor('#fef2f2'), colors.HexColor('#991b1b')),
+        'Received by A/c': (colors.HexColor('#f0fdf4'), colors.HexColor('#15803d')),
+        'On Hold': (colors.HexColor('#fff7ed'), colors.HexColor('#c2410c')),
+        'GRV': (colors.HexColor('#f5f3ff'), colors.HexColor('#7c3aed')),
+    }
+
+    styles = getSampleStyleSheet()
+    style_title = ParagraphStyle('ReportTitle', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=16, textColor=NAVY, spaceAfter=2)
+    style_subtitle = ParagraphStyle('ReportSubtitle', parent=styles['Normal'], fontName='Helvetica', fontSize=8.5, textColor=TEXT_MUTED, spaceAfter=0)
+    style_header = ParagraphStyle('HeaderCell', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7, textColor=colors.white, leading=9)
+    style_cell = ParagraphStyle('CellStyle', parent=styles['Normal'], fontName='Helvetica', fontSize=7, textColor=TEXT_DARK, leading=9)
+    style_cell_bold = ParagraphStyle('CellBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7, textColor=TEXT_DARK, leading=9)
+    style_cell_blue = ParagraphStyle('CellBlue', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7, textColor=BLUE_ACCENT, leading=9)
+    style_cell_green = ParagraphStyle('CellGreen', parent=styles['Normal'], fontName='Helvetica', fontSize=6.5, textColor=GREEN, leading=9)
+    style_cell_muted = ParagraphStyle('CellMuted', parent=styles['Normal'], fontName='Helvetica', fontSize=6.5, textColor=TEXT_MUTED, leading=9)
+    style_amount = ParagraphStyle('AmountCell', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7, textColor=TEXT_DARK, leading=9, alignment=TA_RIGHT)
+    style_footer = ParagraphStyle('Footer', parent=styles['Normal'], fontName='Helvetica', fontSize=6.5, textColor=TEXT_MUTED, alignment=1)
+
+    logo_img = None
+    try:
+        r = http_requests.get('https://junaidworld.com/wp-content/uploads/2023/09/footer-logo.png.webp', timeout=5)
+        if r.status_code == 200:
+            logo_img = Image(io.BytesIO(r.content), width=45*mm, height=14*mm)
+            logo_img.hAlign = 'LEFT'
+    except Exception:
+        pass
+
+    active_filters = []
+    if from_date:
+        active_filters.append(('From', from_date))
+    if to_date:
+        active_filters.append(('To', to_date))
+    if status_filter:
+        active_filters.append(('Status', 'Delivered Group' if status_filter == 'delivered_group' else status_filter))
+    if city_filter:
+        active_filters.append(('City', city_filter))
+    if areas_selected:
+        active_filters.append(('Area', ', '.join(areas_selected)))
+    if search_query:
+        active_filters.append(('Search', search_query))
+
+    elements = []
+    now = datetime.now()
+    title_text = Paragraph('My Delivery Orders Report', style_title)
+    subtitle_text = Paragraph(f'Generated on {now.strftime("%d %b %Y")} at {now.strftime("%I:%M %p")}  •  {orders.count()} orders', style_subtitle)
+    if logo_img:
+        header_table = Table([[logo_img, [title_text, subtitle_text]]], colWidths=[50*mm, None])
+        header_table.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('LEFTPADDING', (0, 0), (-1, -1), 0), ('RIGHTPADDING', (0, 0), (-1, -1), 0), ('TOPPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0)]))
+        elements.append(header_table)
+    else:
+        elements.append(title_text)
+        elements.append(subtitle_text)
+    elements.append(Spacer(1, 3*mm))
+    elements.append(HRFlowable(width='100%', thickness=1.5, color=NAVY, spaceAfter=3*mm))
+
+    if active_filters:
+        filter_items = []
+        for label, value in active_filters:
+            filter_items.append(f'<font name="Helvetica-Bold" color="#1e3a5f">{label}:</font> <font color="#475569">{value}</font>')
+        filter_para = Paragraph(f'<font size="7">Filters Applied:&nbsp;&nbsp;{"&nbsp;&nbsp;•&nbsp;&nbsp;".join(filter_items)}</font>',
+            ParagraphStyle('FilterLine', parent=styles['Normal'], fontName='Helvetica', fontSize=7, textColor=TEXT_MID, backColor=BG_LIGHT, borderColor=BORDER_LIGHT, borderWidth=0.5, borderPadding=6, spaceAfter=4*mm))
+        elements.append(filter_para)
+
+    headers = ['#', 'Date', 'DO Number', 'Customer', 'LPO', 'Mobile', 'City', 'Area', 'Status', 'Amount']
+    header_row = [Paragraph(h, style_header) for h in headers]
+    col_widths = [8*mm, 20*mm, 22*mm, 55*mm, 22*mm, 25*mm, 28*mm, 22*mm, 25*mm, 22*mm]
+    data_rows = [header_row]
+    total_amount = 0
+    for idx, o in enumerate(orders, 1):
+        amount_val = float(o.amount) if o.amount else 0
+        total_amount += amount_val
+        status_text = o.status or ''
+        status_bg, status_fg = STATUS_COLORS.get(status_text, (BG_LIGHT, TEXT_MID))
+        status_style = ParagraphStyle(f'Status_{idx}', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=6.5, textColor=status_fg, leading=9)
+        row = [
+            Paragraph(str(idx), style_cell_muted),
+            Paragraph(o.date.strftime('%d-%b-%Y') if o.date else '', style_cell),
+            Paragraph(o.do_number or '', style_cell_blue),
+            Paragraph((o.customer_name or '')[:30], style_cell_bold),
+            Paragraph((o.lpo or '-')[:15], style_cell_muted),
+            Paragraph(o.mobile_number or '-', style_cell_green),
+            Paragraph((o.city or '-')[:15], style_cell_muted),
+            Paragraph((o.area or '-')[:15], style_cell_muted),
+            Paragraph(status_text, status_style),
+            Paragraph(f'{amount_val:,.2f}' if amount_val else '-', style_amount),
+        ]
+        data_rows.append(row)
+
+    total_style = ParagraphStyle('TotalLabel', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, textColor=NAVY, leading=10)
+    total_amount_style = ParagraphStyle('TotalAmount', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, textColor=NAVY, leading=10, alignment=TA_RIGHT)
+    totals_row = ['', '', '', Paragraph(f'Total ({orders.count()} orders)', total_style), '', '', '', '', '', Paragraph(f'{total_amount:,.2f}', total_amount_style)]
+    data_rows.append(totals_row)
+
+    table = Table(data_rows, colWidths=col_widths, repeatRows=1)
+    table_style = [
+        ('BACKGROUND', (0, 0), (-1, 0), NAVY), ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, 0), 7),
+        ('TOPPADDING', (0, 0), (-1, 0), 6), ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4), ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('FONTNAME', (0, 1), (-1, -2), 'Helvetica'), ('FONTSIZE', (0, 1), (-1, -2), 7),
+        ('TOPPADDING', (0, 1), (-1, -2), 4), ('BOTTOMPADDING', (0, 1), (-1, -2), 4),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('ALIGN', (0, 0), (0, -1), 'CENTER'), ('ALIGN', (-1, 0), (-1, -1), 'RIGHT'),
+        ('LINEBELOW', (0, 0), (-1, 0), 1.5, NAVY), ('LINEBELOW', (0, 1), (-1, -3), 0.3, BORDER_LIGHT),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#eff6ff')), ('LINEABOVE', (0, -1), (-1, -1), 1.5, NAVY),
+        ('LINEBELOW', (0, -1), (-1, -1), 1.5, NAVY), ('TOPPADDING', (0, -1), (-1, -1), 7), ('BOTTOMPADDING', (0, -1), (-1, -1), 7),
+        ('BOX', (0, 0), (-1, -1), 0.8, BORDER_LIGHT),
+    ]
+    for i in range(1, len(data_rows) - 1):
+        table_style.append(('BACKGROUND', (0, i), (-1, i), BG_ALT if i % 2 == 0 else colors.white))
+    for i, o in enumerate(orders, 1):
+        if (o.status or '') in STATUS_COLORS:
+            table_style.append(('BACKGROUND', (8, i), (8, i), STATUS_COLORS[o.status][0]))
+    table.setStyle(TableStyle(table_style))
+    elements.append(table)
+    elements.append(Spacer(1, 6*mm))
+    elements.append(HRFlowable(width='100%', thickness=0.5, color=BORDER_LIGHT, spaceBefore=2*mm, spaceAfter=2*mm))
+    elements.append(Paragraph(f'Junaid World Trading LLC  •  My Delivery Orders  •  {now.strftime("%d/%m/%Y %H:%M")}', style_footer))
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="my_delivery_orders_report.pdf"'
+
+    def add_page_number(canvas, doc):
+        canvas.saveState()
+        canvas.setFont('Helvetica', 6)
+        canvas.setFillColor(TEXT_MUTED)
+        canvas.drawRightString(landscape(A4)[0] - 10*mm, 8*mm, f'Page {doc.page}')
+        canvas.drawString(10*mm, 8*mm, 'Junaid World Trading LLC — Confidential')
+        canvas.setStrokeColor(NAVY)
+        canvas.setLineWidth(2)
+        canvas.line(10*mm, landscape(A4)[1] - 8*mm, landscape(A4)[0] - 10*mm, landscape(A4)[1] - 8*mm)
+        canvas.restoreState()
+
+    doc = SimpleDocTemplate(response, pagesize=landscape(A4), leftMargin=10*mm, rightMargin=10*mm, topMargin=14*mm, bottomMargin=14*mm, title='My Delivery Orders Report', author='Junaid World Trading LLC')
+    doc.build(elements, onFirstPage=add_page_number, onLaterPages=add_page_number)
+    return response
+
+
 @login_required
 @role_required('Admin')
 def delete_order(request, do_number):
@@ -1222,11 +1449,18 @@ def salesman_orders(request):
     # Use set to ensure uniqueness, then sort alphabetically
     cities_queryset = orders.exclude(city__isnull=True).exclude(city='').values_list('city', flat=True).distinct()
     cities = sorted(set(cities_queryset))
+    areas_queryset = orders.exclude(area__isnull=True).exclude(area='').values_list('area', flat=True).distinct()
+    areas = sorted(set(areas_queryset))
 
     # Filter by city if provided
     city_filter = request.GET.get('city')
     if city_filter:
         orders = orders.filter(city=city_filter)
+
+    # Filter by area (multiselect)
+    areas_selected = request.GET.getlist('area')
+    if areas_selected:
+        orders = orders.filter(area__in=areas_selected)
 
     # Apply search query (backend search)
     search_query = request.GET.get('search_query', '').strip()
@@ -1255,10 +1489,12 @@ def salesman_orders(request):
         'orders': page_obj,
         'status_filter': status_filter,
         'city_filter': city_filter,
+        'selected_areas': areas_selected,
         'search_query': search_query,
         'from_date': from_date,
         'to_date': to_date,
         'cities': cities,
+        'areas': areas,
         'total_count': total_count,
         'pending_count': pending_count,
         'delivered_count': delivered_count,
