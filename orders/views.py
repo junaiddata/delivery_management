@@ -319,6 +319,10 @@ def order_list(request):
     if city:
         orders = orders.filter(city=city)
 
+    areas_selected = request.GET.getlist('area')
+    if areas_selected:
+        orders = orders.filter(area__in=areas_selected)
+
     # Apply search query
     search_query = request.GET.get('search_query', '').strip()
     if search_query:
@@ -334,6 +338,7 @@ def order_list(request):
     # Filter dropdown values should match the same dataset (only DOs starting with "1")
     salesmen = DeliveryOrder.objects.filter(do_number__startswith='1').values_list('salesman', flat=True).distinct()
     citys = DeliveryOrder.objects.filter(do_number__startswith='1').values_list('city', flat=True).distinct()
+    areas = DeliveryOrder.objects.filter(do_number__startswith='1').exclude(area__isnull=True).exclude(area='').values_list('area', flat=True).distinct().order_by('area')
 
     vehicle_filter = request.GET.get('vehicle')
     if vehicle_filter:
@@ -361,8 +366,10 @@ def order_list(request):
         'onhold_count':onhold_count,
         'salesmen': salesmen,
         'citys': citys,
+        'areas': areas,
         'selected_salesman': salesman,
         'selected_city': city,
+        'selected_areas': areas_selected,
         'selected_vehicle': vehicle_filter,
         'search_query': search_query,
 
@@ -638,6 +645,10 @@ def export_orders_to_excel(request):
     city = request.GET.get('city')
     if city:
         orders = orders.filter(city=city)
+
+    areas_selected = request.GET.getlist('area')
+    if areas_selected:
+        orders = orders.filter(area__in=areas_selected)
 
     vehicle_filter = request.GET.get('vehicle')
     if vehicle_filter:

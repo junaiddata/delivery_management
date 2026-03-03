@@ -130,6 +130,112 @@
         box-shadow: 0 0 0 2px rgba(59,130,246,0.1);
     }
     
+    .filter-group-searchable {
+        position: relative;
+    }
+    
+    .dropdown-search {
+        display: block;
+        margin-bottom: 0.2rem;
+        padding: 0.25rem 0.4rem;
+        font-size: 0.7rem;
+        min-width: 100px;
+        height: 24px;
+    }
+    
+    /* Multiselect dropdown - same look as regular select */
+    .multiselect-wrapper {
+        position: relative;
+    }
+    
+    .multiselect-trigger {
+        padding: 0.35rem 0.5rem;
+        font-size: 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 4px;
+        min-width: 100px;
+        background: #fff;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+    }
+    
+    .multiselect-trigger:hover {
+        border-color: #9ca3af;
+    }
+    
+    .multiselect-trigger.open {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px rgba(59,130,246,0.1);
+    }
+    
+    .multiselect-trigger .multiselect-label {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    
+    .multiselect-trigger .multiselect-arrow {
+        font-size: 0.6rem;
+        color: #64748b;
+    }
+    
+    .multiselect-dropdown {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        margin-top: 2px;
+        min-width: 100%;
+        max-height: 200px;
+        overflow: hidden;
+        background: #fff;
+        border: 1px solid #d1d5db;
+        border-radius: 4px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 100;
+    }
+    
+    .multiselect-dropdown.open {
+        display: block;
+    }
+    
+    .multiselect-search {
+        padding: 0.3rem 0.5rem;
+        font-size: 0.7rem;
+        border: none;
+        border-bottom: 1px solid #e5e7eb;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .multiselect-options {
+        max-height: 160px;
+        overflow-y: auto;
+    }
+    
+    .multiselect-option {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.35rem 0.5rem;
+        font-size: 0.75rem;
+        cursor: pointer;
+        margin: 0;
+    }
+    
+    .multiselect-option:hover {
+        background: #f1f5f9;
+    }
+    
+    .multiselect-option input {
+        margin: 0;
+        cursor: pointer;
+    }
+    
     .search-input {
         min-width: 200px !important;
     }
@@ -491,9 +597,10 @@
                     </select>
                 </div>
                 
-                <div class="filter-group">
+                <div class="filter-group filter-group-searchable">
                     <label>Salesman</label>
-                    <select name="salesman">
+                    <input type="text" class="dropdown-search" placeholder="Search salesman..." autocomplete="off" data-target="salesmanSelect">
+                    <select name="salesman" id="salesmanSelect" class="select-with-search">
                         <option value="">All</option>
                         {% for salesman in salesmen %}
                             <option value="{{ salesman }}" {% if request.GET.salesman == salesman %}selected{% endif %}>{{ salesman }}</option>
@@ -511,14 +618,35 @@
                     </select>
                 </div>
                 
-                <div class="filter-group">
+                <div class="filter-group filter-group-searchable">
                     <label>City</label>
-                    <select name="city">
+                    <input type="text" class="dropdown-search" placeholder="Search city..." autocomplete="off" data-target="citySelect">
+                    <select name="city" id="citySelect" class="select-with-search">
                         <option value="">All</option>
                         {% for city in citys %}
                             <option value="{{ city }}" {% if request.GET.city == city %}selected{% endif %}>{{ city }}</option>
                         {% endfor %}
                     </select>
+                </div>
+                
+                <div class="filter-group multiselect-wrapper">
+                    <label>Area</label>
+                    <div class="multiselect-trigger" id="areaMultiselectTrigger" tabindex="0">
+                        <span class="multiselect-label" id="areaMultiselectLabel">All</span>
+                        <span class="multiselect-arrow">▼</span>
+                    </div>
+                    <div class="multiselect-dropdown" id="areaMultiselectDropdown">
+                        <input type="text" class="multiselect-search" id="areaMultiselectSearch" placeholder="Search area..." autocomplete="off">
+                        <div class="multiselect-options" id="areaMultiselectOptions">
+                            {% for ar in areas %}
+                            <label class="multiselect-option" data-value="{{ ar }}">
+                                <input type="checkbox" value="{{ ar }}" {% if ar in selected_areas %}checked{% endif %}>
+                                <span>{{ ar }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div id="areaHiddenInputs"></div>
                 </div>
                 
                 <div class="filter-group">
@@ -643,6 +771,87 @@
         const filterForm = document.getElementById('filterForm');
         const searchInput = document.getElementById('searchInput');
         const filterBtn = document.getElementById('filterBtn');
+        
+        // Searchable dropdown: filter options when typing
+        document.querySelectorAll('.dropdown-search').forEach(function(searchEl) {
+            const targetId = searchEl.getAttribute('data-target');
+            const selectEl = document.getElementById(targetId);
+            if (!selectEl) return;
+            searchEl.addEventListener('input', function() {
+                const q = this.value.toLowerCase().trim();
+                Array.from(selectEl.options).forEach(function(opt) {
+                    const text = (opt.textContent || '').toLowerCase();
+                    opt.style.display = (opt.value === '' || text.indexOf(q) !== -1) ? '' : 'none';
+                });
+            });
+        });
+        
+        // Area multiselect dropdown
+        (function() {
+            const trigger = document.getElementById('areaMultiselectTrigger');
+            const dropdown = document.getElementById('areaMultiselectDropdown');
+            const label = document.getElementById('areaMultiselectLabel');
+            const searchInput = document.getElementById('areaMultiselectSearch');
+            const optionsContainer = document.getElementById('areaMultiselectOptions');
+            const hiddenContainer = document.getElementById('areaHiddenInputs');
+            const form = document.getElementById('filterForm');
+            
+            function getChecked() {
+                return Array.from(optionsContainer.querySelectorAll('input:checked')).map(cb => cb.value);
+            }
+            
+            function updateLabel() {
+                const checked = getChecked();
+                label.textContent = checked.length === 0 ? 'All' : (checked.length === 1 ? checked[0] : checked.length + ' selected');
+            }
+            
+            function syncHiddenInputs() {
+                hiddenContainer.innerHTML = '';
+                getChecked().forEach(function(val) {
+                    const inp = document.createElement('input');
+                    inp.type = 'hidden';
+                    inp.name = 'area';
+                    inp.value = val;
+                    hiddenContainer.appendChild(inp);
+                });
+            }
+            
+            function filterOptions() {
+                const q = (searchInput.value || '').toLowerCase().trim();
+                optionsContainer.querySelectorAll('.multiselect-option').forEach(function(opt) {
+                    const text = (opt.textContent || '').toLowerCase();
+                    opt.style.display = text.indexOf(q) !== -1 ? '' : 'none';
+                });
+            }
+            
+            function toggle() {
+                const isOpen = dropdown.classList.toggle('open');
+                trigger.classList.toggle('open', isOpen);
+                if (isOpen) { searchInput.value = ''; filterOptions(); searchInput.focus(); }
+            }
+            
+            function close() {
+                dropdown.classList.remove('open');
+                trigger.classList.remove('open');
+            }
+            
+            trigger.addEventListener('click', function(e) { e.preventDefault(); toggle(); });
+            trigger.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+            searchInput.addEventListener('input', filterOptions);
+            searchInput.addEventListener('click', function(e) { e.stopPropagation(); });
+            
+            optionsContainer.addEventListener('change', function() {
+                updateLabel();
+                syncHiddenInputs();
+            });
+            
+            document.addEventListener('click', function(e) {
+                if (!trigger.contains(e.target) && !dropdown.contains(e.target)) close();
+            });
+            
+            updateLabel();
+            syncHiddenInputs();
+        })();
         
         if (filterForm) {
             // Handle Enter key in search input
