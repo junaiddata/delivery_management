@@ -727,6 +727,49 @@
         .do-table th, .do-table td { padding: 0.35rem 0.3rem; }
     }
     
+    /* Remark: click to toggle full text */
+    .cell-remark {
+        color: #64748b;
+        font-size: 0.68rem;
+        max-width: 70px;
+    }
+    .cell-remark .remark-preview {
+        cursor: pointer;
+        display: inline-block;
+        max-width: 70px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        border-bottom: 1px dashed #94a3b8;
+    }
+    .cell-remark .remark-preview:hover {
+        color: #3b82f6;
+        border-bottom-color: #3b82f6;
+    }
+    #remarkPopup {
+        display: none;
+        position: fixed;
+        z-index: 9999;
+        width: 280px;
+        max-width: 90vw;
+        padding: 0.6rem 0.75rem;
+        background: #1e293b;
+        color: #f1f5f9;
+        font-size: 0.78rem;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        word-break: break-word;
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        line-height: 1.5;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    #remarkPopup.visible {
+        display: block;
+    }
+    
     /* Tooltip for truncated text */
     .cell-customer:hover,
     .cell-salesman:hover,
@@ -922,6 +965,7 @@
                         <th>Driver</th>
                         <th>Status</th>
                         <th>Delivered</th>
+                        <th>Remark</th>
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -959,11 +1003,16 @@
                             </span>
                         </td>
                         <td class="cell-delivery-date">{{ order.delivery_date|date:"d-M H:i"|default:"-" }}</td>
+                        <td class="cell-remark">
+                            {% if order.remark %}
+                            <span class="remark-preview" data-remark="{{ order.remark }}">{{ order.remark|truncatechars:12 }}</span>
+                            {% else %}-{% endif %}
+                        </td>
                         <td><a href="#" class="btn-edit" data-do-number="{{ order.do_number }}" onclick="openEditModal('{{ order.do_number }}'); return false;">Edit</a></td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="13" style="text-align: center; padding: 2rem; color: #64748b;">No orders found</td>
+                        <td colspan="14" style="text-align: center; padding: 2rem; color: #64748b;">No orders found</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -1009,6 +1058,43 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Remark click-to-toggle (fixed popup)
+    var remarkPopup = document.getElementById('remarkPopup');
+    var activeRemarkEl = null;
+
+    document.addEventListener('click', function(e) {
+        var preview = e.target.closest('.remark-preview');
+        if (preview) {
+            e.stopPropagation();
+            if (activeRemarkEl === preview) {
+                remarkPopup.classList.remove('visible');
+                activeRemarkEl = null;
+                return;
+            }
+            activeRemarkEl = preview;
+            remarkPopup.textContent = preview.getAttribute('data-remark') || '';
+            remarkPopup.classList.add('visible');
+
+            var rect = preview.getBoundingClientRect();
+            var popupW = 280;
+            var left = rect.left;
+            if (left + popupW > window.innerWidth - 10) {
+                left = window.innerWidth - popupW - 10;
+            }
+            if (left < 10) left = 10;
+
+            var top = rect.top - 8;
+            remarkPopup.style.left = left + 'px';
+            remarkPopup.style.top = 'auto';
+            remarkPopup.style.bottom = (window.innerHeight - top) + 'px';
+            return;
+        }
+        if (!e.target.closest('#remarkPopup')) {
+            remarkPopup.classList.remove('visible');
+            activeRemarkEl = null;
+        }
+    });
+
     var filterForm = document.getElementById('filterForm');
     var searchInput = document.getElementById('searchInput');
     var filterBtn = document.getElementById('filterBtn');
@@ -1256,6 +1342,7 @@ function populateForm(data) {
         '<div class="form-group"><label>Status:</label><select id="edit_status" name="status">' +
         data.statuses.map(function(s) { return '<option value="' + s + '"' + (s == order.status ? ' selected' : '') + '>' + s + '</option>'; }).join('') +
         '</select></div>' +
+        '<div class="form-group"><label>Remark:</label><textarea id="edit_remark" name="remark" rows="3" maxlength="500" placeholder="Add or edit remark...">' + (order.remark || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</textarea></div>' +
         '<div class="form-actions"><button type="button" onclick="closeEditModal()" class="btn-cancel">Cancel</button><button type="submit" class="btn-save">Save</button></div></form>';
 }
 
@@ -1300,6 +1387,9 @@ function closeEditModal() { document.getElementById('editOrderModal').style.disp
 window.onclick = function(event) { if (event.target == document.getElementById('editOrderModal')) closeEditModal(); };
 </script>
 
+<!-- Remark Popup (single shared element) -->
+<div id="remarkPopup"></div>
+
 <!-- Edit Order Modal -->
 <div id="editOrderModal" class="modal">
     <div class="modal-content">
@@ -1317,8 +1407,8 @@ window.onclick = function(event) { if (event.target == document.getElementById('
     #orderEditForm { padding: 1.5rem; }
     .form-group { margin-bottom: 1.25rem; }
     .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151; font-size: 0.875rem; }
-    .form-group input[type="text"], .form-group select { width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.875rem; box-sizing: border-box; transition: border-color 0.2s; }
-    .form-group input[type="text"]:focus, .form-group select:focus { outline: none; border-color: #1a237e; box-shadow: 0 0 0 3px rgba(26,35,126,0.1); }
+    .form-group input[type="text"], .form-group select, .form-group textarea { width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.875rem; box-sizing: border-box; transition: border-color 0.2s; font-family: inherit; resize: vertical; }
+    .form-group input[type="text"]:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #1a237e; box-shadow: 0 0 0 3px rgba(26,35,126,0.1); }
     .form-actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid #e5e7eb; }
     .btn-save { background-color: #1a237e; color: white; padding: 0.625rem 1.5rem; border: none; border-radius: 4px; font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: background-color 0.2s; }
     .btn-save:hover { background-color: #3949ab; }

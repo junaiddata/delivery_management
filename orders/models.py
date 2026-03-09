@@ -98,6 +98,7 @@ class DeliveryOrder(models.Model):
     received_date = models.DateTimeField(null=True, blank=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     credit_note = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    remark = models.TextField(blank=True, null=True)
 
     def save(self, *args, **kwargs):
         if not self.customer and self.customer_code:

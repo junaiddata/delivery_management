@@ -490,6 +490,7 @@ def update_order(request, do_number):
             invoice_number = data.get('invoice_number')
             amount = data.get('amount')
             credit_note = data.get('credit_note')
+            remark = data.get('remark', '')
         else:
             vehicle_id = request.POST.get('vehicle')
             new_status = request.POST.get('status')
@@ -498,6 +499,7 @@ def update_order(request, do_number):
             invoice_number = request.POST.get('invoice_number')
             amount = request.POST.get('amount')
             credit_note = request.POST.get('credit_note')
+            remark = request.POST.get('remark', '')
         
         order.vehicle_id = vehicle_id if vehicle_id else None
         order.mobile_number = mobile_number
@@ -515,6 +517,8 @@ def update_order(request, do_number):
             order.credit_note = Decimal(str(credit_note)) if credit_note and str(credit_note).strip() else Decimal('0.00')
         except (ValueError, InvalidOperation):
             order.credit_note = Decimal('0.00')
+
+        order.remark = remark.strip() if remark else None
 
         if new_status == 'Delivered' or new_status == 'Partial Delivery':
             order.delivery_date = timezone.now().date()
@@ -544,6 +548,7 @@ def update_order(request, do_number):
                 'vehicle_id': order.vehicle_id if order.vehicle else None,
                 'driver': order.driver or '',
                 'status': order.status,
+                'remark': order.remark or '',
             },
             'vehicles': [{'id': v.id, 'name': v.vehicle_number} for v in Vehicle.objects.all()],
             'drivers': [choice[0] for choice in order.DRIVER_CHOICES],
