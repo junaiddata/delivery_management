@@ -246,6 +246,8 @@ sync_handlers = ["console"]
 if "sync_file" in handlers:
     sync_handlers.insert(0, "sync_file")
 
+CRM_WEBHOOK_SECRET = os.environ.get("CRM_WEBHOOK_SECRET")
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

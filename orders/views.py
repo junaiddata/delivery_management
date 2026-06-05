@@ -1785,6 +1785,18 @@ import logging
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+import threading
+import requests
+def forward_to_crm(payload):
+    try:
+        requests.post(
+            settings.CRM_WEBHOOK_URL,
+            json=payload,
+            headers={"X-Internal-Secret": settings.CRM_WEBHOOK_SECRET},
+            timeout=5
+        )
+    except Exception as e:
+        logger.error(f"Failed to forward to CRM: {e}")
 
 # Set up a logger
 logger = logging.getLogger(__name__)
@@ -1803,6 +1815,9 @@ def whatsapp_webhook(request):
         try:
             data = json.loads(request.body)
             logger.info(f"Received webhook data: {json.dumps(data, indent=4)}")
+
+            # Forward to CRM in a separate thread
+            threading.Thread(target=forward_to_crm, args=(data,), daemon=True).start()
 
             if "entry" in data:
                 for entry in data["entry"]:
