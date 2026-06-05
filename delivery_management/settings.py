@@ -247,6 +247,7 @@ if "sync_file" in handlers:
     sync_handlers.insert(0, "sync_file")
 
 CRM_WEBHOOK_SECRET = os.environ.get("CRM_WEBHOOK_SECRET")
+CRM_WEBHOOK_URL = os.environ.get("CRM_WEBHOOK_URL", "http://localhost:8000/api/webhook/whatsapp/")
 
 LOGGING = {
     "version": 1,
