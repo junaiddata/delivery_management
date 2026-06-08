@@ -213,7 +213,7 @@ except Exception:
 
 try:
     sync_log_path = LOG_DIR / "sync.log"
-    # Test if we can write to this path
+    open(sync_log_path, "a").close()  # verify file is writable before registering handler
     handlers["sync_file"] = {
         "level": "INFO",
         "class": "logging.handlers.RotatingFileHandler",
@@ -223,12 +223,11 @@ try:
         "formatter": "verbose",
     }
 except Exception:
-    # If sync_file handler can't be created, use console only
     pass
 
 try:
     whatsapp_log_path = LOG_DIR / "whatsapp.log"
-    # Test if we can write to this path
+    open(whatsapp_log_path, "a").close()  # verify file is writable before registering handler
     handlers["whatsapp_file"] = {
         "level": "INFO",
         "class": "logging.handlers.RotatingFileHandler",
@@ -238,7 +237,6 @@ try:
         "formatter": "verbose",
     }
 except Exception:
-    # If whatsapp_file handler can't be created, use console only
     pass
 
 # Determine which handlers to use for sync loggers
