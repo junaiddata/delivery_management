@@ -267,7 +267,7 @@ def update_vehicle_status(request, vehicle_id):
 @login_required
 @role_required('Warehouse')
 def vehicle_list(request):
-    vehicles = Vehicle.objects.filter(Q(id__in=[1, 2, 3, 4, 17,23]))
+    vehicles = Vehicle.objects.filter(Q(id__in=[2, 3, 4, 17,23,26,27]))
     return render(request, 'orders/vehicle_list.html', {'vehicles': vehicles})
 from django.db import models  # Import models for Q objects
 from django.db.models import Q  # Import Q for complex queries
@@ -1630,9 +1630,11 @@ def send_out_for_delivery_messages(vehicle):
                 "type": "BODY",
                 "parameters": [
                     {
+                        
                         "type": "text",
                         "parameter_name": "do_number",
                         "text": str(do_number)  # Ensure do_number is passed as a string
+
                     }
                 ]
             }
@@ -4753,7 +4755,7 @@ def customer_frequency_simple(request):
         start_date = (today - relativedelta(months=5))
         end_date = (today + relativedelta(months=1)) - relativedelta(days=1)
 
-    # -------- Base Query (Variable is named 'base') --------
+    # -------- Base Query (Variable is named 'n') --------
     base = SAPFact.objects.filter(date__range=[start_date, end_date])
 
     # -------- Visibility Enforcement --------

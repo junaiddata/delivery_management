@@ -48,17 +48,13 @@ class Vehicle(models.Model):
 
 class DeliveryOrder(models.Model):
     DRIVER_CHOICES = [
-        ('Default', 'Default'),
+        ('Default', 'Default'), 
         ('Usman', 'Usman'),
         ('Acharuddin', 'Acharuddin'),
         ('Fakheer', 'Fakheer'),
-        ('Nizar', 'Nizar'),
-        ('Sayyam', 'Sayyam'),
         ('Customer', 'Customer'),
         ('Mukarram','Mukarram'),
         ('Shaban','Shaban'),
-        ('Ameen','Ameen'),
-        ('Qasim', 'Qasim'),
         ('SALESMAN', 'SALESMAN'),
         ('Rental', 'Rental'),
         
